@@ -1,0 +1,46 @@
+# Secrets and machine-specific configuration
+.env
+.env.*
+!.env.example
+!.env.*.example
+*.pem
+*.key
+*.p12
+*.jks
+
+# Java / Gradle (keep the wrapper)
+**/.gradle/
+**/build/
+**/out/
+*.class
+*.jar
+!**/gradle/wrapper/gradle-wrapper.jar
+
+# Frontend
+**/node_modules/
+**/dist/
+**/coverage/
+*.tsbuildinfo
+.npm/
+.pnpm-store/
+
+# Editors / OS
+.idea/
+.vscode/
+*.iml
+.project
+.classpath
+.settings/
+.DS_Store
+Thumbs.db
+*.swp
+
+# Runtime / local exports
+*.log
+logs/
+backups/
+*.sql.gz
+*.rdb
+appendonlydir/
+playwright-report/
+test-results/

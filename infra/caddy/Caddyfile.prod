@@ -1,0 +1,21 @@
+{$APP_DOMAIN} {
+    encode zstd gzip
+    header {
+        X-Content-Type-Options nosniff
+        Referrer-Policy strict-origin-when-cross-origin
+        X-Frame-Options DENY
+    }
+    handle /api/* {
+        reverse_proxy api:8080
+    }
+    handle {
+        root * /srv
+        try_files {path} /index.html
+        file_server
+    }
+}
+
+# Container-only health probe; this port is not published.
+:8081 {
+    respond /healthz "ok" 200
+}

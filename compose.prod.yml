@@ -1,0 +1,17 @@
+# Use with -f compose.yml -f compose.prod.yml --profile app.
+services:
+  api:
+    environment:
+      APP_SESSION_SECURE: "true"
+      SERVER_FORWARD_HEADERS_STRATEGY: framework
+  web:
+    environment:
+      APP_DOMAIN: ${APP_DOMAIN:?Set APP_DOMAIN to your real domain}
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - ./infra/caddy/Caddyfile.prod:/etc/caddy/Caddyfile:ro
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1:8081/healthz"]

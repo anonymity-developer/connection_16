@@ -1,0 +1,97 @@
+name: tagme
+
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
+services:
+  mysql:
+    image: mysql:8.4
+    restart: unless-stopped
+    environment:
+      MYSQL_DATABASE: ${DB_NAME:-tagme}
+      MYSQL_USER: ${DB_USER:-tagme}
+      MYSQL_PASSWORD: ${DB_PASSWORD:?Copy .env.example to .env and set DB_PASSWORD}
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:?Set DB_ROOT_PASSWORD in .env}
+      TZ: UTC
+    command: ["--character-set-server=utf8mb4", "--collation-server=utf8mb4_0900_ai_ci"]
+    volumes:
+      - mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD-SHELL", 'MYSQL_PWD="$${MYSQL_PASSWORD}" mysql --protocol=TCP -h 127.0.0.1 -u "$${MYSQL_USER}" "$${MYSQL_DATABASE}" -e "SELECT 1" >/dev/null 2>&1']
+      interval: 10s
+      timeout: 5s
+      retries: 15
+      start_period: 40s
+    logging: *default-logging
+
+  redis:
+    image: redis:7.4-alpine
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes", "--maxmemory", "128mb", "--maxmemory-policy", "noeviction"]
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 10
+    logging: *default-logging
+
+  api:
+    profiles: [app]
+    build:
+      context: ./backend
+    restart: unless-stopped
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      DB_HOST: mysql
+      DB_NAME: ${DB_NAME:-tagme}
+      DB_USER: ${DB_USER:-tagme}
+      DB_PASSWORD: ${DB_PASSWORD:?Set DB_PASSWORD}
+      REDIS_HOST: redis
+      APP_SESSION_SECURE: "false"
+      MATTERMOST_BASE_URL: ${MATTERMOST_BASE_URL:-https://meeting.ssafy.com}
+      MATTERMOST_TOKEN: ${MATTERMOST_TOKEN:-}
+      MATTERMOST_CHANNEL_ID: ${MATTERMOST_CHANNEL_ID:-}
+      AI_API_KEY: ${AI_API_KEY:-}
+      JAVA_TOOL_OPTIONS: -XX:MaxRAMPercentage=70.0 -Duser.timezone=UTC
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    expose: ["8080"]
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "--silent", "http://localhost:8080/actuator/health/readiness"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 60s
+    logging: *default-logging
+
+  web:
+    profiles: [app]
+    build:
+      context: ./frontend
+    restart: unless-stopped
+    depends_on:
+      api:
+        condition: service_healthy
+    volumes:
+      - caddy_data:/data
+      - caddy_config:/config
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1/healthz"]
+      interval: 15s
+      timeout: 3s
+      retries: 5
+    logging: *default-logging
+
+volumes:
+  mysql_data:
+  redis_data:
+  caddy_data:
+  caddy_config:

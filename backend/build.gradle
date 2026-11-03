@@ -1,0 +1,57 @@
+plugins {
+    id 'java'
+    id 'org.springframework.boot' version '3.5.16'
+    id 'io.spring.dependency-management' version '1.1.7'
+}
+
+group = 'com.tagme'
+version = '0.1.0-SNAPSHOT'
+
+java {
+    toolchain { languageVersion = JavaLanguageVersion.of(21) }
+}
+
+repositories { mavenCentral() }
+
+configurations { mockitoAgent }
+
+dependencies {
+    implementation 'org.springframework.boot:spring-boot-starter-web'
+    implementation 'org.springframework.boot:spring-boot-starter-validation'
+    implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
+    implementation 'org.springframework.boot:spring-boot-starter-data-redis'
+    implementation 'org.springframework.boot:spring-boot-starter-security'
+    implementation 'org.springframework.boot:spring-boot-starter-actuator'
+    implementation 'org.springframework.session:spring-session-data-redis'
+    implementation 'org.flywaydb:flyway-core'
+    implementation 'org.flywaydb:flyway-mysql'
+    runtimeOnly 'com.mysql:mysql-connector-j'
+    testImplementation 'org.springframework.boot:spring-boot-starter-test'
+    testImplementation 'org.springframework.security:spring-security-test'
+    testImplementation 'org.testcontainers:junit-jupiter'
+    testImplementation 'org.testcontainers:mysql'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+    mockitoAgent('org.mockito:mockito-core') { transitive = false }
+}
+
+// Load instrumentation at startup instead of relying on dynamic self-attachment.
+tasks.withType(Test).configureEach {
+    jvmArgumentProviders.add({
+        ["-javaagent:${configurations.mockitoAgent.asPath}"]
+    } as org.gradle.process.CommandLineArgumentProvider)
+}
+
+tasks.named('test') {
+    useJUnitPlatform { excludeTags 'integration' }
+}
+
+tasks.register('integrationTest', Test) {
+    description = 'Run integration tests against real MySQL and Redis (Docker required).'
+    group = 'verification'
+    testClassesDirs = sourceSets.test.output.classesDirs
+    classpath = sourceSets.test.runtimeClasspath
+    useJUnitPlatform { includeTags 'integration' }
+    shouldRunAfter test
+}
+
+tasks.named('bootJar') { archiveFileName = 'app.jar' }
