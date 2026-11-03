@@ -100,7 +100,10 @@ try {
     await page.waitForFunction(() => document.querySelector('[role="progressbar"]')?.getAttribute('aria-valuenow') === '2');
     await page.goForward();
     await page.waitForFunction(() => document.querySelector('[role="progressbar"]')?.getAttribute('aria-valuenow') === '5');
+    assert.ok((await page.locator('.next-panel a').getAttribute('href')).startsWith('/complete'));
     await page.screenshot({ path: resolve(output, 'home-preview-complete-390.png'), fullPage: true });
+    await page.getByRole('link', { name: '완성 화면 보기', exact: true }).click();
+    await page.getByRole('heading', { name: '다섯 글자를 모두 모았어요', exact: true }).waitFor();
   });
   await check('leading-zero OTP paste, mismatch focus, dialog Escape/focus and account change', async () => {
     await visit(`${developmentUrl}/auth/signup?preview=unlocked`);

@@ -11,6 +11,7 @@ export function StateBadge({ state }: { state: MissionState }) {
 
 export function Collection({ data }: { data: ScreenData }) {
   const completed = missions.filter((mission) => data.progress[mission.code] === 'COMPLETED').length;
+  const pending = missions.filter((mission) => data.progress[mission.code] === 'PENDING').length;
   return <section className="collection-panel" aria-labelledby="collection-heading">
     <div className="panel-heading"><h2 id="collection-heading">나의 SSAFY 수집판</h2><span className="collection-count">{data.preview ? <><b>{completed}</b> / 5 획득</> : '로그인 후 기록 확인'}</span></div>
     <div className="letter-slots">{missions.map((mission) => {
@@ -20,18 +21,25 @@ export function Collection({ data }: { data: ScreenData }) {
       </Link>;
     })}</div>
     {data.preview && <div className="collection-progress" role="progressbar" aria-label="미리보기 글자 수집" aria-valuenow={completed} aria-valuemin={0} aria-valuemax={5}><span style={{ width: `${completed * 20}%` }} /></div>}
-    <p className="collection-caption">{data.preview ? completed === 5 ? '다섯 글자를 모두 모은 화면의 미리보기예요.' : '미션에 참여하고, 다섯 글자를 하나씩 모아보세요.' : '다섯 미션을 먼저 둘러보세요. 수집 기록은 로그인 후 표시돼요.'}</p>
-    {data.preview && completed === 5 && <Link className="text-link" href="/complete">완성 화면 보기<Icon name="arrow" size={16} /></Link>}
+    <p className="collection-caption">{data.preview ? completed === 5 ? '다섯 글자를 모두 모은 화면의 미리보기예요.' : pending ? `${pending}개 미션 검수 중 · 승인 후 수집판에 반영돼요.` : '미션에 참여하고, 다섯 글자를 하나씩 모아보세요.' : '다섯 미션을 먼저 둘러보세요. 수집 기록은 로그인 후 표시돼요.'}</p>
   </section>;
 }
 
 export function Home({ data }: { data: ScreenData }) {
-  const pending = missions.filter((mission) => data.progress[mission.code] === 'PENDING').length;
+  const pendingMission = missions.find((mission) => data.progress[mission.code] === 'PENDING');
   const next = missions.find((mission) => data.progress[mission.code] === 'UNLOCKED');
+  const complete = missions.every((mission) => data.progress[mission.code] === 'COMPLETED');
+  let followUp = { title: '현장에서 태그를 만나면', description: 'NFC 또는 QR로 미션을 열고, 참여를 마치면 글자를 모을 수 있어요.', href: '/auth', action: '로그인 화면으로' };
+  if (data.preview) {
+    if (complete) followUp = { title: '다섯 연결을 완성했어요', description: '글자 수집을 마친 화면이에요. 완성 화면을 확인해 보세요.', href: '/complete', action: '완성 화면 보기' };
+    else if (next) followUp = { title: next.korean, description: `${next.name} 미션에 참여할 수 있어요. 지금 이어서 둘러보세요.`, href: `/missions/${next.slug}`, action: '미션 이어보기' };
+    else if (pendingMission) followUp = { title: '글을 확인하고 있어요', description: '아직 글자가 지급되지 않았어요. 검수 상태는 미션 화면에서 확인해요.', href: `/missions/${pendingMission.slug}`, action: '검수 상태 보기' };
+    else followUp = { title: '현장 태그를 찾아보세요', description: 'NFC를 읽거나 QR을 스캔하면 해당 미션으로 이어져요.', href: '/missions/show-me', action: '미션 안내 보기' };
+  }
   return <div className="page home-page">
     <div className="page-heading"><div><p className="context-label">SSAFY 16기 · 네트워킹</p><h1>{data.nickname ? `${data.nickname}님의 미션` : '다섯 미션으로 시작하는 연결'}</h1><p>나를 소개하고, 취향을 발견하고, 우리의 SSAFY를 완성해요.</p></div></div>
     <div className="home-overview"><Collection data={data} />
-      <aside className="next-panel" aria-labelledby="next-heading"><h2 id="next-heading">{data.preview ? next ? next.korean : pending ? '글을 확인하고 있어요' : '현장 태그를 찾아보세요' : '현장에서 태그를 만나면'}</h2><p>{data.preview ? next ? `${next.name} 미션에 참여할 수 있어요. 지금 이어서 둘러보세요.` : pending ? `${pending}개 미션이 검수 대기 중이에요. 승인 후 글자가 지급돼요.` : 'NFC를 읽거나 QR을 스캔하면 해당 미션으로 이어져요.' : 'NFC 또는 QR로 미션을 열고, 참여를 마치면 글자를 모을 수 있어요.'}</p><Link className="button button--primary" href={data.preview ? next ? `/missions/${next.slug}` : '/missions/make-a-wish' : '/auth'}>{data.preview ? next ? '미션 이어보기' : '미션 안내 보기' : '로그인 화면으로'}<Icon name="arrow" size={18} /></Link><span className="next-footnote">{data.preview ? '개발용 상태 · 실제 참여 기록 없음' : 'Mattermost 아이디 · TAG ME 비밀번호'}</span></aside>
+      <aside className="next-panel" aria-labelledby="next-heading"><h2 id="next-heading">{followUp.title}</h2><p>{followUp.description}</p><Link className="button button--primary" href={followUp.href}>{followUp.action}<Icon name="arrow" size={18} /></Link><span className="next-footnote">{data.preview ? '개발용 상태 · 실제 참여 기록 없음' : 'Mattermost 아이디 · TAG ME 비밀번호'}</span></aside>
     </div>
     {!data.preview && <div className="preparation-note" role="status"><Icon name="clock" size={18} /><p><b>참여 기능 준비 중</b>지금은 화면과 미션 안내를 둘러볼 수 있어요. 인증과 참여는 아직 연결되지 않았어요.</p></div>}
     <section className="mission-section" aria-labelledby="mission-heading"><div className="section-heading"><h2 id="mission-heading">다섯 미션</h2><span>순서는 자유롭게</span></div>
