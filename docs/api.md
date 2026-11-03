@@ -4,6 +4,8 @@
 
 기본 경로는 `/api/v1`, JSON 응답, 서버 세션 쿠키, UTC ISO-8601 시각을 사용한다. 브라우저는 동일 출처로 요청하며 변경 요청은 CSRF 헤더가 필요하다. 현재 API는 아래 두 개뿐이며, 나머지 표는 개발 계획이다.
 
+사용자 동선은 [유저 플로우](user-flows.md), 저장 관계는 [전체 ERD](erd.md), 트랜잭션은 [구현 계획](implementation-plan.md)을 따른다. 아래 예시와 추가 경로는 후속 구현 계약이며 현재 호출 가능한 API라고 안내하지 않는다.
+
 | Method | 현재 구현된 경로 | 인증 | 설명 |
 | --- | --- | --- | --- |
 | GET | `/meta` | 불필요 | 서비스명, 초기 구성 stage, 5개 미션 정의 |
@@ -154,3 +156,176 @@ OTP 경로는 구현 단계에서만 permitAll에 추가한다. permitAll도 CSR
 `/admin` 하위 API는 ADMIN 역할을 서버에서 확인한다. 검수 대기 조회 및 판정, 신고 처리, 회원 제한, 게임 재도전 승인, 시상 후보 정산/확정, 행사 설정을 제공한다. 변경 요청에는 사유를 필수로 받고 모든 조치를 감사 로그에 남긴다. 최종 확정은 조회나 페이지 진입만으로 실행하지 않는다.
 
 상세 요청 DTO, validation, 페이지네이션 응답과 OpenAPI 파일은 각 단계 착수 시 함께 작성한다. 이 문서의 계획을 이미 구현된 계약으로 배포하지 않는다.
+
+### 운영자 경로 상세 계획
+
+모든 경로는 ADMIN과 CSRF(변경 요청)를 확인한다. 변경 본문에 reason을 포함하고 현재 상태 또는 version, 필요한 멱등 키를 확인한다. 아래 명칭은 후속 구현 시 OpenAPI로 고정한다.
+
+| Method | 경로 | 역할 |
+| --- | --- | --- |
+| GET | `/admin/users` | 회원/계정 상태/참여 이력 검색 |
+| PATCH | `/admin/users/{id}/status` | 이용 제한/복구, 사유와 감사 기록 |
+| GET | `/admin/missions/progress` | 사용자별 해금/완료/전체 완료 조회 |
+| POST | `/admin/tags` | 태그 발급/미션 연결; 원문은 생성 시 한 번만 운영자에게 전달 |
+| PATCH | `/admin/tags/{id}` | 활성/비활성/교체 관리; 목록은 원문 미반환 |
+| PATCH | `/admin/missions/{id}` | 힌트/활성 상태 변경 |
+| GET | `/admin/moderation` | 작업/revision별 대기/실패/검토 목록 |
+| POST | `/admin/moderation/{jobId}/decision` | 해당 버전 승인/거절 및 최초 완료 연계 |
+| POST | `/admin/moderation/{jobId}/retry` | 재처리 가능 작업의 제한 재요청 |
+| GET | `/admin/content` | 종류/상태별 승인본/대기본 조회 |
+| PATCH | `/admin/content/{id}/visibility` | 숨김/복구; 검수 승인과 별도 조치 |
+| GET | `/admin/reports` | 신고와 처리 상태 목록 |
+| POST | `/admin/reports/{id}/resolve` | 신고 판정/조치 및 감사 기록 |
+| GET | `/admin/tap/attempts` | 공식 도전/중단/검증 이력 |
+| POST | `/admin/tap/attempts/{id}/decision` | 유효/무효 판정; 사유 필수 |
+| POST | `/admin/tap/users/{id}/retry` | 승인된 새 generation 생성; 과거 이력 유지 |
+| GET | `/admin/awards/runs` | 정산 실행 이력 |
+| POST | `/admin/awards/runs` | 마감/규칙 버전 고정 후 후보 snapshot 생성 |
+| GET | `/admin/awards/runs/{id}` | 후보와 근거/충돌/잠정 상태 |
+| POST | `/admin/awards/runs/{id}/finalize` | 중복/동점/무효 검토 후 최종 확정 |
+| GET | `/admin/event/settings` | 행사 시각/게임 설정/버전 |
+| PUT | `/admin/event/settings` | version 조건으로 변경, 마감 충돌 검증 |
+| GET | `/admin/audit-logs` | 조치자/대상/사유/시각 조회 |
+
+## 8. 공통 인가와 입력 규칙 — 예정
+
+| 요청 종류 | 서버 확인 |
+| --- | --- |
+| OTP 요청/검증 | CSRF, 계정/IP 제한, challenge 만료/횟수/일회성, 실제 채널 범위 |
+| 프로필/내 상태 | 유효 세션/계정, 본인 여부, 공개/동의 정책 |
+| 태그 resolve | 세션, CSRF, 토큰 형식/해시/활성, 행사 기간 |
+| 미션 수행/내 콘텐츠 수정 | 세션, 해금, 계정 상태, 공식 횟수/기간, 본인 소유, CSRF |
+| 소원/응원/댓글 공개 조회 | 세션과 현재 승인본/공개 상태; 목록에 대기본 미포함 |
+| 댓글/하트 | 해당 미션 해금, 대상 공개/유효 여부, 마감/중복/자기 활동 규칙 |
+| 동료 목록/상세/그래프 | 세션, 현재 프로필 공개 필터, 자기 그래프 범위, 노드/페이지 상한 |
+| 관리자 변경 | ADMIN, CSRF, 사유, 상태/버전/멱등성, 감사 기록 |
+
+해금은 미션의 수행 권한이다. 로그인 참여자가 다른 사람의 승인된 소원/응원/프로필을 읽는 것과 자신의 미션을 수행하는 것을 구분한다. 직접 경로 입력은 같은 서버 검사를 받는다. 조회 가능한 데이터가 작성/수정 권한을 의미하지 않는다.
+
+문자열은 trim/길이/허용 형식 검사를 서버에서 수행하고 본문을 HTML로 해석하지 않는다. 프로필의 닉네임은 현재 DB 최대 30자, bio는 최대 200자이며 필수/최소 길이는 프로필 계약에서 확정한다. 외부 링크는 https만 허용하고 허용되지 않는 스킴을 거절한다. 콘텐츠 길이/스타일 허용목록/이벤트 payload 크기/페이지 상한은 각 도메인의 OpenAPI와 서버 설정에 함께 확정한다.
+
+GET `/users/{id}`처럼 프로필 방문 기록을 우회하는 별도 상세 경로는 제공하지 않는다. 익명 author, Mattermost ID, 원문 태그/OTP/HMAC, 관리자 전용 데이터는 공개 JSON에 넣지 않는다. 추천 이유도 익명 활동자의 신원을 드러내면 안 된다.
+
+## 9. 상태와 멱등성 응답 예시 — 예정
+
+예시는 구조를 설명하는 가상 데이터이며 실제 인증번호/태그나 검증 성과를 뜻하지 않는다. 도메인 API는 아래와 같은 JSON 객체를 기본으로 하고, 현재 구현된 meta/CSRF 응답을 임의의 공통 envelope로 변경하지 않는다.
+
+### 태그 해금 응답
+
+```json
+{
+  "missionCode": "MAKE_A_WISH",
+  "status": "UNLOCKED",
+  "unlockedAt": "2026-11-03T04:00:00Z",
+  "completedAt": null,
+  "route": "/missions/make-a-wish"
+}
+```
+
+route는 서버가 정한 내부 경로이며 토큰에서 외부 URL을 읽어 반환하지 않는다. 같은 유효 태그 재요청은 최초 unlockedAt을 유지한다. 태그가 비활성화되면 새로운 resolve는 거절하되 기존 미션 진행 행은 자동 삭제하지 않는다.
+
+### 내 소원/응원 슬롯
+
+```json
+{
+  "id": 101,
+  "visibilityStatus": "VISIBLE",
+  "approvedRevision": {
+    "id": 201,
+    "revisionNo": 1,
+    "content": "함께 성장하고 싶어요.",
+    "moderationStatus": "APPROVED"
+  },
+  "pendingRevision": {
+    "id": 202,
+    "revisionNo": 2,
+    "content": "좋은 동료들과 함께 성장하고 싶어요.",
+    "moderationStatus": "QUEUED"
+  },
+  "missionCompleted": true
+}
+```
+
+위 상태에서 공개 목록에는 revision 201만 노출한다. revision 202가 거절되면 기존 승인본은 유지한다. 사용자 본인과 관리자만 대기본을 볼 수 있다. 최초 검수 중이면 approvedRevision이 null이고 missionCompleted는 false다.
+
+### 게임 시작/종료
+
+```json
+{
+  "attemptId": 301,
+  "serverNow": "2026-11-03T04:00:00Z",
+  "startsAt": "2026-11-03T04:00:05Z",
+  "endsAt": "2026-11-03T04:00:15Z",
+  "submitDeadline": "2026-11-03T04:00:20Z",
+  "status": "COUNTDOWN"
+}
+```
+
+카운트다운 5초/플레이 10초가 기준이다. 위 submitDeadline의 추가 5초는 예시일 뿐 확정 유예가 아니다. 실제 유예는 모바일 전송 검증과 행사 마감 정책으로 정한다. 서버 시작/종료가 달라지는 브라우저 로컬 타이머를 근거로 점수를 인정하지 않는다.
+
+```json
+{
+  "attemptId": 301,
+  "events": [
+    { "type": "TAP", "relativeTimeMs": 124 },
+    { "type": "TAP", "relativeTimeMs": 261 }
+  ],
+  "interruptions": []
+}
+```
+
+종료 이벤트 구조도 예정안이다. 서버가 이벤트 수/순서/시각/크기/중단을 검증해 점수를 계산한다. 같은 종료 payload 재전송은 저장된 판정을 반환하고 다른 payload로 기존 결과를 덮어쓰려 하면 409다. 검토 보류와 최초 완료는 분리한다.
+
+### 방문 그래프
+
+```json
+{
+  "nodes": [
+    { "id": 1, "nickname": "ME", "isMe": true },
+    { "id": 12, "nickname": "코딩하는 수달", "isMe": false },
+    { "id": 23, "nickname": "도전하는 감자", "isMe": false }
+  ],
+  "edges": [
+    { "source": 1, "target": 12, "mutual": true },
+    { "source": 12, "target": 1, "mutual": true },
+    { "source": 1, "target": 23, "mutual": false }
+  ],
+  "stats": { "discovered": 2, "discoveredBy": 1, "mutual": 1 },
+  "hasMore": false
+}
+```
+
+내가 방문했거나 나를 방문한 공개 가능한 동료와 본인에 직접 연결된 방향 간선만 반환한다. 상호 관계는 UI에서 두 방향을 한 굵은 연결로 합쳐 표현할 수 있다. 동료들 사이의 별도 간선은 반환하지 않는다. stats는 제한된 화면 노드 수와 구분한 전체 적격 집계이며 비공개 필터를 동일하게 적용한다.
+
+### 오류
+
+```json
+{
+  "code": "MISSION_LOCKED",
+  "message": "해당 미션의 태그를 먼저 찾아주세요.",
+  "requestId": "<서버-요청-id>"
+}
+```
+
+오류 응답에 stack trace/SQL/외부 비밀키/인증번호/태그 원문을 넣지 않는다. 검수 거절 사유는 수정에 필요한 범위로 전달한다. 권한 없는 사용자가 비공개 대상의 존재 여부를 확인할 수 없도록 일반 404를 사용할 수 있다.
+
+## 10. 페이지네이션, 캐시, 중복 제출 — 예정
+
+- 목록은 `cursor`, `limit`, 필터를 받고 `{ "items": [], "nextCursor": null, "hasMore": false }` 형태를 기본안으로 한다. 커서는 불투명 값이며 클라이언트가 SQL 조건을 전달하는 수단이 아니다.
+- 사용자별 상태/프로필/그래프는 `Cache-Control: no-store`를 사용한다. 정적 유형 설명/문항을 캐시한다면 버전과 공개 범위를 먼저 정한다.
+- 최초 슬롯 생성과 게임 시작에는 `Idempotency-Key`를 사용한다. 서버는 사용자/작업/payload hash를 묶어 검사하며 같은 키/다른 payload는 409다.
+- 하트 등록 PUT/취소 DELETE와 방문 POST open은 재시도해도 중복 기록/점수가 생기지 않아야 한다. 삭제 대상이 없어도 하트 취소는 204다.
+- 로그인/로그아웃 후 CSRF를 다시 받는다. 단순 네트워크 재시도만으로 인증번호 재발급, 새 공식 게임, 새 revision을 임의로 생성하지 않는다.
+- 중복 제출의 HTTP 상태와 응답 재생 보존 기간은 구현 OpenAPI에서 고정하고 DB 슬롯/복합키 제약을 마지막 방어선으로 유지한다.
+
+## 11. 신고, 동의와 행사 조회 — 추가 계획
+
+| Method | 경로 | 요청/역할 |
+| --- | --- | --- |
+| GET | `/event` | 공개 행사명/진행 상태/일정/공지 버전; 운영자·개인 데이터 제외 |
+| POST | `/content/{id}/reports` | 로그인 사용자의 reason 기반 신고 접수; 과다/중복 제한 |
+| GET | `/users/me/consents` | 본인의 목적/버전/동의/철회 상태 |
+| PUT | `/users/me/consents/{policyType}` | 버전과 동의/철회; 공개 설정/참여 자격 영향을 함께 처리 |
+| POST | `/users/me/withdrawal` | 확인 후 탈퇴 절차; 즉시 공개 중단과 보관 정책 적용 |
+
+현재 permitAll은 이 추가 예정 경로를 아직 허용하지 않는다. 동의 철회/탈퇴의 실제 삭제 범위와 보존 기간은 배포 전 운영 정책으로 확정한다. 신고를 콘텐츠 자동 삭제로 처리하거나, 탈퇴를 모든 감사/시상 데이터의 무조건 cascade 삭제로 구현하지 않는다. 공개 결과 발표 API와 경품 발송은 운영 정책/개인정보 범위를 확정한 후 별도 계약으로 추가한다.

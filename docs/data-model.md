@@ -4,6 +4,8 @@
 
 현재 실행 가능한 DDL은 `backend/src/main/resources/db/migration`의 V1/V2다. 콘텐츠, 게임, 검수, 시상은 아래 **후속 설계**이며 아직 테이블을 생성하지 않는다. 해당 도메인의 규칙과 함께 마이그레이션을 추가한다.
 
+이 문서의 ERD는 핵심 요약이다. 모든 도메인의 컬럼/관계/복합키와 nullable 규칙은 [전체 도메인 ERD](erd.md)를 함께 읽는다. 현재 SQL과 후속 설계의 경계를 유지하고, 후속 설계를 현재 DB에 적용된 것으로 간주하지 않는다.
+
 - MySQL 8.4 / InnoDB / utf8mb4
 - 날짜는 UTC `DATETIME(6)`로 저장하고 UI에서 한국 시간으로 표시한다.
 - 외부 계정 키와 서비스 사용자 키를 분리한다.
@@ -117,7 +119,7 @@ erDiagram
 | moderation_jobs | id PK, revision_id FK, job_key UNIQUE, status, attempts, next_run_at, lease_until, result_json, provider, policy_version, last_error_code |
 | moderation_reviews | id PK, revision_id FK, reviewer_id, decision, reason, created_at; 자동/관리자 판정 이력 |
 
-`content_items` 생성 → revision 생성 → 포인터 갱신 순으로 저장한다. 포인터 FK는 두 테이블 생성 후 ALTER로 추가한다. revision은 수정하지 않고 새로 삽입한다. 외부 입력 `presentation_json`은 허용 속성만 저장한다. AI 응답 원문을 무제한 보관하지 않고 필요한 분류/사유만 구조화한다.
+`content_items` 생성 → revision 생성 → 포인터 갱신 순으로 저장한다. 포인터 FK는 두 테이블 생성 후 ALTER로 추가한다. revision의 본문/스타일은 수정하지 않고 새로 삽입하며 검수 상태 메타데이터만 갱신한다. 포인터는 같은 item의 revision만 참조하고 도메인 작성자와 content_items.author_id가 일치해야 한다. 외부 입력 `presentation_json`은 허용 속성만 저장한다. AI 응답 원문을 무제한 보관하지 않고 필요한 분류/사유만 구조화한다.
 
 익명 여부는 API serializer에서 강제한다. 내부 author_id가 있다는 이유로 공개 JSON에 그대로 직렬화하지 않는다.
 
@@ -129,7 +131,8 @@ erDiagram
 | tap_slots | user_id PK/FK, current_attempt_id, version; 공식 참여 권리 하나 |
 | tap_attempts | id PK, user_id FK, generation, idempotency_key UNIQUE, starts_at, ends_at, submit_deadline, status, tap_count, submitted_at, payload_hash; UNIQUE(user_id,generation) |
 | tap_attempt_events | id PK, attempt_id FK, type, relative_time_ms, payload_json, created_at; 원본 이벤트/중단/관리자 조치 이력 |
-| mission_completion_evidence | user_id/mission_id PK, source_kind, source_id, accepted_received_at, receipt_order UNIQUE; 최초 유효 근거 |
+| submission_receipts | id PK, user_id FK, source_kind, source_id, received_at; UNIQUE(user_id,source_kind,source_id), 최초 서버 접수 시각/순서. 후속 설계이며 현재 V1/V2에는 없음 |
+| mission_completion_evidence | user_id/mission_id PK/FK, source_kind, source_id, accepted_received_at, receipt_order UNIQUE FK → submission_receipts.id; 최초 유효 근거 |
 | award_runs | id PK, cutoff_at, finalized_at, rules_version, status, created_by; 정산 실행 snapshot |
 | awards | id PK, award_run_id FK, award_type, user_id FK, rank, evidence_json, status; UNIQUE(run,type,rank) |
 | content_reports | id PK, reporter_id FK, content_item_id FK, reason, status, resolved_by, resolved_at |
@@ -139,6 +142,8 @@ erDiagram
 | user_consents | id PK, user_id FK, policy_type, policy_version, agreed_at, withdrawn_at; 동의 증빙 |
 
 `tap_attempts.user_id UNIQUE`를 사용하면 관리자 승인 재도전 이력을 보관할 수 없으므로 슬롯과 도전 기록을 나눈다. 정산 근거의 접수 순서는 서버에서 발급하고 클라이언트 시각을 사용하지 않는다.
+
+submission_receipts는 제출을 받는 같은 트랜잭션에서 생성하며 승인 시 새로 만들지 않는다. 콘텐츠 source_id는 revision ID, 성향/게임은 결과 또는 attempt ID처럼 종류별로 유일한 원본을 참조한다. 여러 테이블을 가리키는 source_kind/source_id는 단일 FK로 보장할 수 없어 소스 존재/소유자/미션 일치를 서비스에서 검증한다. SHOW ME를 먼저 작성했다면 이후 태그 해금 접수가 유효 완료 근거가 된다. 상세 규칙은 ERD의 접수/시상 항목과 구현 계획을 따른다.
 
 ## 6. 쿼리 규칙
 
