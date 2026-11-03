@@ -81,7 +81,9 @@ docker compose --profile app logs --tail=100 api
 docker compose --profile app exec api curl -fsS http://localhost:8080/actuator/health/readiness
 ```
 
-컨테이너 로그는 최대 파일 크기/개수를 제한한다. OTP, 세션, 외부 토큰, 이름/반/콘텐츠 원문을 기본 로그에 출력하지 않는다. 디스크 여유 공간, API 오류율/지연, DB 커넥션과 잠금, Redis 메모리, 검수 대기 시간을 운영 관측 항목으로 삼는다.
+컨테이너 로그는 최대 파일 크기/개수를 제한한다. 비밀번호/해시, OTP, 세션, 외부 토큰, 이름/반/콘텐츠 원문을 로그에 출력하지 않는다. 디스크 여유 공간, API 오류율/지연, DB 커넥션과 잠금, Redis 메모리, 검수 대기 시간을 운영 관측 항목으로 삼는다.
+
+후속 인증은 [인증 설계](auth.md)의 username/비밀번호 로그인과 가입/변경/재설정 DM OTP를 따른다. 기존 V1에는 username/비밀번호 해시가 없으므로 새 migration과 PasswordEncoder/세션 version 검사가 필요하다. 문서 변경만으로 로그인 기능이 추가된 것은 아니다. 비밀번호 정책/해시 알고리즘과 비용을 확정해 배포하고 기존 계정을 임의의 공용 비밀번호로 채우지 않는다.
 
 Redis는 세션/OTP 유실이 경품 데이터 유실로 이어지지 않도록 사용한다. AOF를 활성화하고 noeviction 정책을 쓴다. 메모리가 가득 차면 쓰기가 실패할 수 있으므로 사용량과 실패를 확인한다. readiness 장애 시 UI/API가 무조건 정상이라고 안내하지 않는다.
 

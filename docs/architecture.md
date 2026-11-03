@@ -40,13 +40,15 @@ DB 준비 → API readiness → web 순으로 시작한다. 시작 의존성은 
 
 ## 4. 인증과 보안 경계
 
-서버 세션 쿠키는 HttpOnly, SameSite=Lax이며 운영에서 Secure를 강제한다. Redis가 세션을 보관한다. 현재 API에는 폼 로그인과 HTTP Basic을 제공하지 않는다. OTP 구현 시 세션 고정 공격 방지를 위한 세션 ID 교체 및 SecurityContext 저장을 명시적으로 처리한다.
+서버 세션 쿠키는 HttpOnly, SameSite=Lax이며 운영에서 Secure를 강제한다. Redis가 세션을 보관한다. 현재 API에는 폼 로그인과 HTTP Basic을 제공하지 않는다. 후속 JSON 로그인은 Mattermost username + TAG ME 비밀번호를 사용하고 가입/비밀번호 변경/재설정에만 DM OTP를 요구한다. 가입/로그인 성공 시 세션 ID 교체와 SecurityContext 저장을 명시적으로 처리한다.
 
 SPA는 `GET /api/v1/csrf`로 토큰을 받은 뒤 변경 요청의 `X-XSRF-TOKEN` 헤더에 넣는다. 로그인/로그아웃 후 토큰을 다시 받는다. CSRF를 전체 비활성화하지 않는다. 세션 쿠키와 달리 XSRF-TOKEN 쿠키는 CSRF 헤더 구성을 위해 JavaScript에서 읽을 수 있다.
 
 프론트에서 보내는 사용자 ID, 관리자 역할, 완료 여부, 점수, 유형은 신뢰하지 않는다. 요청 사용자 ID는 세션에서 구한다. 링크는 HTTPS URL만 허용하고 텍스트는 HTML로 해석하지 않는다. 개인정보와 토큰은 로그 및 외부 검수 입력에서 제외한다.
 
-사용자가 입력하는 인증번호는 숫자 6자리 일회용 문자열이다. 앞자리 0을 보존하며 발급 시마다 암호학적으로 안전하게 새로 생성한다. Redis에는 원문 대신 HMAC과 별도 challenge ID를 저장한다. 상세 발급/만료/시도 제한은 [구현 계획](implementation-plan.md)을 따른다.
+사용자가 가입/비밀번호 변경/재설정에 입력하는 인증번호는 숫자 6자리 일회용 문자열이다. 앞자리 0을 보존하며 발급 시마다 암호학적으로 안전하게 새로 생성한다. Redis에는 원문 대신 HMAC과 별도 challenge ID, Mattermost 내부 ID, purpose, 만료/시도 제한을 저장한다. 비밀번호 해시는 후속 MySQL user_credentials에 저장하며 일반 로그인에서 PasswordEncoder로 검사한다. users.mattermost_id는 외부 연결 키, 후속 mattermost_username은 입력 아이디다. 상세 계약은 [인증 설계](auth.md)를 따른다.
+
+비밀번호 변경/재설정은 password_hash와 credential_version을 같은 트랜잭션으로 갱신한다. 세션에 저장한 version을 보호 요청마다 현재 DB 버전과 비교해 이전 세션을 거절하고 Redis 세션도 삭제한다. 현재 세션을 포함해 다시 로그인하도록 한다. 비밀번호/해시를 Mattermost/검수 API/로그/공개 응답으로 보내지 않는다.
 
 ### URL과 미션 권한
 
@@ -64,7 +66,7 @@ API 경로의 복잡성을 접근 통제 수단으로 삼지 않는다. 토큰�
 ```text
 backend/src/main/java/com/tagme/
   common/config, common/web    현재 구현: 보안, CSRF, 연결 확인
-  auth/                       다음 단계: OTP, Mattermost, 세션
+  auth/                       다음 단계: 비밀번호 로그인, 목적별 DM OTP, Mattermost, 세션
   user/                       프로필, 관심사, 공개 정책
   mission/                    태그 해금, 완료, 전체 수집
   wish/, cheer/               콘텐츠와 반응
@@ -131,7 +133,7 @@ flowchart TD
 
 | 도메인 | 입력/출력 책임 | 주요 의존성 |
 | --- | --- | --- |
-| auth | 계정 범위 검증, OTP, 세션 생성/종료 | MattermostAdapter, Redis, users |
+| auth | 아이디/비밀번호 로그인, 가입/변경/재설정 DM OTP, 계정 범위와 세션 | MattermostAdapter, Redis, users/user_credentials, PasswordEncoder |
 | user | 프로필, 관심사, 공개 동의 | users/profiles/interests/consents |
 | mission | 태그 resolve, 해금, 수집판, 전체 완료 | tags/progress/evidence/sequence |
 | wish/cheer | 사용자 슬롯, revision 제출, 댓글/하트 | 콘텐츠/검수 작업, mission 완료 |

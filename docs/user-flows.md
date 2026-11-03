@@ -7,7 +7,7 @@
 ```mermaid
 flowchart TD
     Entry["메인 또는 NFC/QR 접속"] --> Session{"로그인 상태인가?"}
-    Session -->|아니오| Auth["Mattermost DM 숫자 6자리 인증"]
+    Session -->|아니오| Auth["아이디/비밀번호 로그인 또는 DM 인증 후 가입"]
     Session -->|예| Profile{"필수 프로필과 동의가 있는가?"}
     Auth --> Profile
     Profile -->|아니오| Setup["프로필 설정과 공개 동의"]
@@ -35,7 +35,7 @@ flowchart TD
 | 진입 | 로그인 전 | 로그인 후 |
 | --- | --- | --- |
 | 메인 `/` | 서비스 소개와 인증 안내 | 수집판/현재 상태 조회 |
-| `/t/{token}` | 태그를 임시 보존하고 인증으로 연결 | 서버 resolve 후 해당 미션 진입 |
+| `/t/{token}` | 태그를 임시 보존하고 아이디/비밀번호 로그인 또는 신규 가입으로 연결 | 서버 resolve 후 해당 미션 진입 |
 | 미션 화면 직접 입력 | 인증으로 연결 | 해금 여부 확인 후 미해금이면 잠김 안내 |
 | 만료된 세션에서 재접속 | 재인증 | DB에 남은 해금/결과/검수 상태 복구 |
 
@@ -43,30 +43,73 @@ flowchart TD
 
 ## 3. 인증 및 최초 프로필
 
+일반 로그인은 Mattermost username과 TAG ME 가입 시 정한 비밀번호다. DM OTP 단독 로그인은 사용하지 않는다. 세부 API/저장/보호 기준은 [인증 설계](auth.md)를 따른다.
+
+### 최초 가입
+
 ```mermaid
 sequenceDiagram
     participant Web as 모바일 웹
     participant API as 인증 서버
     participant MM as Mattermost
     participant Store as Redis와 MySQL
-    Web->>API: CSRF 발급 후 OTP 요청(username)
+    Web->>API: CSRF 발급 후 SIGN_UP OTP 요청(username)
     API->>MM: 계정 및 지정 채널 멤버십 조회
     API->>Store: challenge와 OTP HMAC, 만료/시도 제한 저장
     API->>MM: 숫자 6자리 OTP를 DM으로 전송
     API-->>Web: 계정 유무를 드러내지 않는 요청 응답
-    Web->>API: challengeId와 code 문자열 전송
-    API->>Store: 횟수/만료 검증 및 OTP 원자적 소진
+    Web->>API: challengeId와 숫자 code, 가입 비밀번호 전송
+    API->>Store: 계정/purpose/횟수/만료 확인과 OTP 원자적 소진
     API->>MM: 멤버십 재확인
-    API->>Store: 회원 upsert와 세션 생성
+    API->>API: 비밀번호 단방향 해시 생성
+    API->>Store: 회원과 credentials 생성, 세션 생성
     API-->>Web: 세션 쿠키와 onboardingRequired
     Web->>API: CSRF 재발급과 내 상태 조회
 ```
 
-서버가 유효한 계정/멤버십을 확인한 경우에만 OTP를 발급하고 DM을 보낸다. 비회원/비대상/발송 실패는 내부에서 구분하되 외부 공통 응답이 불필요한 계정 정보를 노출하지 않게 한다. OTP 소비 이후 외부 장애가 나면 로그인 성공으로 처리하지 않고 새 발급 절차를 안내한다.
+서버가 유효한 계정/멤버십을 확인한 경우에만 가입용 OTP를 발급하고 DM을 보낸다. 비대상/이미 가입/발송 실패는 내부에서 구분하되 외부 응답이 불필요한 계정 정보를 노출하지 않게 한다. OTP 소비 이후 외부/DB 장애가 나면 가입을 성공으로 처리하지 않고 새 발급 절차를 안내한다. 기존 회원의 비밀번호를 가입 요청으로 덮어쓰지 않는다.
+
+### 일반 로그인
+
+```mermaid
+sequenceDiagram
+    participant Web as 모바일 웹
+    participant API as 인증 서버
+    participant MM as Mattermost
+    participant Store as MySQL과 Redis
+    Web->>API: username과 TAG ME password, CSRF
+    API->>MM: username에 해당하는 내부 user ID 조회
+    API->>Store: 해당 내부 ID의 계정과 credentials 조회
+    API->>API: PasswordEncoder로 비밀번호 검증
+    API->>MM: 지정 채널 멤버십 확인
+    API->>Store: 계정 상태 확인, 세션 ID 교체와 credential version 저장
+    API-->>Web: 세션과 onboardingRequired
+    Web->>API: CSRF 재발급, 원래 태그/홈 복귀
+```
+
+위 시퀀스는 검증에 성공한 경로다. 계정 없음/비밀번호 불일치/범위 밖/제한 계정/외부 장애에서는 세션을 만들지 않는다. 로그인할 때마다 DM 인증을 요구하지 않는다. Mattermost 비밀번호를 서버로 받아 대리 로그인하지 않는다.
+
+### 비밀번호 변경과 분실 재설정
+
+```mermaid
+flowchart TD
+    Entry{"로그인한 상태에서 변경하는가?"} -->|예| Change["세션 본인에게 PASSWORD_CHANGE DM 발송"]
+    Entry -->|아니오| Reset["아이디 입력 후 PASSWORD_RESET DM 발송"]
+    Change --> Submit["6자리 code와 새 비밀번호 제출"]
+    Reset --> Submit
+    Submit --> Check{"계정/purpose/만료/소유 확인 통과?"}
+    Check -->|아니오| Retry["오류 안내, 재입력 또는 재발송"]
+    Check -->|예| Save["해시 변경과 credential version 증가"]
+    Save --> Revoke["현재 및 모든 이전 세션 무효화"]
+    Revoke --> Login["새 비밀번호로 다시 로그인"]
+```
+
+변경 대상은 세션의 본인이고 분실 재설정 대상은 DM 소유가 확인된 기존 회원이다. 가입용 코드를 변경/재설정에 재사용할 수 없다. 재설정은 신규 계정을 만들지 않으며 성공 후 자동 로그인하지 않는다.
 
 - 입력은 숫자 6자리 문자열이고 앞자리 0을 허용한다. 전체 코드 붙여넣기와 모바일 숫자 키패드를 지원한다.
 - 제안 기본값: 유효시간 3분, 계정별 재발송 간격 60초, challenge별 오답 5회. IP와 계정 제한을 함께 적용한다.
 - 재발송하면 이전 challenge를 무효화한다. 인증 성공 후 이전 코드는 재사용할 수 없다.
+- 목적과 외부 내부 ID를 challenge에 묶고 비밀번호 변경용은 현재 사용자와도 묶는다. 새 비밀번호는 해시만 저장하고 DM/로그/URL/응답에 넣지 않는다.
 - 최초 프로필은 닉네임/소개/관심사와 공개 동의가 기본안이며 링크는 선택이다. 실명/지역/반은 인증 정보 확인 절차로 연결한다.
 - 프로필 저장 전 공개 범위를 명확히 안내한다. 동의를 거절하면 SHOW ME를 완료한 것으로 처리하지 않고 안내/로그아웃 경로를 제공한다.
 - 프로필을 먼저 완성해도 SHOW ME 태그가 잠겨 있으면 첫 번째 S는 아직 받지 않는다.
@@ -209,7 +252,8 @@ flowchart TD
 
 | 상황 | 서버 기준 | 사용자 화면과 다음 행동 |
 | --- | --- | --- |
-| 인증 중 새로고침 | 유효 challenge/재발송 정책 | 보존 가능하면 남은 시간 표시, 유실 시 재요청 |
+| 가입/비밀번호 인증 중 새로고침 | 유효 purpose/challenge/재발송 정책 | 보존 가능하면 남은 시간 표시, 유실 시 재요청; 비밀번호는 임시 저장하지 않음 |
+| 비밀번호 변경/재설정 후 기존 탭 사용 | credential_version 불일치로 이전 세션 거절 | 다시 로그인, 공식 미션/결과는 DB에서 복구 |
 | 태그 resolve 중 응답 유실 | 해금 복합 PK로 중복 방지 | 같은 태그 재요청 후 현재 상태 표시 |
 | 소원/응원 제출 중 응답 유실 | Idempotency-Key와 사용자 슬롯 UNIQUE | 내 슬롯 조회 후 결과 복구; 새 슬롯 생성 금지 |
 | 검수 대기 중 이탈 | DB 작업/revision 보존 | 재접속 시 대기/승인/거절 현재 상태 조회 |

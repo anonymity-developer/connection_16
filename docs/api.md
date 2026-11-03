@@ -30,28 +30,51 @@ Actuator의 `/actuator/health`, `/actuator/health/readiness`는 컨테이너/로
 
 | Method | 경로 | 요청/결과 요점 |
 | --- | --- | --- |
-| POST | `/auth/otp/request` | username → challengeId, expiresIn; 계정 유무 공통 응답 |
-| POST | `/auth/otp/verify` | challengeId, code → 세션 쿠키 및 onboardingRequired |
+| POST | `/auth/otp/request` | purpose, username(SIGN_UP/RESET만) → challengeId, expiresIn; PASSWORD_CHANGE는 세션의 본인 대상 |
+| POST | `/auth/signup` | challengeId, code, password → DM 소유 확인 후 회원/해시 생성, 세션 및 onboardingRequired |
+| POST | `/auth/login` | Mattermost username, TAG ME password → 세션 및 onboardingRequired; OTP 불필요 |
+| PUT | `/users/me/password` | 세션, challengeId, code, newPassword → 비밀번호 변경/모든 이전 세션 무효화 |
+| POST | `/auth/password/reset` | challengeId, code, newPassword → 본인 DM 인증 후 기존 비밀번호 재설정/모든 이전 세션 무효화 |
 | POST | `/auth/logout` | 세션 무효화 → 204 |
 | GET | `/users/me` | 내 계정/프로필/필요한 동의 상태 |
 | PUT | `/users/me/profile` | nickname, bio, interestIds, githubUrl?, blogUrl?, isPublic, consentVersion |
 | GET | `/profiles` | 공개 목록; cursor, limit, interestId, typeCode 필터 |
 | GET | `/interests` | 관심사 ID/이름 목록 |
 
-OTP 경로는 구현 단계에서만 permitAll에 추가한다. permitAll도 CSRF와 rate limit을 적용한다. GET `/users/{id}`를 별도로 만들면 방문 기록을 우회하기 쉬우므로 **상세 정보는 아래 POST open 경로로 통일**한다.
+가입/로그인/OTP 발송/분실 재설정은 구현 단계에서 필요한 경로만 permitAll에 추가한다. PASSWORD_CHANGE 발송과 `/users/me/password`는 세션이 필요하다. permitAll도 CSRF와 rate limit을 적용한다. 일반 로그인은 아이디/비밀번호이며 OTP만으로 로그인하는 `/auth/otp/verify`는 제공하지 않는다. GET `/users/{id}`를 별도로 만들면 방문 기록을 우회하기 쉬우므로 **상세 정보는 아래 POST open 경로로 통일**한다.
 
 `code`는 **숫자 6자리 문자열**이며 `^[0-9]{6}$`로 검증한다. 숫자 타입으로 변환하지 않아 앞자리 0을 유지한다. 영문/기호는 허용하지 않는다. 인증번호는 매 발급 시 안전하게 새로 생성하는 일회용 값이며 고정 공용 번호가 아니다. challenge ID는 인증 요청을 식별하는 별도 값으로, 사용자가 입력하는 인증번호와 구분한다.
 
-검증 요청 예시(형식 설명용 값):
+가입 완료 요청 예시(형식 설명용 값):
 
 ```json
 {
   "challengeId": "<발급받은-challenge-id>",
-  "code": "052814"
+  "code": "052814",
+  "password": "<가입할-때-설정한-TAG-ME-비밀번호>"
 }
 ```
 
-인증번호는 JSON 본문으로만 보내고 URL/로그에 남기지 않는다. 만료/재발송 대기 안내에 필요한 요청 응답 필드는 인증 단계에서 OpenAPI로 확정한다.
+challenge의 purpose는 SIGN_UP/PASSWORD_CHANGE/PASSWORD_RESET이며 계정/작업과 바인딩한다. 가입용 code로 비밀번호를 바꾸거나 다른 계정의 code로 작업하지 못한다. 비밀번호 변경 대상은 세션에서 구한다. 변경/재설정 성공 후 현재/다른 기기 세션을 모두 거절하고 다시 로그인한다. 비밀번호/인증번호는 JSON 본문으로만 보내고 URL/로그/분석/외부 API/응답에 남기지 않는다. 비밀번호 해시도 응답하지 않는다. 전체 인증 계약은 [인증 설계](auth.md)를 따른다.
+
+일반 로그인 요청 예시:
+
+```json
+{
+  "username": "<Mattermost-username>",
+  "password": "<TAG-ME-비밀번호>"
+}
+```
+
+비밀번호 변경/재설정의 최종 요청 예시(각 API에 맞는 purpose로 발급된 challenge 필요):
+
+```json
+{
+  "challengeId": "<목적과-계정이-일치하는-challenge-id>",
+  "code": "052814",
+  "newPassword": "<새-TAG-ME-비밀번호>"
+}
+```
 
 ## 3. 태그와 미션 — 예정
 
@@ -191,7 +214,9 @@ OTP 경로는 구현 단계에서만 permitAll에 추가한다. permitAll도 CSR
 
 | 요청 종류 | 서버 확인 |
 | --- | --- |
-| OTP 요청/검증 | CSRF, 계정/IP 제한, challenge 만료/횟수/일회성, 실제 채널 범위 |
+| 가입/변경/재설정 OTP | CSRF, 계정/IP 제한, challenge의 계정/purpose/만료/횟수/일회성, 실제 채널 범위; 변경은 본인 세션 필수 |
+| 일반 로그인 | username의 외부 내부 ID 연결, TAG ME 비밀번호 해시, 계정/채널 상태, 계정/IP 제한; DM OTP 불필요 |
+| 비밀번호 변경/재설정 | 일치하는 OTP와 새 비밀번호 정책, hash/version 트랜잭션, 이전 세션 무효화; 미가입 재설정은 거절 |
 | 프로필/내 상태 | 유효 세션/계정, 본인 여부, 공개/동의 정책 |
 | 태그 resolve | 세션, CSRF, 토큰 형식/해시/활성, 행사 기간 |
 | 미션 수행/내 콘텐츠 수정 | 세션, 해금, 계정 상태, 공식 횟수/기간, 본인 소유, CSRF |
@@ -202,7 +227,7 @@ OTP 경로는 구현 단계에서만 permitAll에 추가한다. permitAll도 CSR
 
 해금은 미션의 수행 권한이다. 로그인 참여자가 다른 사람의 승인된 소원/응원/프로필을 읽는 것과 자신의 미션을 수행하는 것을 구분한다. 직접 경로 입력은 같은 서버 검사를 받는다. 조회 가능한 데이터가 작성/수정 권한을 의미하지 않는다.
 
-문자열은 trim/길이/허용 형식 검사를 서버에서 수행하고 본문을 HTML로 해석하지 않는다. 프로필의 닉네임은 현재 DB 최대 30자, bio는 최대 200자이며 필수/최소 길이는 프로필 계약에서 확정한다. 외부 링크는 https만 허용하고 허용되지 않는 스킴을 거절한다. 콘텐츠 길이/스타일 허용목록/이벤트 payload 크기/페이지 상한은 각 도메인의 OpenAPI와 서버 설정에 함께 확정한다.
+프로필/콘텐츠 문자열은 trim/길이/허용 형식 검사를 서버에서 수행하고 본문을 HTML로 해석하지 않는다. 비밀번호는 임의 trim/소문자 변환 없이 별도의 정책으로 검증한다. 프로필의 닉네임은 현재 DB 최대 30자, bio는 최대 200자이며 필수/최소 길이는 프로필 계약에서 확정한다. 외부 링크는 https만 허용하고 허용되지 않는 스킴을 거절한다. 콘텐츠 길이/스타일 허용목록/이벤트 payload 크기/페이지 상한은 각 도메인의 OpenAPI와 서버 설정에 함께 확정한다.
 
 GET `/users/{id}`처럼 프로필 방문 기록을 우회하는 별도 상세 경로는 제공하지 않는다. 익명 author, Mattermost ID, 원문 태그/OTP/HMAC, 관리자 전용 데이터는 공개 JSON에 넣지 않는다. 추천 이유도 익명 활동자의 신원을 드러내면 안 된다.
 

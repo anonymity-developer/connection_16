@@ -91,6 +91,17 @@ erDiagram
 
 프로필은 회원 생성 직후 없을 수 있어 관계가 0..1이다. 닉네임은 UNIQUE가 아니다. 관심사 초기 목록과 실제 NFC 토큰은 운영 확정 전 임의로 시드하지 않는다. V2에는 다섯 미션과 완료 sequence 초기값만 있다.
 
+### 3.1. 후속 아이디/비밀번호 스키마
+
+일반 로그인은 Mattermost username + TAG ME 비밀번호다. 현재 V1에는 다음 컬럼/테이블이 없으므로 새 migration이 필요하다. V1/V2를 수정하거나 기존 사용자에 공용 비밀번호를 넣지 않는다.
+
+| 변경 | 주요 컬럼/제약 |
+| --- | --- |
+| users 확장 | mattermost_username UNIQUE 추가. 실제 Mattermost에서 조회한 로그인 아이디, 기존 mattermost_id는 외부 계정 연결 키로 유지 |
+| user_credentials 추가 | user_id PK/FK, password_hash VARCHAR(255), password_updated_at DATETIME(6), credential_version BIGINT. 사용자당 비밀번호 해시 하나 |
+
+username 길이/정렬/대소문자 규칙은 외부 계약 확인 후 migration에서 정한다. 비밀번호는 PasswordEncoder 기반 적응형 단방향 해시만 보관하고 공개 DTO에 절대 포함하지 않는다. 변경/재설정은 hash/version을 한 트랜잭션에서 갱신하고 기존 세션을 전부 무효화한다. 기존 비밀번호 없는 계정은 본인 DM 인증 후 최초 비밀번호를 설정한다. [인증 설계](auth.md)와 [ERD의 후속 로그인 모델](erd.md)을 함께 따른다.
+
 ## 4. 후속 콘텐츠/검수 ERD
 
 다음 구조는 수정본 재검수와 이전 버전 응답 경합을 처리하기 위한 계획이다.
