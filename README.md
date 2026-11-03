@@ -4,6 +4,7 @@ SSAFY 16기 네트워킹 이벤트. 현장의 NFC/QR로 다섯 미션을 열고 
 
 ## 문서
 
+- **[Codex 개발 환경과 스킬](docs/codex-setup.md)** · [현재 페이즈](docs/progress.md): Taste/Playwright/CI 스킬 원문, AGENTS 규칙, 실행 도구와 검증 제약
 - **[전체 개발 기준서와 읽는 순서](docs/README.md)**: 대화 없이 이해할 수 있는 문서 목차, 확정 정책, 현재 구현과 미확정 사항
 - [기획 개요](docs/overview.md): 목적, 사용자 흐름, 다섯 미션, 공개 범위
 - [유저 플로우](docs/user-flows.md): 전체 진입, 인증, 다섯 미션, 검수, 발견 그래프, 완료/시상과 재접속 분기

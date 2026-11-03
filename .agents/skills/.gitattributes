@@ -1,0 +1,4 @@
+# Preserve vendored upstream bytes, including license line endings and binary icons.
+* -text
+# This upstream license uses CRLF; retain it without misclassifying CR as trailing whitespace.
+playwright/LICENSE.txt whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol
