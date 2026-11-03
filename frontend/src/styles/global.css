@@ -10,7 +10,7 @@
   color: #202029; background: #fbf9fa; font-synthesis: none;
   text-rendering: optimizeLegibility; -webkit-font-smoothing: antialiased;
   --ground: #fbf9fa; --surface: #fff; --raised: #f4f3f4; --border: #e7e2e5;
-  --control: #b8b1b6; --ink: #202029; --muted: #655d65;
+  --control: #968b93; --ink: #202029; --muted: #655d65;
   --accent: #aa285b; --accent-soft: #fbf0f4; --accent-track: #efd3df; --accent-ink: #72203f;
   --positive: #24613f; --negative: #b32632; --warning: #805115;
   --radius: 8px; --control-radius: 6px;
@@ -263,7 +263,6 @@ p { word-break: keep-all; overflow-wrap: anywhere; }
   .auth-guide { margin-top: 0; padding: 24px 0 0; border-left: none; border-top: 1px solid var(--border); }
   .auth-guide > svg { display: none; }
   .auth-guide h2 { font-size: 18px; }
-  .auth-guide h2 br { display: none; }
   .auth-guide dl { margin: 16px 0; }
   .back-link { margin-bottom: 18px; }
   .mission-detail-heading { flex-wrap: wrap; gap: 12px; margin-bottom: 20px; padding-bottom: 20px; }

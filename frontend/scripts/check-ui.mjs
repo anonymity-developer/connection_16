@@ -13,6 +13,9 @@ let production, development, browser;
 const results = [];
 try {
   production = await preview({ preview: { host: '127.0.0.1', port: 4173, strictPort: true } });
+  // preview() defaults NODE_ENV to production. The separate fixture server
+  // must explicitly use development; the built production assets stay unchanged.
+  process.env.NODE_ENV = 'development';
   development = await createServer({ server: { host: '127.0.0.1', port: 5174, strictPort: true } });
   await development.listen();
   browser = await chromium.launch();
@@ -44,6 +47,7 @@ try {
         assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), `${name} at ${width}: horizontal overflow`);
         assert.ok(await page.evaluate(() => [...document.fonts].some((font) => font.family.replace(/['"]/g, '') === 'DM Sans' && font.status === 'loaded')), 'self-hosted DM Sans loaded');
         await page.screenshot({ path: resolve(output, `${name}-${width}.png`), fullPage: true });
+        if (width === 390) await page.screenshot({ path: resolve(output, `${name}-viewport-390.png`) });
       }
     }
   });

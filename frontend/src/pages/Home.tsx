@@ -1,7 +1,9 @@
 import { Link } from '../app/navigation';
 import { Icon } from '../components/Icon';
 import { missions, stateLabels } from '../features/missions/model';
-import type { MissionState, ScreenData } from '../features/missions/model';
+import type { MissionCode, MissionState, ScreenData } from '../features/missions/model';
+
+const slotLabels: Record<MissionCode, string> = { SHOW_ME: 'SHOW ME', SYNC_ME: 'SYNC ME', MAKE_A_WISH: '소원', FAST_TAP: '탭 게임', SAY_SOMETHING: '응원' };
 
 export function StateBadge({ state }: { state: MissionState }) {
   return <span className={`state-badge state-${state.toLowerCase()}`}><Icon size={14} name={state === 'COMPLETED' ? 'check' : state === 'PENDING' ? 'clock' : state === 'UNLOCKED' ? 'arrow' : 'lock'} />{stateLabels[state]}</span>;
@@ -14,7 +16,7 @@ export function Collection({ data }: { data: ScreenData }) {
     <div className="letter-slots">{missions.map((mission) => {
       const state = data.progress[mission.code];
       return <Link key={mission.code} href={`/missions/${mission.slug}`} className={`letter-slot ${state === 'COMPLETED' ? 'is-collected' : ''}`} aria-label={`${mission.letter}, ${mission.name}, ${data.preview ? stateLabels[state] : '미션 안내 보기'}`}>
-        <strong>{mission.letter}</strong><span className="slot-name">{mission.code === 'SHOW_ME' || mission.code === 'SYNC_ME' ? mission.name : mission.korean}</span><span className="slot-state"><Icon size={14} name={state === 'COMPLETED' ? 'check' : state === 'PENDING' ? 'clock' : state === 'UNLOCKED' ? 'arrow' : 'lock'} /></span>
+        <strong>{mission.letter}</strong><span className="slot-name">{slotLabels[mission.code]}</span><span className="slot-state"><Icon size={14} name={state === 'COMPLETED' ? 'check' : state === 'PENDING' ? 'clock' : state === 'UNLOCKED' ? 'arrow' : 'lock'} /></span>
       </Link>;
     })}</div>
     {data.preview && <div className="collection-progress" role="progressbar" aria-label="미리보기 글자 수집" aria-valuenow={completed} aria-valuemin={0} aria-valuemax={5}><span style={{ width: `${completed * 20}%` }} /></div>}
