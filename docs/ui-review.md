@@ -69,3 +69,49 @@ CI의 Frontend job은 위 검사를 실행하고 `frontend-ui-review` 아티팩�
 3차 CI에서 브라우저 동작 검사 여섯 묶음이 모두 성공했다. 팝업 양방향 Tab/Escape/포커스 복귀와 소원 입력도 포함한다. Taste 정적 검사는 계속 0 FAIL/0 WARN이지만 inspector의 별도 Chrome 프로세스가 runner에서 종료됐다. 원본 스킬은 변경하지 않고 CI 전용 임시 launcher에 Playwright와 같은 `--no-sandbox` 실행 설정을 적용한다. 실제 앱/배포 설정을 변경하는 것이 아니며, 이 runner는 저장소의 로컬 미리보기만 검사한다.
 
 완성 상태 캡처에서는 다음 행동이 태그 찾기로 남아 있는 점을 추가 발견했다. 전체 수집 후에는 완성 화면으로 이어지도록 수정하고 검수 대기 개수도 수집판 설명에 별도로 표시한다.
+
+## 최종 검수 근거
+
+[CI 41593244729](https://github.com/anonymity-developer/connection_16/actions/runs/41593244729)에서 Frontend/Backend/Docker가 모두 성공했다. `checks.json`의 브라우저 여섯 묶음은 모두 성공했고 pageErrors/writes는 빈 목록이었다. 운영 inspector는 0 FAIL/1 WARN(tiny-text)이었다. 보조 글자 경고는 무시하지 않고 수집 라벨/수집판 설명/준비 안내/미션 설명/상태 글자를 13px로 높였다. Taste 원본의 사전 정의된 세로 높이를 사용하는 1440/768/390px로 inspector를 실행하며, 별도 Playwright 검사가 360/390/430/768/1440px를 모두 확인한다. **최종 커밋 결과는 [PR #2 checks](https://github.com/anonymity-developer/connection_16/pull/2/checks)와 그 커밋의 frontend-ui-review가 기준이다.**
+
+### 화면 비평 기록
+
+앱 절차에 맞춰 수집·입력 화면을 평가했다. 마케팅 페이지의 사진/영상 수와 큰 홍보 제목 기준은 적용하지 않았다. 점수는 렌더를 본 주관적 평가이며 자동 통과 점수나 사용자 검증 결과가 아니다.
+
+ROUND 1
+Seen in one second: SSAFY 다섯 글자 수집판.
+Idea (one sentence): 다섯 미션이 하나의 수집 대상에 모이고 다음 행동으로 이어진다.
+Live thing: 각 미션 안내와 계정 입력으로 이동한다.
+Layout words by section: home=collection+next / missions=list / auth=form+guide.
+Scores: design 7 · usability 7 · creativity 7 · content 8 → overall 7.1.
+Caps applied: 앱 기준으로 평가; 페이지용 미디어 수 규칙은 해당하지 않는다.
+Top three problems:
+1. home-390/360의 수집 라벨이 한글 단어 중간에서 잘림 → 짧은 소원/탭 게임/응원 라벨.
+2. login-390 계정 안내 제목의 두 문장이 붙음 → 명시적 줄바꿈 유지.
+3. login-390 입력 경계가 약함 → 경계선 대비 3.28:1로 조정.
+
+ROUND 2
+Seen in one second: 획득한 SSAFY 글자와 진행률.
+Idea (one sentence): 잠금/대기/완료의 차이를 수집판과 미션에서 일관되게 읽는다.
+Live thing: 상태 전환, OTP 붙여넣기와 대표 소원 확인 팝업.
+Layout words by section: home=collection+next / missions=status-list / wish=input+conditions.
+Scores: design 7.5 · usability 7 · creativity 7 · content 8 → overall 7.3.
+Caps applied: 완료 화면의 다음 행동과 키보드 포커스를 보완할 필요가 있다.
+Top three problems:
+1. home-preview-complete-390의 완료 후 행동이 태그 안내로 남음 → 완성 화면으로 이동.
+2. 실제 브라우저 검사에서 팝업 Tab이 브라우저 영역으로 빠짐 → 양방향 포커스 순환.
+3. 검수 대기 개수가 다음 미션 안내에 가려짐 → 수집판 설명에 별도 표시.
+
+ROUND 3
+Seen in one second: 미션 목적이 구분된 수집판과 다음 행동.
+Idea (one sentence): 같은 다섯 글자를 기준으로 잠금부터 완성까지 길을 잃지 않게 한다.
+Live thing: 완료 화면 이동과 검증된 계정/소원 입력, 팝업의 닫기와 포커스 복귀.
+Layout words by section: home=collection+next / missions=list / auth=form+guide / wish=state+input.
+Scores: design 7.5 · usability 8 · creativity 7 · content 8 → overall 7.6.
+Caps applied: 앱에 필요한 독자적인 수집 대상이 있으나, 전반 표현은 절제된 익숙한 앱 패턴이다.
+Top three problems:
+1. 모바일 미션 설명과 라벨의 12px 비중 → 13px로 확대 후 최종 CI 재검사.
+2. 고정 하단 메뉴가 full-page 캡처의 중간에 보임 → 실제 390px viewport 캡처도 별도로 저장해 접힘 위치를 확인한다. 실제 스크롤 시 고정 메뉴는 화면 하단에 유지된다.
+3. UI 미리보기와 실제 참여의 혼동 가능성 → 입력 전 안내와 개발 상태 바, 완료/소원 팝업에서 전송·저장 없음 유지.
+
+실기기 NFC/QR와 실제 DM/서버 장애·대기 상태는 아직 검증 대상이 아니다. API 연결과 나머지 미션/프로필/탐색 화면은 다음 페이즈에서 구현한다.

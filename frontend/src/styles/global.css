@@ -77,7 +77,7 @@ p { word-break: keep-all; overflow-wrap: anywhere; }
 .letter-slot { position: relative; display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 20px 4px 14px; border: 1px solid var(--border); border-radius: var(--control-radius); background: var(--ground); }
 .letter-slot:hover { border-color: var(--accent); background: var(--accent-soft); }
 .letter-slot strong { font-size: 48px; font-weight: 500; line-height: 1.1; letter-spacing: -.05em; color: #766b74; }
-.slot-name { font-size: 12px; font-weight: 500; line-height: 1.25; text-align: center; min-height: 28px; display: flex; align-items: center; overflow-wrap: normal; }
+.slot-name { font-size: 13px; font-weight: 500; line-height: 1.25; text-align: center; min-height: 28px; display: flex; align-items: center; overflow-wrap: normal; }
 .slot-state { color: var(--muted); }
 .letter-slot.is-collected { background: var(--accent-soft); border-color: var(--accent-track); }
 .letter-slot.is-collected strong, .letter-slot.is-collected .slot-state { color: var(--accent); }
@@ -109,7 +109,7 @@ p { word-break: keep-all; overflow-wrap: anywhere; }
 .mission-row-copy p { color: var(--muted); font-size: 13px; margin-top: 4px; }
 .mission-row-state { display: flex; gap: 18px; align-items: center; flex-shrink: 0; }
 .mission-link-label { color: var(--muted); font-size: 13px; }
-.state-badge { display: inline-flex; gap: 6px; align-items: center; font-size: 12px; font-weight: 500; color: var(--muted); }
+.state-badge { display: inline-flex; gap: 6px; align-items: center; font-size: 13px; font-weight: 500; color: var(--muted); }
 .state-completed { color: var(--positive); }
 .state-pending { color: var(--warning); }
 .state-unlocked { color: var(--accent-ink); }
@@ -240,19 +240,19 @@ p { word-break: keep-all; overflow-wrap: anywhere; }
   .letter-slots { gap: 6px; }
   .letter-slot { padding: 16px 3px 12px; gap: 7px; }
   .letter-slot strong { font-size: 40px; }
-  .slot-name { min-height: 30px; font-size: 12px; }
-  .collection-caption { font-size: 12px; margin-top: 16px; }
+  .slot-name { min-height: 34px; font-size: 13px; }
+  .collection-caption { font-size: 13px; margin-top: 16px; }
   .next-panel { padding: 20px; }
   .next-panel > p { margin-bottom: 16px; }
   .next-panel h2 { font-size: 17px; }
   .next-panel .button { width: 100%; }
-  .preparation-note { font-size: 12px; }
+  .preparation-note { font-size: 13px; }
   .preparation-note b { display: block; margin-bottom: 4px; }
   .mission-section { margin-top: 20px; }
   .mission-row { gap: 12px; padding: 18px 16px; min-height: 104px; flex-wrap: wrap; }
   .mission-row-copy h3 { display: block; font-size: 14px; }
   .mission-row-copy h3 span { display: block; font-size: 13px; margin-top: 3px; }
-  .mission-row-copy p { font-size: 12px; }
+  .mission-row-copy p { font-size: 13px; }
   .mission-row-state { gap: 0; }
   .mission-link-label { display: none; }
   .mission-row-state:has(.state-badge) { width: 100%; padding-left: 56px; margin-top: -4px; justify-content: space-between; }

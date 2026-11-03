@@ -52,7 +52,7 @@ jobs:
           export CHROME_PATH=/tmp/tagme-taste-chrome
           cd ..
           node scripts/taste.mjs lint --app frontend/src
-          node scripts/taste.mjs inspect http://127.0.0.1:4173 --app --widths 360,390,430,768,1440 --out .taste-skill/production
+          node scripts/taste.mjs inspect http://127.0.0.1:4173 --app --widths 1440,768,390 --out .taste-skill/production
       - uses: actions/upload-artifact@v4
         if: always()
         with:
