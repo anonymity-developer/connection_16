@@ -44,3 +44,7 @@ backups/
 appendonlydir/
 playwright-report/
 test-results/
+.taste-skill/
+output/playwright/
+.playwright-cli/
+.codex-log/
