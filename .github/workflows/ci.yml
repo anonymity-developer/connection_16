@@ -30,7 +30,37 @@ jobs:
           cache-dependency-path: frontend/package-lock.json
       - run: npm ci
       - run: npm run lint
+      - run: npm run test:unit
       - run: npm run build
+      - name: Install browser and Korean fonts
+        run: |
+          npx playwright install --with-deps chromium
+          sudo apt-get install --yes fonts-noto-cjk
+      - name: Check production layouts and development-only interactions
+        run: npm run test:ui
+      - name: Inspect production app with Taste
+        run: |
+          npm run preview -- --port 4173 > /tmp/tagme-preview.log 2>&1 &
+          preview_pid=$!
+          trap 'kill "$preview_pid"' EXIT
+          curl --retry 5 --retry-connrefused --retry-delay 1 --max-time 3 --fail http://127.0.0.1:4173/ > /dev/null
+          chrome_executable="$(node -e "console.log(require('playwright').chromium.executablePath())")"
+          # Match Playwright's browser sandbox setting on the ephemeral runner.
+          # This launcher is used only to inspect this repository's local UI.
+          printf '#!/usr/bin/env bash\nexec "%s" --no-sandbox "$@"\n' "$chrome_executable" > /tmp/tagme-taste-chrome
+          chmod +x /tmp/tagme-taste-chrome
+          export CHROME_PATH=/tmp/tagme-taste-chrome
+          cd ..
+          node scripts/taste.mjs lint --app frontend/src
+          node scripts/taste.mjs inspect http://127.0.0.1:4173 --app --widths 1440,768,390 --out .taste-skill/production
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: frontend-ui-review
+          path: |
+            output/playwright/
+            .taste-skill/production/
+          include-hidden-files: true
 
   backend:
     name: Backend
