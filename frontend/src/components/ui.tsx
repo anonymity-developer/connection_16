@@ -32,5 +32,5 @@ export function Dialog({ open, title, children, onClose }: { open: boolean; titl
 }
 
 export function EmptyState({ title, children, action }: { title: string; children: ReactNode; action?: ReactNode }) {
-  return <section className="empty-state"><span className="empty-symbol"><Icon name="sparkles" size={32} /></span><h2>{title}</h2><p>{children}</p>{action}</section>;
+  return <section className="empty-state"><span className="empty-symbol"><Icon name="tag" size={28} /></span><h2>{title}</h2><p>{children}</p>{action}</section>;
 }

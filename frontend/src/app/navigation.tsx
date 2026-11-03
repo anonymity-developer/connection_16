@@ -1,4 +1,5 @@
 import { useSyncExternalStore } from 'react';
+import { destinationHref } from './destination';
 import type { AnchorHTMLAttributes, MouseEvent } from 'react';
 
 const eventName = 'tagme:navigation';
@@ -18,21 +19,16 @@ export function useLocation() {
 }
 
 export function navigate(href: string) {
-  const destination = new URL(href, window.location.origin);
+  const target = destinationHref(href, window.location.href, import.meta.env.DEV);
+  const destination = new URL(target, window.location.origin);
   if (destination.origin !== window.location.origin) return;
-  // Keep an explicitly requested local UI preview when changing screens.
-  if (import.meta.env.DEV && new URLSearchParams(window.location.search).has('preview')) {
-    destination.searchParams.set('preview', new URLSearchParams(window.location.search).get('preview') ?? 'locked');
-  }
-  window.history.pushState(null, '', destination.pathname + destination.search + destination.hash);
+  window.history.pushState(null, '', target);
   window.dispatchEvent(new Event(eventName));
 }
 
 export function Link({ href = '/', onClick, ...props }: AnchorHTMLAttributes<HTMLAnchorElement>) {
-  const preview = import.meta.env.DEV ? new URLSearchParams(window.location.search).get('preview') : null;
-  const url = new URL(href, window.location.origin);
-  if (preview !== null && url.origin === window.location.origin) url.searchParams.set('preview', preview);
-  const targetHref = url.origin === window.location.origin ? url.pathname + url.search + url.hash : href;
+  const targetHref = destinationHref(href, window.location.href, import.meta.env.DEV);
+  const url = new URL(targetHref, window.location.origin);
   function click(event: MouseEvent<HTMLAnchorElement>) {
     onClick?.(event);
     if (event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.altKey || event.shiftKey || props.target === '_blank' || props.download !== undefined || url.origin !== window.location.origin) return;

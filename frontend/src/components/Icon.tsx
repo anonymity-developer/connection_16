@@ -1,9 +1,10 @@
 import type { CSSProperties, ReactNode } from 'react';
 
-export type IconName = 'arrow' | 'lock' | 'check' | 'person' | 'sparkles' | 'coin' | 'bolt' | 'message' | 'home' | 'people' | 'close' | 'eye' | 'eyeOff' | 'tag' | 'heart' | 'clock';
+export type IconName = 'arrow' | 'arrowLeft' | 'lock' | 'check' | 'person' | 'sparkles' | 'coin' | 'bolt' | 'message' | 'home' | 'people' | 'close' | 'eye' | 'eyeOff' | 'tag' | 'heart' | 'clock';
 
 const paths: Record<IconName, ReactNode> = {
   arrow: <><path d="M5 12h14M13 6l6 6-6 6" /></>,
+  arrowLeft: <path d="M19 12H5m6-6-6 6 6 6" />,
   lock: <><rect x="5" y="10" width="14" height="11" rx="3" /><path d="M8 10V7a4 4 0 0 1 8 0v3M12 14v3" /></>,
   check: <path d="m5 12 4 4L19 6" />,
   person: <><circle cx="12" cy="8" r="4" /><path d="M4 21v-2a8 8 0 0 1 16 0v2" /></>,
