@@ -122,9 +122,11 @@ try {
     const submit = page.getByRole('button', { name: '가입하기', exact: true });
     await submit.click();
     await page.getByRole('dialog').waitFor();
-    for (let index = 0; index < 5; index++) {
-      await page.keyboard.press('Tab');
-      assert.equal(await page.evaluate(() => !!document.activeElement?.closest('dialog')), true);
+    for (const key of ['Tab', 'Shift+Tab']) {
+      for (let index = 0; index < 5; index++) {
+        await page.keyboard.press(key);
+        assert.equal(await page.evaluate(() => !!document.activeElement?.closest('dialog')), true);
+      }
     }
     await page.keyboard.press('Escape');
     assert.equal(await page.getByRole('dialog').isVisible(), false);
