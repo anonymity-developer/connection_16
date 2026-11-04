@@ -29,6 +29,9 @@ try {
     const reply = (status, data, headers = {}) => route.fulfill({ status, contentType: 'application/json', headers, body: status === 204 ? undefined : JSON.stringify(data) });
     if (method === 'GET' && path === '/auth/config') return reply(200, { available: true, passwordMinLength: 15, passwordMaxLength: 64 });
     if (method === 'GET' && path === '/users/me') return user ? reply(200, user) : reply(401, { code: 'UNAUTHENTICATED', message: '로그인이 필요합니다.' });
+    if (method === 'GET' && path === '/tags/pending') return reply(200, { present: false });
+    if (method === 'GET' && path === '/event') return reply(200, { status: 'NOT_CONFIGURED', opensAt: null, submitClosesAt: null, profilePreparationEnabled: false });
+    if (method === 'GET' && path === '/missions/collection') return reply(200, { missions: ['SHOW_ME', 'SYNC_ME', 'MAKE_A_WISH', 'FAST_TAP', 'SAY_SOMETHING'].map((code, index) => ({ id: index + 1, code, state: 'LOCKED', active: true })), completedCount: 0, completion: { complete: false, completedAt: null, completionOrder: null, awardConfirmed: false } });
     if (method === 'GET' && path === '/csrf') return reply(200, { headerName: 'X-XSRF-TOKEN', token: 'test-csrf-token' });
     assert.equal(request.headers()['x-xsrf-token'], 'test-csrf-token', 'every mutation includes CSRF');
     const body = request.postDataJSON();

@@ -2,7 +2,7 @@
 
 ## 1. 공통 규칙
 
-기본 경로는 `/api/v1`, JSON 응답, 서버 세션 쿠키, UTC ISO-8601 시각을 사용한다. 브라우저는 동일 출처로 요청하며 변경 요청은 CSRF 헤더가 필요하다. 기본 API는 아래 표에 있으며, 인증/내 계정 API도 구현했다. 나머지 도메인은 개발 계획이다. 인증의 정확한 스키마는 [인증 OpenAPI](auth.openapi.yaml)를 따른다.
+기본 경로는 `/api/v1`, JSON 응답, 서버 세션 쿠키, UTC ISO-8601 시각을 사용한다. 브라우저는 동일 출처로 요청하며 변경 요청은 CSRF 헤더가 필요하다. 기본 API는 아래 표에 있으며, 인증과 페이즈 3의 프로필/동의/태그/수집판 API도 구현했다. 그 밖의 도메인은 개발 계획이다. 정확한 스키마는 [인증 OpenAPI](auth.openapi.yaml)와 [참여 OpenAPI](participation.openapi.yaml)를 따른다.
 
 사용자 동선은 [유저 플로우](user-flows.md), 저장 관계는 [전체 ERD](erd.md), 트랜잭션은 [구현 계획](implementation-plan.md)을 따른다. 아래 예시와 추가 경로는 후속 구현 계약이며 현재 호출 가능한 API라고 안내하지 않는다.
 
@@ -26,7 +26,7 @@ Actuator의 `/actuator/health`, `/actuator/health/readiness`는 컨테이너/로
 | 429 | 발송/입력/제출 속도 제한; Retry-After 제공 |
 | 503 | 외부 인증 API 장애 등 일시적 처리 불가 |
 
-## 2. 인증 구현과 후속 프로필
+## 2. 인증과 프로필 구현
 
 | Method | 경로 | 요청/결과 요점 |
 | --- | --- | --- |
@@ -38,13 +38,13 @@ Actuator의 `/actuator/health`, `/actuator/health/readiness`는 컨테이너/로
 | POST | `/auth/password/reset` | challengeId, code, newPassword → 본인 DM 인증 후 기존 비밀번호 재설정/모든 이전 세션 무효화 |
 | POST | `/auth/logout` | 세션 무효화 → 204 |
 | GET | `/users/me` | 내 계정/프로필/필요한 동의 상태 |
-| PUT | `/users/me/profile` | nickname, bio, interestIds, githubUrl?, blogUrl?, isPublic, consentVersion |
+| PUT | `/users/me/profile` | nickname, realName, classNo, bio, interestIds, githubUrl?, blogUrl?, isPublic, acceptPolicies, expectedVersion |
 | GET | `/profiles` | 공개 목록; cursor, limit, interestId, typeCode 필터 |
 | GET | `/interests` | 관심사 ID/이름 목록 |
 
 가입/로그인/OTP 발송/분실 재설정은 필요한 POST 경로만 permitAll에 추가했다. PASSWORD_CHANGE 발송과 `/users/me/password`는 세션이 필요하다. permitAll도 CSRF와 rate limit을 적용한다. 일반 로그인은 아이디/비밀번호이며 OTP만으로 로그인하는 `/auth/otp/verify`는 제공하지 않는다. GET `/users/{id}`를 별도로 만들면 방문 기록을 우회하기 쉬우므로 **상세 정보는 아래 POST open 경로로 통일**한다.
 
-위 표 중 인증과 GET `/users/me`는 구현했고 프로필 수정/목록/관심사는 예정 API다. `onboardingRequired`는 현재 프로필/핵심 정보 미완성 여부이며 동의 완료를 확인했다는 뜻이 아니다.
+위 표 중 공개 프로필 목록 `/profiles`는 예정이며 그 외 경로는 구현했다. `onboardingRequired`는 필수 프로필/관심사/현재 정책 동의/공개 상태를 포함한다. 직접 입력한 이름과 반의 외부 검증을 뜻하지 않는다. 동의/기간/버전 규칙은 [참여 계약](participation.md)을 따른다.
 
 `code`는 **숫자 6자리 문자열**이며 `^[0-9]{6}$`로 검증한다. 숫자 타입으로 변환하지 않아 앞자리 0을 유지한다. 영문/기호는 허용하지 않는다. 인증번호는 매 발급 시 안전하게 새로 생성하는 일회용 값이며 고정 공용 번호가 아니다. challenge ID는 인증 요청을 식별하는 별도 값으로, 사용자가 입력하는 인증번호와 구분한다.
 
@@ -79,22 +79,24 @@ challenge의 purpose는 SIGN_UP/PASSWORD_CHANGE/PASSWORD_RESET이며 계정/작�
 }
 ```
 
-## 3. 태그와 미션 — 예정
+## 3. 태그와 미션 구현
 
 | Method | 경로 | 요청/결과 요점 |
 | --- | --- | --- |
 | POST | `/tags/resolve` | token → missionCode, 상태, 진입 경로 |
-| GET | `/missions` | 해금 여부, 완료 여부, 힌트 |
+| GET | `/missions` | collection과 같은 5개 미션/개수/전체 완료 응답 |
 | GET | `/missions/collection` | SHOW_ME/SYNC_ME를 구분한 5칸 수집판 |
 | GET | `/missions/completion` | 전체 완료, 완료 시각, 운영상 순번, 시상 미확정 여부 |
 
 클라이언트에 직접 미션을 완료하는 범용 POST API를 제공하지 않는다. 각 기능의 서버 검증 결과가 내부 완료 서비스를 호출한다.
 
+GET `/event`, `/policies`, `/users/me/profile`, GET/POST `/tags/pending`, POST `/tags/resume`, PUT `/users/me/consents/{type}`도 구현했다. 정책 미설정은 참여 쓰기를 차단하며, 실제 원문/일정/태그는 시드하지 않는다. 상세 응답은 [참여 OpenAPI](participation.openapi.yaml)가 기준이다.
+
 ### 태그 진입 및 해금 계약
 
 - NFC/QR의 `/t/{token}`은 SPA 진입 경로이며 API가 아니다. 토큰은 무작위 32바이트를 padding 없는 Base64URL로 인코딩한 43자리 값이다. 서버는 `^[A-Za-z0-9_-]{43}$`로 형식을 검사하고 SHA-256 해시로 태그를 조회한다.
 - `POST /api/v1/tags/resolve`는 로그인 세션과 CSRF 헤더를 요구한다. 요청 본문은 `{ "token": "<태그에서-읽은-43자리-토큰>" }`이며 이 예시의 자리표시자는 실제 유효 토큰이 아니다. 미션 코드나 ID로 토큰을 대체할 수 없다.
-- 공개 메인 페이지 접속은 참여 권한을 부여하지 않는다. 인증 전 태그 진입은 로그인 후 이어서 처리하고, 인증되지 않은 resolve는 401로 거절한다.
+- 공개 메인 페이지 접속은 참여 권한을 부여하지 않는다. 인증 전 태그 의도는 15분간 서버 세션에 hash로 보관하여 로그인 후 이어서 처리하고, 인증되지 않은 resolve는 401로 거절한다.
 - 형식 오류는 400, 형식은 맞지만 없거나 비활성인 태그는 구분하지 않고 404로 응답한다. 미션 비활성/행사 기간 외 요청은 403으로 거절한다. 이미 해금한 유효 태그는 현재 상태를 반환한다.
 - 미션 목록/수집판은 상태와 힌트를 보여줄 수 있지만 **각 미션 수행 API는 해당 사용자의 해금 기록을 서버에서 다시 확인**한다. 미해금 상태의 직접 요청은 403이다. 화면 잠금만으로 검사하지 않는다.
 - 성공 응답과 목록에는 원문 토큰이나 다른 태그 토큰을 포함하지 않는다. 추측하기 어려운 태그 토큰을 사용하되 일반 API 경로는 의미가 드러나는 이름으로 유지한다. 태그 URL 공유를 통한 해금은 가능하며 현장 체류를 증명하지 않는다.

@@ -40,6 +40,8 @@ jobs:
         run: npm run test:ui
       - name: Check authentication browser contracts
         run: npm run test:auth-ui
+      - name: Check participation browser contracts
+        run: npm run test:participation-ui
       - name: Inspect production app with Taste
         run: |
           npm run preview -- --port 4173 > /tmp/tagme-preview.log 2>&1 &

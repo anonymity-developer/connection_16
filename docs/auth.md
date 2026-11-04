@@ -30,7 +30,7 @@ V3가 `users.mattermost_username`과 `user_credentials`를 추가한다. usernam
 5. `/auth/signup`에 challengeId/code/password를 함께 제출한다.
 6. 비밀번호 형식, purpose/바인딩, 원자적 OTP 소비, 외부 계정 재검증을 거친다.
 7. 회원과 credentials를 같은 DB 트랜잭션으로 저장한 뒤 세션 ID를 바꾸고 인증을 저장한다.
-8. 프론트는 onboardingRequired이면 내 계정으로 이동한다. 프로필/동의 등록은 다음 페이즈다.
+8. 프론트는 onboardingRequired이면 내 계정으로 이동한다. 프로필/동의 등록은 [참여 계약](participation.md)에 구현했다.
 
 이미 비밀번호가 있는 계정은 SIGN_UP으로 덮어쓰지 않는다. V1의 기존 무자격증명 계정은 같은 외부 ID에 대한 DM 확인 후 최초 비밀번호를 설정할 수 있다. 동명이거나 username이 충돌해도 자동 합병하지 않는다.
 
@@ -77,7 +77,7 @@ OTP 요청은 미존재/미가입/기존 가입/비적격 계정에 같은 형�
 - Redis에서 이전 버전의 indexed session도 삭제한다. 새 버전으로 로그인한 세션을 무조건 같이 삭제하지 않는다.
 - DB/Redis 조회 장애는 확인을 생략하지 않고 실패한다. API 응답은 no-store다.
 - 운영 쿠키는 기존 HTTPS/Secure/HttpOnly/SameSite=Lax 설정을 따른다. 로그인/로그아웃/변경 후 프론트는 CSRF를 다시 받는다.
-- 프로필/공개 동의/미션 해금은 아직 연결하지 않았다. 인증 세션이 미션 수행 권한이나 공개 동의를 의미하지 않는다.
+- 페이즈 3에서 프로필/공개 동의/태그 해금을 연결했다. 인증 세션이 미션 수행 권한이나 공개 동의를 의미하지 않는다.
 
 ## 5. 구현 API
 
@@ -91,7 +91,7 @@ OTP 요청은 미존재/미가입/기존 가입/비적격 계정에 같은 형�
 | POST | `/auth/signup` | challengeId/code/password → 201, 내 계정 + 세션 |
 | POST | `/auth/login` | username/password → 내 계정 + 세션; OTP 없음 |
 | POST | `/auth/logout` | 세션 + CSRF → 204 |
-| GET | `/users/me` | 내 계정 ID/username/nickname/onboardingRequired; 외부 내부 ID/hash 미포함 |
+| GET | `/users/me` | 내 계정 ID/username/nickname/onboardingRequired; 필수 프로필·현재 동의·공개 상태 반영, 외부 내부 ID/hash 미포함 |
 | PUT | `/users/me/password` | challengeId/code/newPassword → 204, 기존 세션 차단 |
 | POST | `/auth/password/reset` | challengeId/code/newPassword → 204, 자동 로그인 없음 |
 

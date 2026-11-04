@@ -580,7 +580,7 @@ components:
           - 'null'
         onboardingRequired:
           type: boolean
-          description: 프로필/기본 정보 미완성 여부. 공개 동의 완료를 의미하지 않는다.
+          description: 필수 프로필/관심사/현재 정책 동의/공개 상태 미완성 여부. 이름/반의 외부 검증을 의미하지 않는다.
     OtpRequest:
       type: object
       additionalProperties: false

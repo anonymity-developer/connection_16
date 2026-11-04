@@ -19,7 +19,14 @@ public class AuthRepository {
     }
     private static final String SELECT = """
             SELECT u.*, c.password_hash, c.credential_version, p.nickname,
-                (p.user_id IS NULL OR u.real_name IS NULL OR u.region IS NULL OR u.class_no IS NULL) AS needs_onboarding
+                (p.user_id IS NULL OR u.real_name IS NULL OR u.region IS NULL OR u.class_no IS NULL
+                 OR TRIM(COALESCE(p.nickname,''))='' OR TRIM(COALESCE(u.real_name,''))=''
+                 OR u.region<>'서울' OR TRIM(COALESCE(p.bio,''))='' OR p.is_public=FALSE
+                 OR NOT EXISTS (SELECT 1 FROM user_interests i WHERE i.user_id=u.id)
+                 OR (SELECT COUNT(*) FROM current_consent_policies) <> 2
+                 OR EXISTS (SELECT 1 FROM current_consent_policies cp WHERE NOT EXISTS (
+                    SELECT 1 FROM user_consents uc WHERE uc.user_id=u.id AND uc.policy_type=cp.policy_type
+                    AND uc.policy_version=cp.policy_version AND uc.withdrawn_at IS NULL))) AS needs_onboarding
             FROM users u LEFT JOIN user_credentials c ON c.user_id=u.id LEFT JOIN profiles p ON p.user_id=u.id
             """;
     private Account account(ResultSet row, int ignored) throws SQLException {

@@ -1,3 +1,4 @@
+import { participationApi } from '../participation/api';
 import { createContext, useContext, useEffect, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import { useLocation } from '../../app/navigation';
@@ -19,6 +20,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [ready, setReady] = useState(false);
   const [config, setConfig] = useState<AuthConfig>(unavailable);
   const [user, setUser] = useState<SessionUser | null>(null);
+  const [pendingTag, setPendingTag] = useState(false);
   const [flash, setFlash] = useState('');
   const returnPath = useRef<string | null>(null);
   const revision = useRef(0);
@@ -27,8 +29,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const requestRevision = ++revision.current;
     if (preview) { setUser(null); setConfig(unavailable); setReady(true); return; }
     setReady(false);
-    Promise.all([authApi.config().catch(() => unavailable), authApi.me().catch(() => null)]).then(([nextConfig, nextUser]) => {
-      if (active && requestRevision === revision.current) { setConfig(nextConfig); setUser(nextUser); setReady(true); }
+    Promise.all([authApi.config().catch(() => unavailable), authApi.me().catch(() => null), participationApi.pending().catch(() => ({ present: false }))]).then(([nextConfig, nextUser, pending]) => {
+      if (active && requestRevision === revision.current) { setConfig(nextConfig); setUser(nextUser); setPendingTag(pending.present); setReady(true); }
     });
     return () => { active = false; };
   }, [location, preview]);
@@ -39,7 +41,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
   function acceptUser(next: SessionUser | null) { revision.current++; setUser(next); setReady(true); }
   function rememberReturnPath(path: string) { if (/^\/t\/[A-Za-z0-9_-]{43}$/.test(path)) returnPath.current = path; }
-  function takeReturnPath() { const path = returnPath.current ?? '/'; returnPath.current = null; return path; }
+  function takeReturnPath() { const path = pendingTag || returnPath.current ? '/t/resume' : '/'; returnPath.current = null; return path; }
   return <AuthContext.Provider value={{ ready, config, user, flash, acceptUser, setFlash, rememberReturnPath, takeReturnPath }}>{children}</AuthContext.Provider>;
 }
 export function useAuth() {

@@ -1,6 +1,6 @@
 # 전체 도메인 ERD와 관계 규칙
 
-이 문서는 읽기 편하게 도메인별로 나눈 전체 설계다. **1~3절의 기본 도식은 V1에 존재하는 테이블**이며, **1.1절 로그인 확장은 V3이며 4~9절은 후속 migration 계획**이다. 후속 컬럼/타입은 migration 작성 시 검증하며, 존재하지 않는 FK나 테이블을 이미 적용한 것처럼 사용하지 않는다. 전체 테이블 사전과 인덱스 요약은 [데이터 모델](data-model.md)에 있다.
+이 문서는 읽기 편하게 도메인별로 나눈 전체 설계다. **1~3절의 기본 도식은 V1에 존재하는 테이블**이며, **1.1절 로그인 확장은 V3다. 8절의 접수/완료 근거와 9절의 동의/행사 설정 일부는 V4에 구현했고, 콘텐츠/게임/시상/신고/활동은 후속 계획**이다. 후속 컬럼/타입은 migration 작성 시 검증하며, 존재하지 않는 FK나 테이블을 이미 적용한 것처럼 사용하지 않는다. 전체 테이블 사전과 인덱스 요약은 [데이터 모델](data-model.md)에 있다.
 
 단일 행사 기준이며 다중 행사를 지원하려면 event_id와 UNIQUE 범위를 다시 설계해야 한다. 아래 대문자 엔티티는 실제 snake_case 테이블을 가리킨다. PK/FK/UK는 기본키/외래키/유일 제약이며 복합키는 설명에서 다시 명시한다.
 
@@ -330,7 +330,7 @@ erDiagram
 - 시작 전 취소는 CANCELLED, 시작 후 중단은 INTERRUPTED 등 이력으로 남긴다. 상세 전이는 [서버 처리 설계](architecture.md)의 게임 상태를 따른다.
 - 서버 시작 시각/종료 시각/제출 유예가 기준이다. 이벤트 상대 시간은 검증 보조 데이터이며 브라우저 조작을 완전히 방지하지 못한다.
 
-## 8. 접수 근거와 시상 — 후속 설계
+## 8. 접수 근거(V4)와 시상(후속)
 
 ```mermaid
 erDiagram
@@ -361,9 +361,9 @@ erDiagram
     }
 ```
 
-submission_receipts는 콘텐츠 revision, 성향/게임 결과, 프로필 완료 또는 해금 접수의 서버 시각과 고유 접수 ID를 남기는 후속 설계다. 동일 비즈니스 요청 재시도는 기존 영수증을 재사용하며 새 접수 순서를 얻지 않는다. 미션 근거는 유효한 최초 접수만 선택한다. receipt_order가 참조하는 ID와 시각을 승인 처리 시 새로 발급하지 않는다.
+submission_receipts와 mission_completion_evidence는 V4에 구현했다. 현재 PROFILE/TAG_UNLOCK 접수를 저장하며, 콘텐츠 revision과 성향/게임 결과의 실제 생성은 후속이다. 동일 비즈니스 요청 재시도는 기존 영수증을 재사용하며 새 접수 순서를 얻지 않는다. 미션 근거는 유효한 최초 접수만 선택한다. receipt_order가 참조하는 ID와 시각을 승인 처리 시 새로 발급하지 않는다.
 
-source_kind/source_id는 여러 도메인을 참조하는 식별자라 일반 FK 하나로 모든 대상 무결성을 보장할 수 없다. 유효한 소스 존재, 작성자/미션 일치, 승인 상태를 서비스에서 검증한다. 이미 저장된 receipt를 다른 사용자나 소스로 바꾸지 않는다. 같은 소스의 중복 접수 방지용 `UNIQUE(user_id,source_kind,source_id)`를 추가한다. 콘텐츠는 revision ID, 게임은 attempt ID, 최초 프로필은 user ID를 source_id로 사용하며 TAG_UNLOCK은 mission ID로 구분한다. 사용자별로 키를 묶으므로 같은 미션을 여러 사람이 해금해도 충돌하지 않는다.
+source_kind/source_id는 여러 도메인을 참조하는 식별자라 일반 FK 하나로 모든 대상 무결성을 보장할 수 없다. 유효한 소스 존재, 작성자/미션 일치, 승인 상태를 서비스에서 검증한다. 이미 저장된 receipt를 다른 사용자나 소스로 바꾸지 않는다. 같은 소스의 중복 접수 방지용 `UNIQUE(user_id,source_kind,source_id)`를 추가한다. 콘텐츠는 revision ID, 게임은 attempt ID, 프로필은 사용자별 profile.version을 source_id로 사용하며 TAG_UNLOCK은 mission ID로 구분한다. 사용자별로 키를 묶으므로 같은 미션을 여러 사람이 해금해도 충돌하지 않는다.
 
 SHOW ME의 프로필을 태그보다 먼저 완성했다면 유효 완료 근거는 **두 조건이 모두 충족된 해금 접수**다. 그 외에도 해금 이전 행위를 수행 시간으로 인정하지 않는다. accepted_received_at은 해금/유효 수행 두 조건을 만족한 접수 시각이며, 검수 승인 시각과 다르다.
 
@@ -396,7 +396,7 @@ erDiagram
 
 `UNIQUE(award_run_id,award_type,rank)`로 한 정산의 동일 수상 자리를 중복 배정하지 않는다. 재정산은 새 run으로 만들고 발표 이후 정정은 별도 이력을 남긴다. 초기 자동화는 후보 snapshot 생성이며 관리자 최종 확정과 구분한다. 경품 지급 연락처를 별도 수집한다면 목적/보관 기간을 정한 뒤 추가 설계하며 현재 ERD에 이미 있다고 가정하지 않는다.
 
-## 9. 신고, 동의, 설정과 감사 — 후속 설계
+## 9. 신고, 동의/설정(V4)과 신고/감사(후속)
 
 ```mermaid
 erDiagram
@@ -465,3 +465,39 @@ event_settings는 id=1인 단일 행사 설정이다. `opens_at < submit_closes_
 4. 중복 소원/카드/하트/방문/성향/완료는 UNIQUE/PK로 보장한다. UI 버튼 비활성화만으로 중복을 막지 않는다.
 5. 완료/시상/감사 기록을 단순 cascade 삭제하지 않는다. 탈퇴/비식별화와 보존 기간은 행사 동의 정책을 따른다.
 6. 원문 토큰, OTP와 세션 ID는 ERD의 영속 업무 데이터가 아니다. 세션/OTP/속도 제한은 Redis의 만료 상태로 관리하며 OTP에는 계정/purpose를 바인딩한다. 영속 비밀번호 해시는 V3의 user_credentials에만 보관한다.
+
+## V4 정책 버전과 동의 이력
+
+```mermaid
+erDiagram
+    CONSENT_POLICIES ||--o| CURRENT_CONSENT_POLICIES : selected
+    CONSENT_POLICIES ||--o{ USER_CONSENTS : accepted
+    USERS ||--o{ USER_CONSENTS : owns
+    USER_CONSENTS ||--o{ USER_CONSENT_EVENTS : history
+    CONSENT_POLICIES {
+        varchar policy_type PK
+        varchar policy_version PK
+        varchar title
+        text body
+    }
+    CURRENT_CONSENT_POLICIES {
+        varchar policy_type PK,FK
+        varchar policy_version FK
+    }
+    USER_CONSENTS {
+        bigint id PK
+        bigint user_id FK
+        varchar policy_type FK
+        varchar policy_version FK
+        datetime agreed_at
+        datetime withdrawn_at
+    }
+    USER_CONSENT_EVENTS {
+        bigint id PK
+        bigint consent_id FK
+        varchar action
+        datetime occurred_at
+    }
+```
+
+user_consents의 `(user_id,policy_type,policy_version)`은 UNIQUE이며 재동의/철회 사건은 append-only events에 남긴다. event_settings는 기존 계획 컬럼에 profile_preparation_enabled를 추가했고 기본 false다. profiles.version은 낙관적 충돌 검사와 PROFILE 접수 식별에 사용한다. 실제 제약은 수정하지 않은 V1~V3와 추가 V4 DDL이 기준이다.

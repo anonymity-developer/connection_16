@@ -2,7 +2,7 @@
 
 ## 1. 적용 범위
 
-현재 실행 가능한 DDL은 `backend/src/main/resources/db/migration`의 V1/V2/V3다. 콘텐츠, 게임, 검수, 시상은 아래 **후속 설계**이며 아직 테이블을 생성하지 않는다. 해당 도메인의 규칙과 함께 마이그레이션을 추가한다.
+현재 실행 가능한 DDL은 `backend/src/main/resources/db/migration`의 V1/V2/V3/V4다. 콘텐츠, 게임, 검수, 시상은 아래 **후속 설계**이며 아직 테이블을 생성하지 않는다. 해당 도메인의 규칙과 함께 마이그레이션을 추가한다.
 
 이 문서의 ERD는 핵심 요약이다. 모든 도메인의 컬럼/관계/복합키와 nullable 규칙은 [전체 도메인 ERD](erd.md)를 함께 읽는다. 현재 SQL과 후속 설계의 경계를 유지하고, 후속 설계를 현재 DB에 적용된 것으로 간주하지 않는다.
 
@@ -90,7 +90,7 @@ erDiagram
 | event_completions | PK user_id, UNIQUE completion_order | 전체 완성 최초 1회; 최종 시상 순위와 분리 |
 | profile_views | PK(viewer_id, viewed_id), self-view CHECK | 최초 상세 방문, 역방향 조회용 인덱스 포함 |
 
-프로필은 회원 생성 직후 없을 수 있어 관계가 0..1이다. 닉네임은 UNIQUE가 아니다. 관심사 초기 목록과 실제 NFC 토큰은 운영 확정 전 임의로 시드하지 않는다. V2에는 다섯 미션과 완료 sequence 초기값만 있다.
+프로필은 회원 생성 직후 없을 수 있어 관계가 0..1이다. 닉네임은 UNIQUE가 아니다. V4는 일반 관심사 카테고리를 시드한다. 실제 NFC 토큰/행사 날짜/동의 원문은 시드하지 않는다. V2에는 다섯 미션과 완료 sequence 초기값만 있다.
 
 ### 3.1. V3 아이디/비밀번호 스키마
 
@@ -101,7 +101,7 @@ erDiagram
 | users 확장 | mattermost_username UNIQUE 추가. 실제 Mattermost에서 조회한 로그인 아이디, 기존 mattermost_id는 외부 계정 연결 키로 유지 |
 | user_credentials 추가 | user_id PK/FK, password_hash VARCHAR(255), password_updated_at DATETIME(6), credential_version BIGINT. 사용자당 비밀번호 해시 하나 |
 
-username은 정식 소문자 값, 최대 64자와 utf8mb4_0900_bin UNIQUE다. 기존 행은 실제 확인 전까지 NULL이다. 가입 전 프로필을 꾸며내지 않도록 real_name/region/class_no도 V3부터 NULL을 허용한다. 비밀번호는 PasswordEncoder 기반 적응형 단방향 해시만 보관하고 공개 DTO에 절대 포함하지 않는다. 변경/재설정은 hash/version을 한 트랜잭션에서 갱신하고 기존 세션을 전부 무효화한다. 기존 비밀번호 없는 계정은 본인 DM 인증 후 최초 비밀번호를 설정한다. [인증 설계](auth.md)와 [ERD의 후속 로그인 모델](erd.md)을 함께 따른다.
+username은 정식 소문자 값, 최대 64자와 utf8mb4_0900_bin UNIQUE다. 기존 행은 실제 확인 전까지 NULL이다. 가입 전 프로필을 꾸며내지 않도록 real_name/region/class_no도 V3부터 NULL을 허용한다. 비밀번호는 PasswordEncoder 기반 적응형 단방향 해시만 보관하고 공개 DTO에 절대 포함하지 않는다. 변경/재설정은 hash/version을 한 트랜잭션에서 갱신하고 기존 세션을 전부 무효화한다. 기존 비밀번호 없는 계정은 본인 DM 인증 후 최초 비밀번호를 설정한다. [인증 설계](auth.md)와 [ERD의 V3 로그인 모델](erd.md)을 함께 따른다.
 
 ## 4. 후속 콘텐츠/검수 ERD
 
@@ -135,7 +135,7 @@ erDiagram
 
 익명 여부는 API serializer에서 강제한다. 내부 author_id가 있다는 이유로 공개 JSON에 그대로 직렬화하지 않는다.
 
-## 5. 후속 게임/결과/시상
+## 5. 게임/결과/시상 계획과 V4 참여 테이블
 
 | 테이블 | 주요 컬럼/제약 |
 | --- | --- |
@@ -143,15 +143,15 @@ erDiagram
 | tap_slots | user_id PK/FK, current_attempt_id, version; 공식 참여 권리 하나 |
 | tap_attempts | id PK, user_id FK, generation, idempotency_key UNIQUE, starts_at, ends_at, submit_deadline, status, tap_count, submitted_at, payload_hash; UNIQUE(user_id,generation) |
 | tap_attempt_events | id PK, attempt_id FK, type, relative_time_ms, payload_json, created_at; 원본 이벤트/중단/관리자 조치 이력 |
-| submission_receipts | id PK, user_id FK, source_kind, source_id, received_at; UNIQUE(user_id,source_kind,source_id), 최초 서버 접수 시각/순서. 후속 설계이며 현재 V1/V2에는 없음 |
+| submission_receipts | id PK, user_id FK, source_kind, source_id, received_at; UNIQUE(user_id,source_kind,source_id), 최초 서버 접수 시각/순서. V4에 구현; PROFILE/TAG_UNLOCK만 실제 생성 |
 | mission_completion_evidence | user_id/mission_id PK/FK, source_kind, source_id, accepted_received_at, receipt_order UNIQUE FK → submission_receipts.id; 최초 유효 근거 |
 | award_runs | id PK, cutoff_at, finalized_at, rules_version, status, created_by; 정산 실행 snapshot |
 | awards | id PK, award_run_id FK, award_type, user_id FK, rank, evidence_json, status; UNIQUE(run,type,rank) |
 | content_reports | id PK, reporter_id FK, content_item_id FK, reason, status, resolved_by, resolved_at |
-| event_settings | singleton PK, opens_at, submit_closes_at, moderation_closes_at, game_duration, settings_version |
+| event_settings | V4 singleton PK, opens_at, submit_closes_at, moderation_closes_at, game_duration, profile_preparation_enabled, settings_version |
 | admin_audit_logs | id PK, actor_id, action, target_type/id, reason, before_json, after_json, created_at |
 | activity_events | id PK, user_id nullable, event_name, target_id, occurred_at; 보관 기간/수집 범위 확정 후 추가 |
-| user_consents | id PK, user_id FK, policy_type, policy_version, agreed_at, withdrawn_at; 동의 증빙 |
+| user_consents | V4 id PK, user_id FK, policy_type, policy_version, agreed_at, withdrawn_at; 동의 증빙 |
 
 `tap_attempts.user_id UNIQUE`를 사용하면 관리자 승인 재도전 이력을 보관할 수 없으므로 슬롯과 도전 기록을 나눈다. 정산 근거의 접수 순서는 서버에서 발급하고 클라이언트 시각을 사용하지 않는다.
 
@@ -168,7 +168,13 @@ submission_receipts는 제출을 받는 같은 트랜잭션에서 생성하며 �
 ## 7. 마이그레이션 규칙
 
 1. V1 핵심 스키마, V2 미션 시드는 이미 초기 구성에 포함한다.
-2. 다음 버전은 인증 동의 기록/프로필 규칙에 맞춰 추가한다.
+2. V3는 인증 credentials, V4는 정책/동의/참여 근거를 추가했다. 이후 기능도 새 migration으로 추가한다.
 3. 콘텐츠/revision/검수, 게임, 시상 순으로 해당 기능과 함께 추가한다.
 4. 적용한 파일은 수정하지 않는다. 변경은 새 V 파일로 추가한다.
 5. 데이터 삭제나 컬럼 제거 전에는 백업/복원과 애플리케이션 호환성을 확인한다. 애플리케이션 롤백만으로 DDL이 되돌아가지 않는다.
+
+## V4 적용: 참여와 완료 근거
+
+현재 적용 DDL에 event_settings, consent_policies, current_consent_policies, user_consents, user_consent_events, submission_receipts, mission_completion_evidence를 추가했고 profiles.version을 추가했다. 날짜/정책 원문/태그는 비워 두며 관심사 카테고리만 시드한다. 이름/반은 사용자 직접 입력이고 외부 검증 정보가 아니다.
+
+정책 원문은 `(policy_type,policy_version)`별 보존하고 현재 포인터와 동의 이력을 분리한다. 철회는 과거 완료를 삭제하지 않는다. receipts는 `(user_id,source_kind,source_id)` UNIQUE이며 PROFILE source_id는 **사용자별 profile.version**이다. evidence의 복합 FK는 receipt의 소유자/종류/source_id까지 묶는다. accepted_received_at은 태그/유효 수행 조건을 만족한 시각의 최댓값이다. 구체 계약은 [참여 구현](participation.md), 다이어그램은 [ERD](erd.md)를 따른다.

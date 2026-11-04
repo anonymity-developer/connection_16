@@ -13,7 +13,7 @@ export class ApiError extends Error {
 let csrf: { headerName: string; token: string } | null = null;
 export function clearCsrf() { csrf = null; }
 
-async function request<T>(path: string, method = 'GET', body?: object): Promise<T> {
+export async function request<T>(path: string, method = 'GET', body?: object): Promise<T> {
   const headers: Record<string, string> = {};
   if (method !== 'GET') {
     if (!csrf) csrf = await request<{ headerName: string; token: string }>('/csrf');
@@ -23,7 +23,7 @@ async function request<T>(path: string, method = 'GET', body?: object): Promise<
   let response: Response;
   try { response = await fetch(`/api/v1${path}`, { method, credentials: 'same-origin', cache: 'no-store', headers, body: body === undefined ? undefined : JSON.stringify(body) }); }
   catch { throw new ApiError(503, 'NETWORK_ERROR', '서버에 연결하지 못했어요. 잠시 후 다시 시도해 주세요.'); }
-  if (response.status === 204) return undefined as T;
+  if (response.status === 204 || response.status === 202 && path === '/tags/pending') return undefined as T;
   let data;
   try { data = await response.json(); }
   catch { throw new ApiError(503, 'AUTH_UNAVAILABLE', '서버 응답을 확인할 수 없어요. 잠시 후 다시 시도해 주세요.'); }

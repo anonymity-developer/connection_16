@@ -61,7 +61,7 @@ try {
     await visit(`${productionUrl}/complete?preview=complete`);
     assert.equal(await page.locator('h1').innerText(), '페이지를 찾을 수 없어요');
     await visit(`${productionUrl}/t/${'a'.repeat(43)}`);
-    assert.ok((await page.locator('main').innerText()).includes('지금은 태그를 검증할 수 없어요'));
+    assert.ok((await page.locator('main').innerText()).includes('로그인하고 태그로 이어가요'));
   });
   await check('login validation, password visibility, navigation and credential isolation', async () => {
     await visit(`${productionUrl}/auth`);
