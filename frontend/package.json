@@ -11,9 +11,10 @@
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview --host 127.0.0.1",
-    "test:unit": "node --test tests/*.test.mjs",
+    "test:unit": "node --test tests/*.test.mjs ../scripts/*.test.mjs",
     "test:ui": "node scripts/check-ui.mjs",
-    "test:auth-ui": "node scripts/check-auth-ui.mjs"
+    "test:auth-ui": "node scripts/check-auth-ui.mjs",
+    "test:participation-ui": "node scripts/check-participation-ui.mjs"
   },
   "dependencies": {
     "react": "19.3.1",

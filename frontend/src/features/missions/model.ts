@@ -30,6 +30,7 @@ export const stateLabels: Record<MissionState, string> = {
 
 export interface ScreenData {
   preview: boolean;
+  serverLoaded?: boolean;
   nickname: string | null;
   progress: Record<MissionCode, MissionState>;
 }
