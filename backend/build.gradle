@@ -36,6 +36,8 @@ dependencies {
 
 // Load instrumentation at startup instead of relying on dynamic self-attachment.
 tasks.withType(Test).configureEach {
+    // Tests drive processOne explicitly; cached contexts outlive per-class containers.
+    systemProperty "tagme.content.worker-enabled", "false"
     jvmArgumentProviders.add({
         ["-javaagent:${configurations.mockitoAgent.asPath}"]
     } as org.gradle.process.CommandLineArgumentProvider)

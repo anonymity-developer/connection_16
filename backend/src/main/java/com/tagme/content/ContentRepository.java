@@ -53,7 +53,10 @@ public class ContentRepository {
         db.update("UPDATE content_revisions SET moderation_status=?,reason_code=? WHERE id=?",decision,reason,j.revisionId());
         db.update("INSERT INTO moderation_reviews(job_id,fence,reviewer_id,decision,reason) VALUES (?,?,?,?,?)",j.id(),j.fence(),reviewer,decision,detail);
         if("APPROVED".equals(decision))db.update("UPDATE content_items SET approved_revision_id=?,pending_revision_id=NULL,version=version+1,updated_at=UTC_TIMESTAMP(6) WHERE id=?",j.revisionId(),j.itemId());
-        else if("REJECTED".equals(decision))db.update("UPDATE content_items SET pending_revision_id=NULL,version=version+1,updated_at=UTC_TIMESTAMP(6) WHERE id=?",j.itemId());
+        else if("REJECTED".equals(decision)) {
+            db.update("UPDATE content_items SET pending_revision_id=NULL,version=version+1,updated_at=UTC_TIMESTAMP(6) WHERE id=?",j.itemId());
+            db.update("UPDATE mission_progress p JOIN missions m ON m.id=p.mission_id JOIN content_items i ON i.author_id=p.user_id SET p.status='UNLOCKED' WHERE i.id=? AND m.code=IF(i.kind='WISH','MAKE_A_WISH','SAY_SOMETHING') AND p.status='IN_PROGRESS'",j.itemId());
+        }
     }
     public Job fenceManual(Job j) { db.update("UPDATE moderation_jobs SET fence=fence+1 WHERE id=?",j.id());return job(j.id(),false); }
     public Instant moderationClose() { return db.queryForObject("SELECT moderation_closes_at FROM event_settings WHERE id=1 FOR SHARE",Timestamp.class).toInstant(); }

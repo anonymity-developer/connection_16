@@ -39,7 +39,7 @@ export default function App() {
 
   const data: ScreenData = screen.preview ? screen : participation.collection && auth.user ? {
     preview: false, serverLoaded: true, nickname: auth.user.nickname,
-    progress: Object.fromEntries(participation.collection.missions.map(item => [item.code, item.state === 'IN_PROGRESS' ? 'UNLOCKED' : item.state])) as ScreenData['progress'],
+    progress: Object.fromEntries(participation.collection.missions.map(item => [item.code, item.state === 'IN_PROGRESS' ? 'PENDING' : item.state])) as ScreenData['progress'],
   } : publicScreen;
   let page;
   const mission = missions.find((item) => path === `/missions/${item.slug}`);
