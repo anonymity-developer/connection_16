@@ -13,15 +13,15 @@ export class ApiError extends Error {
 let csrf: { headerName: string; token: string } | null = null;
 export function clearCsrf() { csrf = null; }
 
-export async function request<T>(path: string, method = 'GET', body?: object): Promise<T> {
-  const headers: Record<string, string> = {};
+export async function request<T>(path: string, method = 'GET', body?: object, options: { headers?: Record<string, string>; keepalive?: boolean } = {}): Promise<T> {
+  const headers: Record<string, string> = { ...options.headers };
   if (method !== 'GET') {
     if (!csrf) csrf = await request<{ headerName: string; token: string }>('/csrf');
     headers[csrf.headerName] = csrf.token;
     headers['Content-Type'] = 'application/json';
   }
   let response: Response;
-  try { response = await fetch(`/api/v1${path}`, { method, credentials: 'same-origin', cache: 'no-store', headers, body: body === undefined ? undefined : JSON.stringify(body) }); }
+  try { response = await fetch(`/api/v1${path}`, { method, credentials: 'same-origin', cache: 'no-store', keepalive: options.keepalive, headers, body: body === undefined ? undefined : JSON.stringify(body) }); }
   catch { throw new ApiError(503, 'NETWORK_ERROR', '서버에 연결하지 못했어요. 잠시 후 다시 시도해 주세요.'); }
   if (response.status === 204 || response.status === 202 && path === '/tags/pending') return undefined as T;
   let data;

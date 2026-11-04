@@ -49,7 +49,7 @@ export default function App() {
   else if (path === '/auth/password-reset') page = <Auth key="reset" mode="reset" preview={screen.preview} />;
   else if (path === '/me/password' && (screen.preview || auth.user)) page = <Auth key="change" mode="change" preview={screen.preview} />;
   else if (path === '/me/profile') page = auth.user ? <ProfilePage /> : <Account preview={false} />;
-  else if (mission) page = <MissionPage key={`${mission.code}:${data.progress[mission.code]}`} mission={mission} data={data} />;
+  else if (mission) page = <MissionPage key={`${mission.code}:${data.preview ? 'preview' : 'server'}`} mission={mission} data={data} />;
   else if (path === '/discovery' || path === '/discovery/graph') page = <div className="page secondary-page"><div className="page-heading"><p className="context-label">TAG ME 네트워크</p><h1>동료 찾기</h1><p>관심사와 취향으로 새로운 동료를 발견해요.</p></div><EmptyState title="동료 탐색을 준비하고 있어요" action={<Link href="/" className="button button--secondary">미션 둘러보기<Icon name="arrow" size={17} /></Link>}>참여가 열리면 공개된 프로필을 바탕으로 동료를 찾을 수 있어요. 지금은 프로필이나 관계 기록이 표시되지 않아요.</EmptyState></div>;
   else if (path === '/me' || path === '/me/password') page = <Account preview={screen.preview} />;
   else if (path.startsWith('/t/')) page = <TagPage key={path} token={path.slice(3)} />;

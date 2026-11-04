@@ -342,3 +342,31 @@ p { word-break: keep-all; overflow-wrap: anywhere; }
 
 .profile-form .field-help { font-size: 13px; }
 .policy-title { font-weight: 500; font-size: 16px; margin-bottom: 8px; }
+
+.sync-panel, .sync-result, .tap-panel { border: 1px solid var(--border); background: var(--surface); border-radius: var(--radius); padding: 24px; }
+.result-footnote { font-size: 14px; color: var(--muted); margin: 12px 0 20px; }
+.sync-question-list { margin: 24px 0; }
+.sync-question-list fieldset { padding: 20px 0; border: 0; border-top: 1px solid var(--border); min-width: 0; }
+.sync-question-list legend { font-size: 16px; font-weight: 500; padding: 0 0 12px; }
+.sync-option { display: flex; align-items: flex-start; gap: 12px; min-height: 48px; padding: 12px; border: 1px solid var(--control); border-radius: var(--control-radius); font-size: 14px; margin-bottom: 10px; }
+.sync-option:has(:checked) { color: var(--accent-ink); background: var(--accent-soft); border-color: var(--accent); }
+.sync-option input { width: 18px; height: 18px; margin-top: 2px; flex-shrink: 0; accent-color: var(--ink); }
+.sync-result h2 { margin: 12px 0; }
+.sync-result > p:not(.context-label) { line-height: 1.7; }
+.tap-mode { font-size: 14px; color: var(--accent-ink); margin: 20px 0 12px; }
+.tap-metrics { display: flex; gap: 32px; margin-bottom: 20px; }
+.tap-metrics p { flex: 1; }
+.tap-metrics span { display: block; color: var(--muted); font-size: 13px; }
+.tap-metrics strong { display: block; font-size: 32px; font-weight: 500; font-variant-numeric: tabular-nums; }
+.tap-metrics small, .tap-score small { font-size: 14px; margin-left: 6px; font-weight: 400; color: var(--muted); }
+.tap-area { width: 100%; min-height: 240px; border-radius: var(--radius); border: 1px solid var(--control); background: var(--accent-soft); color: var(--accent-ink); font-size: 32px; font-weight: 600; touch-action: none; user-select: none; -webkit-user-select: none; -webkit-tap-highlight-color: transparent; }
+.tap-area span { display: block; font-size: 14px; font-weight: 400; margin: 12px; }
+.tap-area:active { background: var(--accent-track); }
+.tap-official-state { padding: 20px 0; }
+.tap-official-state h3 { font-size: 18px; margin-bottom: 12px; }
+.tap-official-state p { font-size: 14px; color: var(--muted); }
+.tap-official-state .tap-score { font-size: 36px; font-weight: 500; color: var(--ink); font-variant-numeric: tabular-nums; margin: 12px 0; }
+.tap-practice { margin-top: 12px; }
+.tap-panel > .text-link { display: flex; width: fit-content; margin-top: 12px; }
+@media (max-width: 640px) { .sync-panel, .sync-result, .tap-panel { padding: 20px; } .tap-area { min-height: 220px; } }
+.sync-type-title { font-size: 20px; font-weight: 500; margin: 12px 0; overflow-wrap: anywhere; }

@@ -25,6 +25,7 @@ public class ResultsRepository {
     public Attempt byKey(long userId,String key){return db.query("SELECT * FROM tap_attempts WHERE user_id=? AND idempotency_key=?",this::mapAttempt,userId,key).stream().findFirst().orElse(null);}
     public Attempt current(long userId){return db.query("SELECT a.* FROM tap_slots s JOIN tap_attempts a ON a.id=s.current_attempt_id AND a.user_id=s.user_id WHERE s.user_id=?",this::mapAttempt,userId).stream().findFirst().orElse(null);}
     public Instant eventClose(){return db.queryForObject("SELECT submit_closes_at FROM event_settings WHERE id=1",Timestamp.class).toInstant();}
+    public int gameDuration(){return db.queryForObject("SELECT game_duration FROM event_settings WHERE id=1",Integer.class);}
     public long createAttempt(long userId,String key,Instant starts,Instant ends,Instant deadline){
         int generation=db.queryForObject("SELECT COALESCE(MAX(generation),0)+1 FROM tap_attempts WHERE user_id=?",Integer.class,userId);
         var holder=new GeneratedKeyHolder();db.update(c->{var s=c.prepareStatement("INSERT INTO tap_attempts(user_id,generation,idempotency_key,starts_at,ends_at,submit_deadline) VALUES (?,?,?,?,?,?)",Statement.RETURN_GENERATED_KEYS);s.setLong(1,userId);s.setInt(2,generation);s.setString(3,key);s.setTimestamp(4,Timestamp.from(starts));s.setTimestamp(5,Timestamp.from(ends));s.setTimestamp(6,Timestamp.from(deadline));return s;},holder);
