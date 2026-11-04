@@ -1,6 +1,13 @@
 package com.tagme.common.config;
 
 import jakarta.servlet.http.HttpServletResponse;
+import com.tagme.auth.AuthRepository;
+import com.tagme.auth.CredentialVersionFilter;
+import org.springframework.http.HttpMethod;
+import org.springframework.security.web.context.SecurityContextHolderFilter;
+import org.springframework.security.web.context.SecurityContextRepository;
+import org.springframework.security.web.context.HttpSessionSecurityContextRepository;
+import org.springframework.security.web.csrf.CsrfTokenRepository;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
@@ -11,14 +18,22 @@ import org.springframework.security.web.csrf.CsrfTokenRequestAttributeHandler;
 @Configuration
 public class SecurityConfig {
     @Bean
-    SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+    SecurityContextRepository securityContextRepository() { return new HttpSessionSecurityContextRepository(); }
+    @Bean
+    CsrfTokenRepository csrfTokenRepository() { return CookieCsrfTokenRepository.withHttpOnlyFalse(); }
+    @Bean
+    SecurityFilterChain securityFilterChain(HttpSecurity http, AuthRepository accounts, SecurityContextRepository contexts, CsrfTokenRepository csrfTokens) throws Exception {
         return http
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/api/v1/meta", "/api/v1/csrf", "/actuator/health/**").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/v1/meta", "/api/v1/csrf", "/api/v1/auth/config", "/actuator/health/**").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/v1/auth/otp/request", "/api/v1/auth/signup", "/api/v1/auth/login", "/api/v1/auth/password/reset").permitAll()
                         .anyRequest().authenticated())
                 .csrf(csrf -> csrf
-                        .csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse())
+                        .csrfTokenRepository(csrfTokens)
                         .csrfTokenRequestHandler(new CsrfTokenRequestAttributeHandler()))
+                .securityContext(context -> context.securityContextRepository(contexts).requireExplicitSave(true))
+                .addFilterAfter(new CredentialVersionFilter(accounts), SecurityContextHolderFilter.class)
+                .headers(headers -> headers.cacheControl(cache -> { }))
                 .requestCache(cache -> cache.disable())
                 .formLogin(form -> form.disable())
                 .httpBasic(basic -> basic.disable())
