@@ -291,3 +291,10 @@ p { word-break: keep-all; overflow-wrap: anywhere; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { scroll-behavior: auto !important; animation: none !important; transition: none !important; }
 }
+
+.account-panel { padding: 28px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); }
+.account-panel dl { margin: 24px 0; }
+.account-panel dl > div { padding: 16px 0; border-bottom: 1px solid var(--border); }
+.account-panel dt { font-size: 13px; color: var(--muted); margin-bottom: 6px; }
+.account-panel dd { margin: 0; font-size: 15px; overflow-wrap: anywhere; }
+.account-panel .form-notice { margin-top: 16px; }

@@ -5,11 +5,14 @@ import { Icon } from './components/Icon';
 import { EmptyState } from './components/ui';
 import { publicScreen, missions } from './features/missions/model';
 import type { ScreenData } from './features/missions/model';
+import { Account } from './pages/Account';
+import { useAuth } from './features/auth/context';
 import { Home } from './pages/Home';
 import { Auth } from './pages/Auth';
 import { MissionPage } from './pages/Mission';
 
 export default function App() {
+  const auth = useAuth();
   const location = useLocation();
   const path = location.split('?')[0].replace(/\/$/, '') || '/';
   const [screen, setScreen] = useState<ScreenData>(publicScreen);
@@ -36,11 +39,11 @@ export default function App() {
   else if (path === '/auth') page = <Auth key="login" mode="login" preview={screen.preview} />;
   else if (path === '/auth/signup') page = <Auth key="signup" mode="signup" preview={screen.preview} />;
   else if (path === '/auth/password-reset') page = <Auth key="reset" mode="reset" preview={screen.preview} />;
-  else if (path === '/me/password' && screen.preview) page = <Auth key="change" mode="change" preview />;
+  else if (path === '/me/password' && (screen.preview || auth.user)) page = <Auth key="change" mode="change" preview={screen.preview} />;
   else if (mission) page = <MissionPage key={`${mission.code}:${screen.progress[mission.code]}`} mission={mission} data={screen} />;
   else if (path === '/discovery' || path === '/discovery/graph') page = <div className="page secondary-page"><div className="page-heading"><p className="context-label">TAG ME 네트워크</p><h1>동료 찾기</h1><p>관심사와 취향으로 새로운 동료를 발견해요.</p></div><EmptyState title="동료 탐색을 준비하고 있어요" action={<Link href="/" className="button button--secondary">미션 둘러보기<Icon name="arrow" size={17} /></Link>}>참여가 열리면 공개된 프로필을 바탕으로 동료를 찾을 수 있어요. 지금은 프로필이나 관계 기록이 표시되지 않아요.</EmptyState></div>;
-  else if (path === '/me' || path === '/me/password') page = <div className="page secondary-page"><div className="page-heading"><p className="context-label">TAG ME 계정</p><h1>마이페이지</h1><p>나의 프로필과 미션 기록을 확인하는 곳이에요.</p></div><EmptyState title="로그인 후 내 기록을 확인해요" action={<Link href="/auth" className="button button--primary">로그인 화면으로<Icon name="arrow" size={17} /></Link>}>아이디는 Mattermost와 같고, 비밀번호는 TAG ME 가입 시 설정해요. 현재는 인증 기능을 준비하고 있어요.</EmptyState>{screen.preview && <Link className="text-link account-preview-link" href="/me/password">비밀번호 변경 화면 미리보기<Icon name="arrow" size={16} /></Link>}</div>;
-  else if (path.startsWith('/t/')) page = <div className="page secondary-page"><div className="page-heading"><h1>현장 태그 확인</h1></div><EmptyState title={/^[A-Za-z0-9_-]{43}$/.test(path.slice(3)) ? '참여 기능을 준비하고 있어요' : '태그 주소를 다시 확인해 주세요'} action={<Link href="/" className="button button--secondary">미션 안내로 돌아가기<Icon name="arrow" size={17} /></Link>}>지금은 태그를 검증할 수 없어요. 주소 형식만으로 유효한 태그인지 판단하거나 미션을 해금하지 않아요.</EmptyState></div>;
+  else if (path === '/me' || path === '/me/password') page = <Account preview={screen.preview} />;
+  else if (path.startsWith('/t/')) page = <div className="page secondary-page"><div className="page-heading"><h1>현장 태그 확인</h1></div><EmptyState title={/^[A-Za-z0-9_-]{43}$/.test(path.slice(3)) ? '참여 기능을 준비하고 있어요' : '태그 주소를 다시 확인해 주세요'} action={<Link href={auth.user ? '/' : '/auth'} onClick={() => auth.rememberReturnPath(path)} className="button button--secondary">{auth.user ? '미션 안내로 돌아가기' : '로그인 화면으로'}<Icon name="arrow" size={17} /></Link>}>지금은 태그를 검증할 수 없어요. 주소 형식만으로 유효한 태그인지 판단하거나 미션을 해금하지 않아요.</EmptyState></div>;
   else if (path === '/complete' && screen.preview && Object.values(screen.progress).every((state) => state === 'COMPLETED')) page = <div className="page secondary-page completion-page"><p className="context-label">개발용 완성 화면</p><h1>다섯 글자를 모두 모았어요</h1><div className="completion-letters" aria-label="SSAFY">{missions.map((item) => <span key={item.code}>{item.letter}</span>)}</div><p>전체 완성 화면의 미리보기예요.<br />실제 완료 기록이나 수상 순위는 생성되지 않아요.</p><Link href="/" className="button button--primary">수집판 돌아가기<Icon name="arrow" /></Link></div>;
   else page = <div className="page secondary-page"><div className="page-heading"><h1>페이지를 찾을 수 없어요</h1></div><EmptyState title="주소를 다시 확인해 주세요" action={<Link href="/" className="button button--primary">홈으로 돌아가기<Icon name="arrow" /></Link>}>입력한 주소의 화면이 없어요. 홈에서 미션을 찾아보세요.</EmptyState></div>;
 

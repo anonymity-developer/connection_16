@@ -14,6 +14,9 @@ check('npm', npm.status === 0, npm.status === 0 ? npm.stdout.trim() : 'Install N
 const java = run('java', ['-version']);
 const javaVersion = (java.stderr || java.stdout || '').split('\n')[0];
 check('Java 21', java.status === 0 && /version "21\b/.test(javaVersion), javaVersion || 'Install/select JDK 21 for backend work.');
+const javac = run('javac', ['-version']);
+const javacVersion = (javac.stdout || javac.stderr || '').trim();
+check('JDK 21 compiler', javac.status === 0 && /javac 21\b/.test(javacVersion), javacVersion || 'Install JDK 21 (a JRE alone cannot compile the backend).');
 const docker = run('docker', ['info', '--format', '{{.ServerVersion}}']);
 check('Docker daemon', docker.status === 0, docker.status === 0 ? docker.stdout.trim() : 'Docker unavailable; Testcontainers/full-stack checks cannot pass here.');
 const chromeCandidates = [process.env.CHROME_PATH, '/usr/bin/chromium', '/usr/bin/google-chrome', '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome', process.env.PROGRAMFILES && resolve(process.env.PROGRAMFILES, 'Google/Chrome/Application/chrome.exe')].filter(Boolean);

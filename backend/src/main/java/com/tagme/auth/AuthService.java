@@ -144,10 +144,16 @@ public class AuthService {
         var challenge = challenges.peek(id, purpose, binding);
         if (purpose == OtpStore.Purpose.PASSWORD_CHANGE
                 && (principal.userId() != challenge.userId() || principal.version() != challenge.version())) throw AuthException.invalid();
-        // Neither a username change nor reuse can transfer an immutable ID.
-        var identity = mattermost.byId(challenge.externalId()).orElseThrow(AuthException::invalid);
+        // Reject wrong codes atomically before making external calls. A valid
+        // proof remains one-time even if revalidation or the DB later fails.
         challenges.consume(id, challenge, code);
-        return new Verified(challenge, identity);
+        try {
+            var identity = mattermost.byId(challenge.externalId()).orElseThrow(AuthException::invalid);
+            return new Verified(challenge, identity);
+        } catch (AuthException failure) {
+            if (failure.status() == 503) throw restart();
+            throw failure;
+        }
     }
     private AuthException restart() { return new AuthException(503, "AUTH_RESTART_REQUIRED", "처리하지 못했어요. 인증번호를 새로 받고 다시 시도해 주세요."); }
 }
