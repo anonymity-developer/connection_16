@@ -142,6 +142,10 @@ public class ParticipationRepository {
         return db.query("SELECT * FROM event_completions WHERE user_id=?",(row,n) -> new Completion(true,instant(row,"completed_at"),row.getLong("completion_order"),false),id)
                 .stream().findFirst().orElse(new Completion(false,null,null,false));
     }
+    public void requireModeratedReceipt(Receipt receipt) {
+        boolean valid = Boolean.TRUE.equals(db.queryForObject("SELECT (? >= opens_at AND ? < submit_closes_at AND UTC_TIMESTAMP(6)<=moderation_closes_at) FROM event_settings WHERE id=1 FOR SHARE",Boolean.class,Timestamp.from(receipt.receivedAt()),Timestamp.from(receipt.receivedAt())));
+        if (!valid) throw error(403,"MODERATION_CLOSED","검수 가능한 기간을 확인해 주세요.");
+    }
     public void complete(long userId,Mission mission,Receipt receipt,Instant accepted) {
         db.update("INSERT INTO mission_completion_evidence(user_id,mission_id,source_kind,source_id,receipt_order,accepted_received_at) VALUES (?,?,?,?,?,?)",
                 userId,mission.id(),receipt.sourceKind(),receipt.sourceId(),receipt.id(),Timestamp.from(accepted));

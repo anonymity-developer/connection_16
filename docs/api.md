@@ -101,36 +101,27 @@ GET `/event`, `/policies`, `/users/me/profile`, GET/POST `/tags/pending`, POST `
 - 미션 목록/수집판은 상태와 힌트를 보여줄 수 있지만 **각 미션 수행 API는 해당 사용자의 해금 기록을 서버에서 다시 확인**한다. 미해금 상태의 직접 요청은 403이다. 화면 잠금만으로 검사하지 않는다.
 - 성공 응답과 목록에는 원문 토큰이나 다른 태그 토큰을 포함하지 않는다. 추측하기 어려운 태그 토큰을 사용하되 일반 API 경로는 의미가 드러나는 이름으로 유지한다. 태그 URL 공유를 통한 해금은 가능하며 현장 체류를 증명하지 않는다.
 
-## 4. 콘텐츠 — 예정
+## 4. 콘텐츠 — 페이즈 4-2 구현 및 후속 범위
 
 | Method | 경로 | 요청/결과 요점 |
 | --- | --- | --- |
 | POST | `/wishes` | content → 202, 슬롯/revision ID 및 검수 상태 |
 | GET | `/wishes` | 승인된 공개 목록, 커서 |
-| GET | `/wishes/{id}` | 승인된 상세 정보 |
+| GET | `/wishes/{id}` | 후속: 승인된 상세 정보 |
 | GET | `/wishes/me` | 내 슬롯/승인본/대기본 상태 |
 | PUT | `/wishes/me` | 수정안 → 202 재검수; 운 점수 유지 |
-| POST | `/wishes/{id}/comments` | content, revealProfile → 202 검수 대기 |
-| GET | `/wishes/{id}/comments` | 승인 댓글만 공개 조회 |
+| POST | `/wishes/{id}/comments` | 후속: content, revealProfile → 202 검수 대기 |
+| GET | `/wishes/{id}/comments` | 후속: 승인 댓글만 공개 조회 |
 | POST | `/cheers` | content, templateId, style, anonymous → 202 |
 | GET | `/cheers` | 승인된 카드 목록 |
 | GET | `/cheers/me` | 내 카드와 검수 상태 |
 | PUT | `/cheers/me` | 수정안 → 202 재검수 |
-| PUT | `/cheers/{id}/like` | 최초 하트, 기존 하트는 그대로 → 현재 상태 |
-| DELETE | `/cheers/{id}/like` | 없으면 그대로 → 204 |
+| PUT | `/cheers/{id}/like` | 후속: 최초 하트, 기존 하트는 그대로 → 현재 상태 |
+| DELETE | `/cheers/{id}/like` | 후속: 없으면 그대로 → 204 |
 
 최초 작성 재시도는 Idempotency-Key를 사용한다. 같은 key/payload는 같은 리소스를 반환하고 같은 key/다른 payload는 409다. 사용자 슬롯 UNIQUE가 키 변경으로 인한 중복 생성도 막는다. 공개 목록에는 pending/거절 revision이 포함되지 않는다.
 
-대기 상태 응답 예시:
-
-```json
-{
-  "id": 101,
-  "revision": 1,
-  "moderationStatus": "QUEUED",
-  "missionCompleted": false
-}
-```
+요청은 `content/templateId/style/anonymous/expectedVersion`, 응답은 OwnSlot(approvedRevision/pendingRevision/latestRevision/version)이다. 최초 소원도 `templateId=PLAIN`, `style=ROSE`, `anonymous=true`를 전송한다. 수정에는 현재 `expectedVersion`이 필요하며 최초 작성/수정 모두 Idempotency-Key를 요구한다. [콘텐츠 계약](content.md)과 [OpenAPI](content.openapi.yaml)에 정확한 DTO/상태/오류를 정리했다.
 
 ## 5. 게임과 성향 구현
 
@@ -140,7 +131,7 @@ GET `/event`, `/policies`, `/users/me/profile`, GET/POST `/tags/pending`, POST `
 | POST | `/tap/cancel` | attemptId → 시작 전 취소만 기회 복구 |
 | POST | `/tap/finish` | attemptId, events, interruptions → 확정/보류 결과 |
 | GET | `/tap/me` | 공식 슬롯과 현재 도전 상태 복구 |
-| GET | `/tap/rankings` | 유효 점수/잠정 여부/커서 |
+| GET | `/tap/rankings` | 후속: 유효 점수/잠정 여부/커서 |
 | GET | `/sync/questions` | 버전 및 문항/선택지 |
 | POST | `/sync/submit` | questionnaireVersion, answers → 서버 계산 최초 결과 |
 | GET | `/sync/me` | 저장된 결과 |
@@ -256,27 +247,23 @@ route는 서버가 정한 내부 경로이며 토큰에서 외부 URL을 읽어 
 
 ### 내 소원/응원 슬롯
 
+주요 필드 발췌다. 각 revision에는 itemId, templateId/style/anonymous, submittedAt/reason도 포함된다. 전체 필드는 [콘텐츠 OpenAPI](content.openapi.yaml)를 따른다.
+
 ```json
 {
   "id": 101,
-  "visibilityStatus": "VISIBLE",
-  "approvedRevision": {
-    "id": 201,
-    "revisionNo": 1,
-    "content": "함께 성장하고 싶어요.",
-    "moderationStatus": "APPROVED"
-  },
-  "pendingRevision": {
-    "id": 202,
-    "revisionNo": 2,
-    "content": "좋은 동료들과 함께 성장하고 싶어요.",
-    "moderationStatus": "QUEUED"
-  },
-  "missionCompleted": true
+  "version": 4,
+  "visibility": "VISIBLE",
+  "approvedRevision": {"id": 201, "number": 1, "content": "함께 성장하고 싶어요.", "status": "APPROVED"},
+  "pendingRevision": {"id": 202, "number": 2, "content": "좋은 동료들과 함께 성장하고 싶어요.", "status": "QUEUED"},
+  "latestRevision": {"id": 202, "number": 2, "content": "좋은 동료들과 함께 성장하고 싶어요.", "status": "QUEUED"},
+  "missionCompleted": true,
+  "luckScore": null,
+  "landingZone": null
 }
 ```
 
-위 상태에서 공개 목록에는 revision 201만 노출한다. revision 202가 거절되면 기존 승인본은 유지한다. 사용자 본인과 관리자만 대기본을 볼 수 있다. 최초 검수 중이면 approvedRevision이 null이고 missionCompleted는 false다.
+위 상태에서 공개 목록은 revision 201의 내용/설정만 노출하고 revision 식별자는 주지 않는다. 202가 거절되면 기존 승인본을 유지한다. 본인과 관리자만 대기본을 볼 수 있다. 최초 검수 중이면 approvedRevision은 null, missionCompleted는 false다.
 
 ### 게임 시작/종료
 

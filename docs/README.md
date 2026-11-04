@@ -25,6 +25,8 @@ Codex로 구현을 이어갈 때는 먼저 [현재 페이즈](progress.md)와 [�
 
 성향/공식 게임은 [결과 계약](results.md)과 [결과 OpenAPI](results.openapi.yaml)를 따른다.
 
+소원/응원과 검수는 [콘텐츠 계약](content.md)과 [콘텐츠 OpenAPI](content.openapi.yaml)를 따른다.
+
 기획 변경은 overview와 해당 도메인 문서에 함께 반영한다. 화면 분기는 user-flows/UI, 저장 방식은 data-model/ERD, 요청 계약은 API, 처리 순서는 implementation-plan을 함께 확인한다.
 
 ## 2. 서비스 한 장 요약
@@ -84,3 +86,5 @@ SSAFY 16기 서울캠퍼스 참여자가 NFC/QR 태그를 찾아 다섯 미션�
 | 디자인 색상/서체/구체 문구 | 공통 토큰과 모바일 핵심 화면부터 구성 | UI 단계에서 기획/개발 |
 
 미확정 사항을 임의의 확정 정책으로 구현하거나 테스트 편의를 위해 인증을 우회하지 않는다. 이 표의 항목은 요구사항 부족을 숨기지 않기 위한 결정 목록이다.
+
+- [소원·응원과 검수 구현 계약](content.md): 1회 슬롯, revision/fence/lease, 공개 포인터, 관리자 판정과 남은 범위.

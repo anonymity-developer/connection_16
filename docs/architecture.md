@@ -292,3 +292,7 @@ DB 볼륨은 백업이 아니며 Redis AOF도 경품 업무 데이터의 기준�
 - [Spring Boot Gradle plugin](https://docs.spring.io/spring-boot/3.5/gradle-plugin/getting-started.html)
 - [Vite guide](https://vite.dev/guide/)
 - [Compose 시작 순서](https://docs.docker.com/compose/how-tos/startup-order/)
+
+## 페이즈 4-2 구현 상태
+
+Boot 스케줄러가 DB job을 claim하고 트랜잭션 밖에서 ModerationProvider를 호출한 뒤 사용자/item/job/fence를 검사해 반영한다. 기본 provider는 외부 호출 없이 운영자 확인으로 보낸다. 실제 외부 검수 업체는 아직 연결하지 않았다. 저장 모델과 복구/승인/접수 근거는 [콘텐츠 계약](content.md)을 따른다.

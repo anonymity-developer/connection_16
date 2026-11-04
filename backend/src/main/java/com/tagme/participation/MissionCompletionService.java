@@ -13,12 +13,21 @@ public class MissionCompletionService {
     public MissionCompletionService(ParticipationRepository repository,List<CompletionRule> rules) { this.repository = repository; this.rules = rules; }
     @Transactional
     public boolean complete(long userId, MissionCode code, long receiptId) {
-        repository.lockUser(userId); // first read, before any domain or global sequence lock
-        repository.requireOpen(false);
+        return completeInternal(userId,code,receiptId,false);
+    }
+    @Transactional
+    public boolean completeModerated(long userId,MissionCode code,long receiptId) {
+        if (code != MissionCode.MAKE_A_WISH && code != MissionCode.SAY_SOMETHING) throw error(403,"INVALID_EVIDENCE","검수형 미션을 확인해 주세요.");
+        return completeInternal(userId,code,receiptId,true);
+    }
+    private boolean completeInternal(long userId,MissionCode code,long receiptId,boolean moderated) {
+        repository.lockUser(userId);
+        if (!moderated) repository.requireOpen(false);
         var mission = repository.mission(userId,code); repository.activeMission(mission.id());
         if ("LOCKED".equals(mission.state())) throw error(403,"MISSION_LOCKED","먼저 현장 태그로 미션을 열어주세요.");
         if ("COMPLETED".equals(mission.state())) return false;
         var receipt = repository.receipt(receiptId);
+        if (moderated) repository.requireModeratedReceipt(receipt);
         if (receipt.userId() != userId) throw error(403,"INVALID_EVIDENCE","완료 근거를 확인할 수 없어요.");
         if (code != MissionCode.SHOW_ME && receipt.receivedAt().isBefore(mission.unlockedAt()))
             throw error(403,"INVALID_EVIDENCE","미션을 열기 전의 수행은 완료로 인정하지 않아요.");
