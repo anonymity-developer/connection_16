@@ -45,7 +45,7 @@ export function Home({ data }: { data: ScreenData }) {
     <div className="home-overview"><Collection data={data} />
       <aside className="next-panel" aria-labelledby="next-heading"><h2 id="next-heading">{followUp.title}</h2><p>{followUp.description}</p><Link className="button button--primary" href={followUp.href}>{followUp.action}<Icon name="arrow" size={18} /></Link><span className="next-footnote">{data.preview ? '개발용 상태 · 실제 참여 기록 없음' : 'Mattermost 아이디 · TAG ME 비밀번호'}</span></aside>
     </div>
-    {!data.preview && <div className="preparation-note" role="status"><Icon name="clock" size={18} /><p><b>참여 기능 준비 중</b>지금은 화면과 미션 안내를 둘러볼 수 있어요. 인증과 참여는 아직 연결되지 않았어요.</p></div>}
+    {!data.preview && <div className="preparation-note" role="status"><Icon name="clock" size={18} /><p><b>참여 기능 준비 중</b>미션 안내를 둘러볼 수 있어요. 프로필 등록과 태그 참여는 준비 중이에요.</p></div>}
     <section className="mission-section" aria-labelledby="mission-heading"><div className="section-heading"><h2 id="mission-heading">다섯 미션</h2><span>순서는 자유롭게</span></div>
       <div className="mission-list">{missions.map((mission) => <Link key={mission.code} href={`/missions/${mission.slug}`} className="mission-row"><span className={`mission-letter ${data.progress[mission.code] === 'COMPLETED' ? 'is-collected' : ''}`} aria-hidden="true">{mission.letter}</span><div className="mission-row-copy"><h3>{mission.name}<span>{mission.korean}</span></h3><p>{mission.description}</p></div><div className="mission-row-state">{data.preview ? <StateBadge state={data.progress[mission.code]} /> : <span className="mission-link-label">미션 안내</span>}<Icon name="arrow" size={18} /></div></Link>)}</div>
     </section>
