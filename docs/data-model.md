@@ -2,7 +2,7 @@
 
 ## 1. 적용 범위
 
-현재 실행 가능한 DDL은 `backend/src/main/resources/db/migration`의 V1/V2다. 콘텐츠, 게임, 검수, 시상은 아래 **후속 설계**이며 아직 테이블을 생성하지 않는다. 해당 도메인의 규칙과 함께 마이그레이션을 추가한다.
+현재 실행 가능한 DDL은 `backend/src/main/resources/db/migration`의 V1/V2/V3다. 콘텐츠, 게임, 검수, 시상은 아래 **후속 설계**이며 아직 테이블을 생성하지 않는다. 해당 도메인의 규칙과 함께 마이그레이션을 추가한다.
 
 이 문서의 ERD는 핵심 요약이다. 모든 도메인의 컬럼/관계/복합키와 nullable 규칙은 [전체 도메인 ERD](erd.md)를 함께 읽는다. 현재 SQL과 후속 설계의 경계를 유지하고, 후속 설계를 현재 DB에 적용된 것으로 간주하지 않는다.
 
@@ -79,6 +79,7 @@ erDiagram
 | 테이블 | 키 및 주요 제약 | 의미 |
 | --- | --- | --- |
 | users | PK id, UNIQUE mattermost_id, role/status CHECK | 인증된 참여자; ADMIN은 서버 운영 절차로만 부여 |
+| user_credentials | PK/FK user_id, version > 0 CHECK | 해시와 갱신 시각, 세션 검증 버전 |
 | profiles | PK/FK user_id | 사용자 1명에 프로필 최대 1개, 공개 기본값 false |
 | interests | UNIQUE name | 관심사 사전 |
 | user_interests | PK(user_id, interest_id) | 관심사 중복 방지 |
@@ -91,16 +92,16 @@ erDiagram
 
 프로필은 회원 생성 직후 없을 수 있어 관계가 0..1이다. 닉네임은 UNIQUE가 아니다. 관심사 초기 목록과 실제 NFC 토큰은 운영 확정 전 임의로 시드하지 않는다. V2에는 다섯 미션과 완료 sequence 초기값만 있다.
 
-### 3.1. 후속 아이디/비밀번호 스키마
+### 3.1. V3 아이디/비밀번호 스키마
 
-일반 로그인은 Mattermost username + TAG ME 비밀번호다. 현재 V1에는 다음 컬럼/테이블이 없으므로 새 migration이 필요하다. V1/V2를 수정하거나 기존 사용자에 공용 비밀번호를 넣지 않는다.
+일반 로그인은 Mattermost username + TAG ME 비밀번호다. V3가 다음 컬럼/테이블을 추가한다. V1/V2를 수정하거나 기존 사용자에 공용 비밀번호를 넣지 않는다.
 
 | 변경 | 주요 컬럼/제약 |
 | --- | --- |
 | users 확장 | mattermost_username UNIQUE 추가. 실제 Mattermost에서 조회한 로그인 아이디, 기존 mattermost_id는 외부 계정 연결 키로 유지 |
 | user_credentials 추가 | user_id PK/FK, password_hash VARCHAR(255), password_updated_at DATETIME(6), credential_version BIGINT. 사용자당 비밀번호 해시 하나 |
 
-username 길이/정렬/대소문자 규칙은 외부 계약 확인 후 migration에서 정한다. 비밀번호는 PasswordEncoder 기반 적응형 단방향 해시만 보관하고 공개 DTO에 절대 포함하지 않는다. 변경/재설정은 hash/version을 한 트랜잭션에서 갱신하고 기존 세션을 전부 무효화한다. 기존 비밀번호 없는 계정은 본인 DM 인증 후 최초 비밀번호를 설정한다. [인증 설계](auth.md)와 [ERD의 후속 로그인 모델](erd.md)을 함께 따른다.
+username은 정식 소문자 값, 최대 64자와 utf8mb4_0900_bin UNIQUE다. 기존 행은 실제 확인 전까지 NULL이다. 가입 전 프로필을 꾸며내지 않도록 real_name/region/class_no도 V3부터 NULL을 허용한다. 비밀번호는 PasswordEncoder 기반 적응형 단방향 해시만 보관하고 공개 DTO에 절대 포함하지 않는다. 변경/재설정은 hash/version을 한 트랜잭션에서 갱신하고 기존 세션을 전부 무효화한다. 기존 비밀번호 없는 계정은 본인 DM 인증 후 최초 비밀번호를 설정한다. [인증 설계](auth.md)와 [ERD의 후속 로그인 모델](erd.md)을 함께 따른다.
 
 ## 4. 후속 콘텐츠/검수 ERD
 

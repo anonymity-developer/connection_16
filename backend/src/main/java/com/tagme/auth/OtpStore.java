@@ -46,5 +46,9 @@ public class OtpStore {
                 proof(id, challenge.purpose(), challenge.externalId(), code), Integer.toString(properties.otpMaxAttempts()));
         if (!Long.valueOf(1).equals(success)) throw AuthException.invalid();
     }
+    public int remainingSeconds(String id) {
+        Long milliseconds = redis.getExpire(key(id), java.util.concurrent.TimeUnit.MILLISECONDS);
+        return milliseconds == null || milliseconds <= 0 ? 0 : (int) (milliseconds / 1000);
+    }
     public void invalidate(String id) { redis.delete(key(id)); }
 }

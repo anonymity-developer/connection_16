@@ -17,7 +17,7 @@ import org.springframework.web.client.RestClientResponseException;
 public class MattermostClient {
     public record Identity(String id, String username) { }
     @JsonIgnoreProperties(ignoreUnknown = true)
-    record User(String id, String username, @JsonProperty("delete_at") long deleteAt, @JsonProperty("is_bot") boolean bot) { }
+    record User(String id, String username, @JsonProperty("delete_at") Long deleteAt, @JsonProperty("is_bot") boolean bot) { }
     @JsonIgnoreProperties(ignoreUnknown = true)
     record Member(@JsonProperty("user_id") String userId, @JsonProperty("channel_id") String channelId) { }
     @JsonIgnoreProperties(ignoreUnknown = true)
@@ -41,7 +41,9 @@ public class MattermostClient {
     public Optional<Identity> byUsername(String username) { return eligible(get(User.class, "users", "username", username)); }
     public Optional<Identity> byId(String id) { return eligible(get(User.class, "users", id)); }
     private Optional<Identity> eligible(User user) {
-        if (user == null || user.deleteAt() != 0 || user.bot()) return Optional.empty();
+        if (user == null) return Optional.empty();
+        if (user.deleteAt() == null) throw AuthException.unavailable();
+        if (user.deleteAt() != 0 || user.bot()) return Optional.empty();
         if (user.id() == null || !user.id().matches("[a-z0-9]{26}") || user.username() == null
                 || !user.username().matches("[a-z0-9._-]{1,64}")) throw AuthException.unavailable();
         var member = get(Member.class, "channels", properties.channelId(), "members", user.id());
@@ -59,7 +61,7 @@ public class MattermostClient {
     public void sendCode(Identity target, OtpStore.Purpose purpose, String code) {
         try {
             var sender = get(User.class, "users", "me");
-            if (sender == null || sender.id() == null || sender.deleteAt() != 0 || target.id().equals(sender.id())) throw AuthException.unavailable();
+            if (sender == null || sender.id() == null || sender.deleteAt() == null || sender.deleteAt() != 0 || target.id().equals(sender.id())) throw AuthException.unavailable();
             var channel = http.post().uri("/channels/direct").body(List.of(sender.id(), target.id())).retrieve().body(Channel.class);
             if (channel == null || channel.id() == null || channel.id().isBlank()) throw AuthException.unavailable();
             var message = "TAG ME " + purpose.label() + " 인증번호: " + code + "\n"

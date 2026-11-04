@@ -1,0 +1,689 @@
+openapi: 3.1.0
+info:
+  title: TAG ME 인증 API
+  version: 0.2.0
+  description: 페이즈 2 구현 계약. 실제 Mattermost 토큰/채널/DM 권한 검증은 운영자가 별도로 수행한다. 기본 AUTH_ENABLED=false.
+servers:
+- url: /api/v1
+paths:
+  /auth/config:
+    get:
+      summary: 인증 설정과 비밀번호 길이
+      description: ''
+      security: []
+      responses:
+        '200':
+          description: 성공
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthConfig'
+        '400':
+          description: 형식/비밀번호 정책 오류
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: 유효하지 않은 인증 또는 만료 세션
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: CSRF/권한 거절
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: 계정/username/credentials 충돌
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '429':
+          description: 요청 제한
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          headers:
+            Retry-After:
+              schema:
+                type: integer
+              description: 다시 요청할 수 있을 때까지의 초
+        '503':
+          description: 외부/저장소/비활성 또는 새 코드가 필요한 처리 실패
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /csrf:
+    get:
+      summary: CSRF 쿠키/토큰 발급
+      description: XSRF-TOKEN 쿠키도 생성한다. 변경 요청은 이 쿠키와 응답 headerName/token을 함께 보낸다. 로그인/로그아웃/비밀번호 변경 후 다시 받는다.
+      security: []
+      responses:
+        '200':
+          description: 성공
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Csrf'
+        '400':
+          description: 형식/비밀번호 정책 오류
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: 유효하지 않은 인증 또는 만료 세션
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: CSRF/권한 거절
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: 계정/username/credentials 충돌
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '429':
+          description: 요청 제한
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          headers:
+            Retry-After:
+              schema:
+                type: integer
+              description: 다시 요청할 수 있을 때까지의 초
+        '503':
+          description: 외부/저장소/비활성 또는 새 코드가 필요한 처리 실패
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /auth/otp/request:
+    post:
+      summary: 목적별 DM 코드 요청
+      description: PASSWORD_CHANGE는 유효한 세션이 추가로 필요하다. 실제 발송 대상이 아니어도 같은 형식의 사용할 수 없는 challenge를 반환한다. 응답은 DM 전달/계정
+        존재 확인이 아니다.
+      security:
+      - csrfHeader: []
+        csrfCookie: []
+      responses:
+        '200':
+          description: 성공
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OtpResponse'
+        '400':
+          description: 형식/비밀번호 정책 오류
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: 유효하지 않은 인증 또는 만료 세션
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: CSRF/권한 거절
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: 계정/username/credentials 충돌
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '429':
+          description: 요청 제한
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          headers:
+            Retry-After:
+              schema:
+                type: integer
+              description: 다시 요청할 수 있을 때까지의 초
+        '503':
+          description: 외부/저장소/비활성 또는 새 코드가 필요한 처리 실패
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OtpRequest'
+  /auth/signup:
+    post:
+      summary: 가입과 최초 비밀번호 설정
+      description: SIGN_UP proof를 한 번 소비하고 회원/credentials를 트랜잭션으로 저장한다. 세션 ID와 CSRF를 교체한다. 기존 credentials를 덮어쓰지
+        않는다.
+      security:
+      - csrfHeader: []
+        csrfCookie: []
+      responses:
+        '201':
+          description: 성공
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SessionUser'
+        '400':
+          description: 형식/비밀번호 정책 오류
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: 유효하지 않은 인증 또는 만료 세션
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: CSRF/권한 거절
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: 계정/username/credentials 충돌
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '429':
+          description: 요청 제한
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          headers:
+            Retry-After:
+              schema:
+                type: integer
+              description: 다시 요청할 수 있을 때까지의 초
+        '503':
+          description: 외부/저장소/비활성 또는 새 코드가 필요한 처리 실패
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SignupRequest'
+  /auth/login:
+    post:
+      summary: 일반 비밀번호 로그인
+      description: Mattermost username의 현재 내부 ID/채널과 TAG ME 해시를 확인한다. OTP를 받지 않는다. 성공 시 세션 ID와 CSRF를 교체한다.
+      security:
+      - csrfHeader: []
+        csrfCookie: []
+      responses:
+        '200':
+          description: 성공
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SessionUser'
+        '400':
+          description: 형식/비밀번호 정책 오류
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: 유효하지 않은 인증 또는 만료 세션
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: CSRF/권한 거절
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: 계정/username/credentials 충돌
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '429':
+          description: 요청 제한
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          headers:
+            Retry-After:
+              schema:
+                type: integer
+              description: 다시 요청할 수 있을 때까지의 초
+        '503':
+          description: 외부/저장소/비활성 또는 새 코드가 필요한 처리 실패
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+  /auth/logout:
+    post:
+      summary: 로그아웃
+      description: 현재 세션과 CSRF를 지운다.
+      security:
+      - sessionCookie: []
+        csrfHeader: []
+        csrfCookie: []
+      responses:
+        '204':
+          description: 처리 완료. 응답 본문 없음.
+        '400':
+          description: 형식/비밀번호 정책 오류
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: 유효하지 않은 인증 또는 만료 세션
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: CSRF/권한 거절
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: 계정/username/credentials 충돌
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '429':
+          description: 요청 제한
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          headers:
+            Retry-After:
+              schema:
+                type: integer
+              description: 다시 요청할 수 있을 때까지의 초
+        '503':
+          description: 외부/저장소/비활성 또는 새 코드가 필요한 처리 실패
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /users/me:
+    get:
+      summary: 내 계정
+      description: ''
+      security:
+      - sessionCookie: []
+      responses:
+        '200':
+          description: 성공
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SessionUser'
+        '400':
+          description: 형식/비밀번호 정책 오류
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: 유효하지 않은 인증 또는 만료 세션
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: CSRF/권한 거절
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: 계정/username/credentials 충돌
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '429':
+          description: 요청 제한
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          headers:
+            Retry-After:
+              schema:
+                type: integer
+              description: 다시 요청할 수 있을 때까지의 초
+        '503':
+          description: 외부/저장소/비활성 또는 새 코드가 필요한 처리 실패
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /users/me/password:
+    put:
+      summary: 로그인한 본인의 비밀번호 변경
+      description: PASSWORD_CHANGE proof는 동일 세션/계정/version이어야 한다. 갱신과 version 증가 후 모든 이전 세션을 거절한다. userId/username으로
+        변경 대상을 전달하지 않는다.
+      security:
+      - sessionCookie: []
+        csrfHeader: []
+        csrfCookie: []
+      responses:
+        '204':
+          description: 처리 완료. 응답 본문 없음.
+        '400':
+          description: 형식/비밀번호 정책 오류
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: 유효하지 않은 인증 또는 만료 세션
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: CSRF/권한 거절
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: 계정/username/credentials 충돌
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '429':
+          description: 요청 제한
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          headers:
+            Retry-After:
+              schema:
+                type: integer
+              description: 다시 요청할 수 있을 때까지의 초
+        '503':
+          description: 외부/저장소/비활성 또는 새 코드가 필요한 처리 실패
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PasswordRequest'
+  /auth/password/reset:
+    post:
+      summary: 분실 비밀번호 재설정
+      description: PASSWORD_RESET proof와 기존 ACTIVE 계정이 필요하다. 신규 회원을 만들거나 자동 로그인하지 않는다. 기존 세션을 거절한다.
+      security:
+      - csrfHeader: []
+        csrfCookie: []
+      responses:
+        '204':
+          description: 처리 완료. 응답 본문 없음.
+        '400':
+          description: 형식/비밀번호 정책 오류
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: 유효하지 않은 인증 또는 만료 세션
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: CSRF/권한 거절
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: 계정/username/credentials 충돌
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '429':
+          description: 요청 제한
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          headers:
+            Retry-After:
+              schema:
+                type: integer
+              description: 다시 요청할 수 있을 때까지의 초
+        '503':
+          description: 외부/저장소/비활성 또는 새 코드가 필요한 처리 실패
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PasswordRequest'
+components:
+  securitySchemes:
+    sessionCookie:
+      type: apiKey
+      in: cookie
+      name: TAGME_SESSION
+    csrfCookie:
+      type: apiKey
+      in: cookie
+      name: XSRF-TOKEN
+    csrfHeader:
+      type: apiKey
+      in: header
+      name: X-XSRF-TOKEN
+  schemas:
+    AuthConfig:
+      type: object
+      required:
+      - available
+      - passwordMinLength
+      - passwordMaxLength
+      properties:
+        available:
+          type: boolean
+          description: 설정상 활성 여부이며 실제 외부 권한 확인 결과는 아니다.
+        passwordMinLength:
+          type: integer
+          const: 15
+        passwordMaxLength:
+          type: integer
+          const: 64
+    Csrf:
+      type: object
+      required:
+      - headerName
+      - token
+      properties:
+        headerName:
+          type: string
+        token:
+          type: string
+    SessionUser:
+      type: object
+      required:
+      - id
+      - username
+      - nickname
+      - onboardingRequired
+      properties:
+        id:
+          type: integer
+          format: int64
+        username:
+          type: string
+          maxLength: 64
+        nickname:
+          type:
+          - string
+          - 'null'
+        onboardingRequired:
+          type: boolean
+          description: 프로필/기본 정보 미완성 여부. 공개 동의 완료를 의미하지 않는다.
+    OtpRequest:
+      type: object
+      additionalProperties: false
+      required:
+      - purpose
+      properties:
+        purpose:
+          type: string
+          enum:
+          - SIGN_UP
+          - PASSWORD_CHANGE
+          - PASSWORD_RESET
+        username:
+          type: string
+          maxLength: 64
+          description: SIGN_UP/RESET에는 필수. CHANGE에서는 보내면 400이며 세션으로 대상을 정한다.
+    OtpResponse:
+      type: object
+      required:
+      - challengeId
+      - expiresIn
+      - resendAfter
+      properties:
+        challengeId:
+          type: string
+          pattern: ^[A-Za-z0-9_-]{43}$
+        expiresIn:
+          type: integer
+          minimum: 1
+          maximum: 600
+        resendAfter:
+          type: integer
+          minimum: 1
+    Error:
+      type: object
+      required:
+      - code
+      - message
+      properties:
+        code:
+          type: string
+        message:
+          type: string
+        retryAfter:
+          type: integer
+          minimum: 0
+    LoginRequest:
+      type: object
+      additionalProperties: false
+      required:
+      - username
+      - password
+      properties:
+        username:
+          type: string
+          minLength: 1
+          maxLength: 64
+        password:
+          type: string
+          minLength: 1
+          maxLength: 64
+          description: 기존 TAG ME 비밀번호. 신규 비밀번호 정책 검사와 별개다.
+    SignupRequest:
+      type: object
+      additionalProperties: false
+      required:
+      - challengeId
+      - code
+      - password
+      properties:
+        challengeId:
+          type: string
+          pattern: ^[A-Za-z0-9_-]{43}$
+        code:
+          type: string
+          pattern: ^[0-9]{6}$
+          minLength: 6
+          maxLength: 6
+          description: 숫자 타입으로 변환하지 않고 선행 0을 유지한다.
+        password:
+          type: string
+          minLength: 15
+          maxLength: 64
+          description: Unicode code point 기준, 공백 포함. 공백만 있는 값은 거절하며 원문은 trim/정규화하지 않는다.
+    PasswordRequest:
+      type: object
+      additionalProperties: false
+      required:
+      - challengeId
+      - code
+      - newPassword
+      properties:
+        challengeId:
+          type: string
+          pattern: ^[A-Za-z0-9_-]{43}$
+        code:
+          type: string
+          pattern: ^[0-9]{6}$
+          minLength: 6
+          maxLength: 6
+          description: 숫자 타입으로 변환하지 않고 선행 0을 유지한다.
+        newPassword:
+          type: string
+          minLength: 15
+          maxLength: 64
+          description: Unicode code point 기준, 공백 포함. 공백만 있는 값은 거절하며 원문은 trim/정규화하지 않는다.

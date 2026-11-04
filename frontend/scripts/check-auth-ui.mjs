@@ -85,7 +85,7 @@ try {
   }
   await page.setViewportSize({ width: 390, height: 900 });
   await page.getByRole('button', { name: '가입하기', exact: true }).click();
-  await page.getByRole('heading', { name: 'contract-test님, 반가워요', exact: true }).waitFor();
+  await page.getByRole('heading', { name: '계정 연결을 마쳤어요', exact: true }).waitFor();
   assert.equal(lastSignup.code, '012345');
   assert.equal(lastSignup.password, password);
   assert.equal(lastSignup.challengeId, 'b'.repeat(43), 'resend replaces the challenge ID');
@@ -114,9 +114,9 @@ try {
   await page.getByLabel('비밀번호', { exact: true }).fill(password);
   assert.equal(await page.locator('input[name="code"]').count(), 0);
   await page.getByRole('button', { name: '로그인하기', exact: true }).click();
-  await page.getByRole('heading', { name: 'contract-test님, 반가워요', exact: true }).waitFor();
+  await page.getByRole('heading', { name: '계정 연결을 마쳤어요', exact: true }).waitFor();
   await page.reload();
-  await page.getByRole('heading', { name: 'contract-test님, 반가워요', exact: true }).waitFor();
+  await page.getByRole('heading', { name: '계정 연결을 마쳤어요', exact: true }).waitFor();
   await page.getByRole('button', { name: '로그아웃', exact: true }).click();
   await page.getByRole('heading', { name: '로그인', exact: true }).waitFor();
   await record('ordinary login has no OTP and refresh restores server session; logout clears it');

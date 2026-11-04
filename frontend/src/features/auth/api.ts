@@ -26,7 +26,7 @@ async function request<T>(path: string, method = 'GET', body?: object): Promise<
   if (response.status === 204) return undefined as T;
   let data;
   try { data = await response.json(); }
-  catch { throw new ApiError(503, 'AUTH_UNAVAILABLE', '인증 서비스를 준비하고 있어요. 입력값은 전송되지 않았어요.'); }
+  catch { throw new ApiError(503, 'AUTH_UNAVAILABLE', '서버 응답을 확인할 수 없어요. 잠시 후 다시 시도해 주세요.'); }
   if (!response.ok) {
     if (response.status === 401 || response.status === 403) clearCsrf();
     if (response.status === 401 && path !== '/users/me' && ['UNAUTHENTICATED', 'SESSION_EXPIRED'].includes(data.code)) window.dispatchEvent(new Event('tagme:unauthenticated'));

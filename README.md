@@ -22,7 +22,7 @@ SSAFY 16기 네트워킹 이벤트. 현장의 NFC/QR로 다섯 미션을 열고 
 
 React + TypeScript 시작 화면, Spring Boot 기본 서버, 보안 필터, CSRF 토큰 API, Redis 세션 설정, Flyway 기반 핵심 테이블과 5개 미션 시드, Docker Compose, 개발/운영용 Caddy, CI를 준비했습니다.
 
-**Mattermost 아이디 + TAG ME 비밀번호 로그인, 가입/비밀번호 변경·재설정용 DM 인증, 미션 수행, AI 검수, 동료 추천, 시상 기능은 후속 개발 대상입니다.** `/api/v1/meta`는 초기 연결 확인용이며 사용자별 미션 상태가 아닙니다. 현재는 로그인 수단이 없어 보호된 API에 접근할 수 없습니다.
+**페이즈 2 인증 API와 화면 연결을 구현했습니다.** Mattermost 아이디 + TAG ME 비밀번호 로그인, 가입/변경/재설정의 숫자 6자리 DM 인증과 세션 무효화를 제공합니다. 기본 `AUTH_ENABLED=false`이며 실제 Mattermost 토큰/지정 채널/DM 권한은 별도로 검증해야 합니다. [인증 구현과 설정](docs/auth.md)을 확인하세요. 프로필/동의, 미션 수행, AI 검수, 동료 추천과 시상은 후속 개발 대상입니다. `/api/v1/meta`는 초기 연결 확인용이며 사용자별 미션 상태가 아닙니다.
 
 ## 빠른 시작: 전체 Docker 실행
 

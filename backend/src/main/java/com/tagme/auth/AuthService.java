@@ -66,7 +66,9 @@ public class AuthService {
         challenges.issue(id, challenge, code);
         try { mattermost.sendCode(target, purpose, code); }
         catch (RuntimeException failure) { challenges.invalidate(id); throw failure; }
-        return response;
+        int remaining = challenges.remainingSeconds(id);
+        if (remaining <= 0) { challenges.invalidate(id); throw restart(); }
+        return new OtpResponse(id, remaining, properties.resendSeconds());
     }
     public AuthRepository.Account login(String input, String password, String ip) {
         ready();
@@ -97,14 +99,15 @@ public class AuthService {
         String hash = passwords.encode(password); // expensive work outside DB row locks
         try {
             return transactions.execute(status -> {
-                var existing = accounts.byExternalId(verified.identity().id()).orElse(null);
-                long userId;
-                if (existing == null) userId = accounts.insertUser(verified.identity().id(), verified.identity().username());
+                long userId = verified.challenge().userId();
+                if (userId == 0) userId = accounts.insertUser(verified.identity().id(), verified.identity().username());
                 else {
-                    accounts.lockUser(existing.id());
-                    var locked = accounts.byId(existing.id()).orElseThrow(AuthException::invalid);
-                    if (!active(locked) || locked.hash() != null) throw AuthException.conflict();
-                    userId = locked.id(); accounts.updateUsername(userId, verified.identity().username());
+                    // This locking read must precede any consistent read in
+                    // the transaction, including the legacy first-password path.
+                    accounts.lockUser(userId);
+                    var locked = accounts.byId(userId).orElseThrow(AuthException::invalid);
+                    if (!active(locked) || locked.hash() != null || !locked.mattermostId().equals(verified.identity().id())) throw AuthException.conflict();
+                    accounts.updateUsername(userId, verified.identity().username());
                 }
                 accounts.insertCredential(userId, hash);
                 accounts.recordLogin(userId);

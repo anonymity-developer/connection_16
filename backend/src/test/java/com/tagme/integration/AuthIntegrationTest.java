@@ -119,6 +119,7 @@ class AuthIntegrationTest {
         assertThat(me.getStatusCode().value()).isEqualTo(200);
         assertThat(me.getBody()).containsEntry("username", "alice").containsEntry("onboardingRequired", true);
         assertThat(me.getBody().toString()).doesNotContain(ALICE, account.hash(), "012345", PASSWORD);
+        assertThat(browser.get("/admin/users").getStatusCode().value()).isEqualTo(403);
         String old = browser.cookies.get("TAGME_SESSION");
         assertThat(browser.login("alice", PASSWORD).getStatusCode().value()).isEqualTo(200);
         assertThat(browser.cookies.get("TAGME_SESSION")).isNotEqualTo(old);
@@ -127,11 +128,14 @@ class AuthIntegrationTest {
     @Test void passwordChangeRequiresSameSessionPurposeAndRevokesBothSessionsEvenWithoutRedisCleanup() {
         var first = signup("alice"); var second = new Browser();
         assertThat(second.login("alice", PASSWORD).getStatusCode().value()).isEqualTo(200);
+        assertThat(first.send(HttpMethod.POST, "/auth/otp/request", Map.of("purpose", "PASSWORD_CHANGE", "username", "bob")).getStatusCode().value()).isEqualTo(400);
         allowResend();
         String challenge = first.otp(null, OtpStore.Purpose.PASSWORD_CHANGE); String code = sent.getLast().code();
         var payload = Map.of("challengeId", challenge, "code", code, "newPassword", "the replacement password");
         assertThat(second.send(HttpMethod.PUT, "/users/me/password", payload).getStatusCode().value()).isEqualTo(401);
         assertThat(first.send(HttpMethod.POST, "/auth/password/reset", payload).getStatusCode().value()).isEqualTo(401);
+        var foreignTarget = new HashMap<String, Object>(payload); foreignTarget.put("userId", 999);
+        assertThat(first.send(HttpMethod.PUT, "/users/me/password", foreignTarget).getStatusCode().value()).isEqualTo(400);
         doNothing().when(sessions).revokeOld(any()); // missed Redis deletion must not authorize a stale version
         assertThat(first.send(HttpMethod.PUT, "/users/me/password", payload).getStatusCode().value()).isEqualTo(204);
         assertThat(first.get("/users/me").getStatusCode().value()).isEqualTo(401);
@@ -172,6 +176,18 @@ class AuthIntegrationTest {
         assertThat(sent).hasSize(messages);
         assertThat(browser.send(HttpMethod.POST, "/auth/signup", Map.of("challengeId", dummy, "code", "012345", "password", "another long password")).getStatusCode().value()).isEqualTo(401);
         assertThat(accounts.byExternalId(ALICE).orElseThrow().hash()).isEqualTo(hash);
+    }
+    @Test void suspendedAccountCannotSetInitialPasswordOrKeepAnOldSession() {
+        jdbc.update("INSERT INTO users (mattermost_id) VALUES (?)", ALICE);
+        var browser = new Browser(); String id = browser.otp("alice", OtpStore.Purpose.SIGN_UP); String code = sent.getLast().code();
+        jdbc.update("UPDATE users SET status='SUSPENDED' WHERE mattermost_id=?", ALICE);
+        assertThat(browser.send(HttpMethod.POST, "/auth/signup", Map.of("challengeId", id, "code", code, "password", PASSWORD)).getStatusCode().value()).isEqualTo(409);
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM user_credentials", Integer.class)).isZero();
+        jdbc.update("UPDATE users SET status='ACTIVE' WHERE mattermost_id=?", ALICE); allowResend();
+        var signedIn = signup("alice");
+        jdbc.update("UPDATE users SET status='SUSPENDED' WHERE mattermost_id=?", ALICE);
+        assertThat(signedIn.get("/users/me").getStatusCode().value()).isEqualTo(401);
+        assertThat(new Browser().login("alice", PASSWORD).getStatusCode().value()).isEqualTo(401);
     }
     @Test void signupDbFailureRollsBackUserButNeverReactivatesConsumedOtp() {
         var browser = new Browser(); String id = browser.otp("alice", OtpStore.Purpose.SIGN_UP);

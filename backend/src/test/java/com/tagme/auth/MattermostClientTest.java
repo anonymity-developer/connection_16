@@ -36,9 +36,15 @@ class MattermostClientTest {
     }
     @Test void nonmemberAndUpstreamDenialNeverBecomeAuthorized() {
         server.expect(requestTo("http://localhost/api/v4/users/username/alice"))
-                .andRespond(withSuccess("{\"id\":\"" + USER + "\",\"username\":\"alice\"}", MediaType.APPLICATION_JSON));
+                .andRespond(withSuccess("{\"id\":\"" + USER + "\",\"username\":\"alice\",\"delete_at\":0}", MediaType.APPLICATION_JSON));
         server.expect(requestTo("http://localhost/api/v4/channels/" + CHANNEL + "/members/" + USER)).andRespond(withResourceNotFound());
         assertThat(client.byUsername("alice")).isEmpty(); server.verify();
+    }
+    @Test void missingAccountStateFailsClosed() {
+        server.expect(requestTo("http://localhost/api/v4/users/username/alice"))
+                .andRespond(withSuccess("{\"id\":\"" + USER + "\",\"username\":\"alice\"}", MediaType.APPLICATION_JSON));
+        assertThatThrownBy(() -> client.byUsername("alice")).isInstanceOf(AuthException.class)
+                .satisfies(error -> assertThat(((AuthException)error).status()).isEqualTo(503));
     }
     @Test void tokenOrPermissionFailureIsUnavailableRatherThanMissingMember() {
         server.expect(requestTo("http://localhost/api/v4/users/username/alice")).andRespond(withUnauthorizedRequest());

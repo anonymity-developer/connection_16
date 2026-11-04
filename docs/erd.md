@@ -1,6 +1,6 @@
 # 전체 도메인 ERD와 관계 규칙
 
-이 문서는 읽기 편하게 도메인별로 나눈 전체 설계다. **1~3절의 기본 도식은 V1에 존재하는 테이블**이며, **1.1절의 로그인 확장과 4~9절은 후속 migration으로 추가할 계획**이다. 후속 컬럼/타입은 migration 작성 시 검증하며, 존재하지 않는 FK나 테이블을 이미 적용한 것처럼 사용하지 않는다. 전체 테이블 사전과 인덱스 요약은 [데이터 모델](data-model.md)에 있다.
+이 문서는 읽기 편하게 도메인별로 나눈 전체 설계다. **1~3절의 기본 도식은 V1에 존재하는 테이블**이며, **1.1절 로그인 확장은 V3이며 4~9절은 후속 migration 계획**이다. 후속 컬럼/타입은 migration 작성 시 검증하며, 존재하지 않는 FK나 테이블을 이미 적용한 것처럼 사용하지 않는다. 전체 테이블 사전과 인덱스 요약은 [데이터 모델](data-model.md)에 있다.
 
 단일 행사 기준이며 다중 행사를 지원하려면 event_id와 UNIQUE 범위를 다시 설계해야 한다. 아래 대문자 엔티티는 실제 snake_case 테이블을 가리킨다. PK/FK/UK는 기본키/외래키/유일 제약이며 복합키는 설명에서 다시 명시한다.
 
@@ -44,14 +44,14 @@ erDiagram
 ```
 
 - users.mattermost_id가 외부 계정의 고유 키다. 표시 이름은 변경될 수 있으므로 식별자로 사용하지 않는다.
-- USER/ADMIN 역할과 ACTIVE/SUSPENDED/WITHDRAWN 상태는 서버에서 관리한다. class_no는 양수다.
+- USER/ADMIN 역할과 ACTIVE/SUSPENDED/WITHDRAWN 상태는 서버에서 관리한다. class_no는 프로필 등록 후 양수이며 V3부터 온보딩 전 NULL을 허용한다.
 - profiles의 user_id는 PK/FK이므로 사용자당 최대 1개다. 초기 공개값은 false다. 닉네임 중복은 허용한다.
 - user_interests는 `(user_id, interest_id)` 복합 PK다. 현재 FK는 삭제 cascade를 사용하지 않는다.
 - 실명/반이 있는 users 엔티티를 그대로 목록 응답에 직렬화하지 않는다. 프로필 동의와 실제 공개 상태를 확인한다.
 
-### 1.1. 후속 로그인 아이디와 비밀번호 모델
+### 1.1. V3 로그인 아이디와 비밀번호 모델
 
-다음 확장은 **현재 V1에 없는 후속 설계**다. 사용자 입력 아이디는 Mattermost username이고 비밀번호는 TAG ME 최초 가입 때 설정한다. 기존 mattermost_id는 외부 계정의 안정적인 연결 키로 유지한다.
+다음 확장은 **V3에 구현했다**. 사용자 입력 아이디는 Mattermost username이고 비밀번호는 TAG ME 최초 가입 때 설정한다. 기존 mattermost_id는 외부 계정의 안정적인 연결 키로 유지한다.
 
 ```mermaid
 erDiagram
@@ -464,4 +464,4 @@ event_settings는 id=1인 단일 행사 설정이다. `opens_at < submit_closes_
 3. 콘텐츠 목록 `(visibility_status,id)`, 검수 작업 `(status,next_run_at,id)`, 게임 순위 `(status,tap_count,id)`, 접수 `(user_id,received_at,id)`는 후보 인덱스다. 실제 쿼리/EXPLAIN을 확인하고 migration에 확정한다.
 4. 중복 소원/카드/하트/방문/성향/완료는 UNIQUE/PK로 보장한다. UI 버튼 비활성화만으로 중복을 막지 않는다.
 5. 완료/시상/감사 기록을 단순 cascade 삭제하지 않는다. 탈퇴/비식별화와 보존 기간은 행사 동의 정책을 따른다.
-6. 원문 토큰, OTP와 세션 ID는 ERD의 영속 업무 데이터가 아니다. 세션/OTP/속도 제한은 Redis의 만료 상태로 관리하며 OTP에는 계정/purpose를 바인딩한다. 영속 비밀번호 해시는 후속 user_credentials에만 보관한다.
+6. 원문 토큰, OTP와 세션 ID는 ERD의 영속 업무 데이터가 아니다. 세션/OTP/속도 제한은 Redis의 만료 상태로 관리하며 OTP에는 계정/purpose를 바인딩한다. 영속 비밀번호 해시는 V3의 user_credentials에만 보관한다.
