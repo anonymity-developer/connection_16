@@ -60,7 +60,7 @@ export function ContentMission({ kind }: { kind: ContentKind }) {
         {slot.id && <p className="result-footnote">새 수정본이 승인되기 전까지 기존 승인본이 공개돼요. 이미 받은 글자는 유지돼요.</p>}
         <Button type="submit" className="full-width" disabled={busy || conflict}>{busy ? '검수 요청 중…' : uncertain ? '같은 글 다시 전송하기' : slot.id ? '수정본 검수 요청하기' : wish ? '소원 검수 요청하기' : '응원 검수 요청하기'}<Icon name="arrow" size={18} /></Button>
         {uncertain && <p className="result-footnote">응답을 확인하지 못했어요. 같은 요청으로 다시 보내거나 저장된 글을 확인해 주세요.</p>}
-        {slot.id && !locked && <Button variant="quiet" onClick={() => setEditing(false)}>수정 취소하기</Button>}
+        {slot.id && !locked && <Button type="button" variant="quiet" onClick={() => setEditing(false)}>수정 취소하기</Button>}
       </form>}
       {error && <p role="alert" className="form-notice is-error">{error}</p>}
       {!editing && slot?.id && slot.visibility === 'VISIBLE' && <Button variant="secondary" onClick={edit}>같은 글 수정하기</Button>}

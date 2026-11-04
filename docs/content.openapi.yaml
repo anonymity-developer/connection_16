@@ -1,0 +1,492 @@
+openapi: 3.1.0
+info:
+  title: TAG ME 소원·응원과 비동기 검수 API
+  version: 0.4.2
+  description: 모든 조회 세션 필요, 변경 CSRF와 해금/기간/동의 확인. 관리자 판정은 ADMIN 필요. 외부 제공자 미설정 시 REVIEW_REQUIRED.
+    댓글/하트/신고/숨김/재처리 API는 후속.
+servers:
+- url: /api/v1
+paths:
+  /wishes:
+    get:
+      summary: 승인된 공개 소원 목록
+      security:
+      - session: []
+      responses:
+        '200':
+          description: 처리 성공
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Feed'
+        default:
+          $ref: '#/components/responses/Error'
+      parameters:
+      - name: cursor
+        in: query
+        schema:
+          type: integer
+          format: int64
+          minimum: 1
+    post:
+      summary: 최초 소원 슬롯 작성
+      security:
+      - session: []
+      responses:
+        '202':
+          description: 검수 요청 저장; 승인/완료 아님
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OwnSlot'
+        default:
+          $ref: '#/components/responses/Error'
+      parameters:
+      - &id001
+        name: X-XSRF-TOKEN
+        in: header
+        required: true
+        schema:
+          type: string
+      - &id002
+        name: Idempotency-Key
+        in: header
+        required: true
+        schema:
+          type: string
+          pattern: ^[A-Za-z0-9_-]{16,64}$
+      requestBody: &id003
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Submit'
+  /wishes/me:
+    get:
+      summary: 본인 소원 승인본/대기본/최신본
+      security:
+      - session: []
+      responses:
+        '200':
+          description: 처리 성공
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OwnSlot'
+        default:
+          $ref: '#/components/responses/Error'
+    put:
+      summary: 동일 소원 슬롯의 수정본 검수
+      security:
+      - session: []
+      responses:
+        '202':
+          description: 검수 요청 저장; 승인/완료 아님
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OwnSlot'
+        default:
+          $ref: '#/components/responses/Error'
+      parameters:
+      - *id001
+      - *id002
+      requestBody: *id003
+  /cheers:
+    get:
+      summary: 승인된 공개 응원 목록
+      security:
+      - session: []
+      responses:
+        '200':
+          description: 처리 성공
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Feed'
+        default:
+          $ref: '#/components/responses/Error'
+      parameters:
+      - name: cursor
+        in: query
+        schema:
+          type: integer
+          format: int64
+          minimum: 1
+    post:
+      summary: 최초 응원 슬롯 작성
+      security:
+      - session: []
+      responses:
+        '202':
+          description: 검수 요청 저장; 승인/완료 아님
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OwnSlot'
+        default:
+          $ref: '#/components/responses/Error'
+      parameters:
+      - *id001
+      - *id002
+      requestBody: &id004
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Submit'
+  /cheers/me:
+    get:
+      summary: 본인 응원 승인본/대기본/최신본
+      security:
+      - session: []
+      responses:
+        '200':
+          description: 처리 성공
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OwnSlot'
+        default:
+          $ref: '#/components/responses/Error'
+    put:
+      summary: 동일 응원 슬롯의 수정본 검수
+      security:
+      - session: []
+      responses:
+        '202':
+          description: 검수 요청 저장; 승인/완료 아님
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OwnSlot'
+        default:
+          $ref: '#/components/responses/Error'
+      parameters:
+      - *id001
+      - *id002
+      requestBody: *id004
+  /admin/moderation:
+    get:
+      summary: ADMIN 전용 비공개 작업/내용 50건
+      security:
+      - session: []
+      responses:
+        '200':
+          description: 처리 성공
+          content:
+            application/json:
+              schema:
+                type: array
+                maxItems: 50
+                items:
+                  $ref: '#/components/schemas/ReviewTask'
+        default:
+          $ref: '#/components/responses/Error'
+  /admin/moderation/{jobId}/decision:
+    post:
+      summary: ADMIN 전용 현재 fence 판정과 감사 기록
+      security:
+      - session: []
+      responses:
+        '204':
+          description: 처리 성공
+        default:
+          $ref: '#/components/responses/Error'
+      parameters:
+      - *id001
+      - name: jobId
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+          minimum: 1
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Decision'
+components:
+  securitySchemes:
+    session:
+      type: apiKey
+      in: cookie
+      name: TAGME_SESSION
+  responses:
+    Error:
+      description: 세션/CSRF/권한/입력/행사/상태 충돌/속도 제한/일시 장애
+      content:
+        application/json:
+          schema:
+            $ref: auth.openapi.yaml#/components/schemas/Error
+  schemas:
+    Submit:
+      type: object
+      additionalProperties: false
+      properties:
+        content:
+          type: string
+          minLength: 1
+          maxLength: 200
+        templateId:
+          type: string
+          enum:
+          - PLAIN
+          - NOTE
+        style:
+          type: string
+          enum:
+          - ROSE
+          - INK
+        anonymous: &id005
+          type: boolean
+        expectedVersion:
+          type:
+          - integer
+          - 'null'
+          format: int64
+          minimum: 1
+          description: 최초 작성은 생략/null, 수정은 현재 슬롯 version 필수
+      required:
+      - content
+      - templateId
+      - style
+      - anonymous
+    Revision:
+      type: object
+      additionalProperties: false
+      properties:
+        id:
+          type: integer
+          format: int64
+        itemId:
+          type: integer
+          format: int64
+        number:
+          type: integer
+        content:
+          type: string
+        templateId:
+          type: string
+          enum:
+          - PLAIN
+          - NOTE
+        style:
+          type: string
+          enum:
+          - ROSE
+          - INK
+        anonymous: *id005
+        submittedAt:
+          type: string
+          format: date-time
+        status:
+          type: string
+          enum:
+          - QUEUED
+          - PROCESSING
+          - APPROVED
+          - REJECTED
+          - REVIEW_REQUIRED
+          - SUPERSEDED
+        reason:
+          type:
+          - string
+          - 'null'
+      required:
+      - id
+      - itemId
+      - number
+      - content
+      - templateId
+      - style
+      - anonymous
+      - submittedAt
+      - status
+      - reason
+    OwnSlot:
+      type: object
+      additionalProperties: false
+      properties:
+        id:
+          type:
+          - integer
+          - 'null'
+          format: int64
+        version:
+          type: integer
+          format: int64
+          minimum: 0
+        visibility:
+          type:
+          - string
+          - 'null'
+          enum:
+          - VISIBLE
+          - HIDDEN
+          - null
+        approvedRevision:
+          anyOf:
+          - $ref: '#/components/schemas/Revision'
+          - type: 'null'
+        pendingRevision:
+          anyOf:
+          - $ref: '#/components/schemas/Revision'
+          - type: 'null'
+        latestRevision:
+          anyOf:
+          - $ref: '#/components/schemas/Revision'
+          - type: 'null'
+        missionCompleted: *id005
+        luckScore:
+          type:
+          - integer
+          - 'null'
+        landingZone:
+          type:
+          - integer
+          - 'null'
+      required:
+      - id
+      - version
+      - visibility
+      - approvedRevision
+      - pendingRevision
+      - latestRevision
+      - missionCompleted
+      - luckScore
+      - landingZone
+    PublicContent:
+      type: object
+      additionalProperties: false
+      properties:
+        id:
+          type: integer
+          format: int64
+        content:
+          type: string
+        templateId:
+          type: string
+          enum:
+          - PLAIN
+          - NOTE
+        style:
+          type: string
+          enum:
+          - ROSE
+          - INK
+        anonymous: *id005
+        nickname:
+          type:
+          - string
+          - 'null'
+        luckScore:
+          type:
+          - integer
+          - 'null'
+        landingZone:
+          type:
+          - integer
+          - 'null'
+      required:
+      - id
+      - content
+      - templateId
+      - style
+      - anonymous
+      - nickname
+      - luckScore
+      - landingZone
+    Feed:
+      type: object
+      additionalProperties: false
+      properties:
+        items:
+          type: array
+          maxItems: 20
+          items:
+            $ref: '#/components/schemas/PublicContent'
+        nextCursor:
+          type:
+          - integer
+          - 'null'
+          format: int64
+      required:
+      - items
+      - nextCursor
+    Job:
+      type: object
+      additionalProperties: false
+      properties:
+        id:
+          type: integer
+          format: int64
+        revisionId:
+          type: integer
+          format: int64
+        authorId:
+          type: integer
+          format: int64
+        itemId:
+          type: integer
+          format: int64
+        status:
+          type: string
+        attempts:
+          type: integer
+        fence:
+          type: integer
+          format: int64
+        leaseUntil:
+          type:
+          - string
+          - 'null'
+          format: date-time
+      required:
+      - id
+      - revisionId
+      - authorId
+      - itemId
+      - status
+      - attempts
+      - fence
+      - leaseUntil
+    ReviewTask:
+      type: object
+      additionalProperties: false
+      properties:
+        job:
+          $ref: '#/components/schemas/Job'
+        revision:
+          $ref: '#/components/schemas/Revision'
+        approvedRevision:
+          anyOf:
+          - $ref: '#/components/schemas/Revision'
+          - type: 'null'
+      required:
+      - job
+      - revision
+      - approvedRevision
+    Decision:
+      type: object
+      additionalProperties: false
+      properties:
+        expectedFence:
+          type: integer
+          format: int64
+          minimum: 0
+        decision:
+          type: string
+          enum:
+          - APPROVED
+          - REJECTED
+        reason:
+          type: string
+          minLength: 1
+          maxLength: 300
+      required:
+      - expectedFence
+      - decision
+      - reason

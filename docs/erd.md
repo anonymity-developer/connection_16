@@ -146,16 +146,15 @@ erDiagram
 
 PK는 `(viewer_id, viewed_id)`, 역방향 탐색 인덱스는 `(viewed_id, viewer_id)`다. 자기 방문을 금지한다. A→B는 행 1개이고 B→A가 추가되면 상호 방문이다. 양방향 여부를 별도 컬럼에 중복 저장하지 않는다. 노출 시 현재 계정/프로필 상태를 다시 필터링한다.
 
-## 4. 콘텐츠 원본과 검수 버전 — 후속 설계
+## 4. 콘텐츠 원본과 검수 버전 — V6 구현
 
 ```mermaid
 erDiagram
     USERS ||--o{ CONTENT_ITEMS : authors
     CONTENT_ITEMS ||--o{ CONTENT_REVISIONS : versions
-    CONTENT_ITEMS o|--o| CONTENT_REVISIONS : approved_pointer
-    CONTENT_ITEMS o|--o| CONTENT_REVISIONS : pending_pointer
-    CONTENT_REVISIONS ||--o{ MODERATION_JOBS : queued
-    CONTENT_REVISIONS ||--o{ MODERATION_REVIEWS : reviewed
+    CONTENT_ITEMS o|--o| CONTENT_REVISIONS : approved_pending
+    CONTENT_REVISIONS ||--|| MODERATION_JOBS : queued
+    MODERATION_JOBS ||--o{ MODERATION_REVIEWS : decisions
     USERS o|--o{ MODERATION_REVIEWS : reviewer
     CONTENT_ITEMS {
         bigint id PK
@@ -164,6 +163,8 @@ erDiagram
         varchar visibility_status
         bigint approved_revision_id FK
         bigint pending_revision_id FK
+        int luck_score
+        int landing_zone
         bigint version
         datetime created_at
         datetime updated_at
@@ -172,43 +173,45 @@ erDiagram
         bigint id PK
         bigint item_id FK
         int revision_no
-        text text
-        json presentation_json
+        varchar content_text
+        varchar template_id
+        varchar style
+        boolean anonymous
         datetime submitted_at
         varchar moderation_status
+        varchar reason_code
+        varchar idempotency_key
+        char payload_hash
     }
     MODERATION_JOBS {
         bigint id PK
-        bigint revision_id FK
-        varchar job_key UK
+        bigint revision_id FK,UK
         varchar status
         int attempts
+        bigint fence
         datetime next_run_at
         datetime lease_until
-        json result_json
         varchar provider
         varchar policy_version
         varchar last_error_code
     }
     MODERATION_REVIEWS {
         bigint id PK
-        bigint revision_id FK
+        bigint job_id FK
+        bigint fence
         bigint reviewer_id FK
         varchar decision
         varchar reason
         datetime created_at
     }
-    USERS {
-        bigint id PK
-    }
 ```
 
-- CONTENT_ITEMS.kind는 WISH/CHEER/COMMENT를 구분한다. visibility_status는 VISIBLE/HIDDEN 등 공개 제어이고 revision 검수 상태와 별개다.
-- `UNIQUE(item_id, revision_no)`로 버전을 구별한다. text와 presentation_json은 revision 생성 후 수정하지 않는다. 검수 상태/결과 메타데이터만 갱신한다.
-- approved/pending 포인터는 nullable이다. 반드시 같은 item의 revision만 참조하도록 서비스 트랜잭션과 migration의 복합 FK 가능성을 검증한다. FK를 순서대로 생성해 순환 참조를 해결한다.
-- 하나의 revision이 재검수될 수 있어 job/review 이력은 여러 개일 수 있다. job_key로 같은 작업 중복을 막고 한 번의 자동 재시도는 attempts/lease로 관리한다.
-- reviewer_id는 관리자 판정일 때 사용자 FK, 자동 판정일 때 NULL이다. 자동 판정의 제공자/정책 버전은 작업에 남긴다.
-- 동시 수정은 content_items.version과 pending 포인터를 확인한다. 이전 작업은 그 revision의 이력만 남기며 최신 pending을 덮어쓰지 않는다.
+- 현재 kind는 WISH/CHEER다. UNIQUE(author_id,kind)가 각 1회 슬롯을 보장하고 운 결과는 소원 슬롯에만 저장한다. 별도 wishes/cheer_cards는 현재 생성하지 않는다.
+- UNIQUE(item_id,revision_no)와 UNIQUE(item_id,idempotency_key), approved/pending 복합 FK `(revision_id,item_id)`를 적용한다. text/template/style/anonymous는 revision 생성 후 수정하지 않는다.
+- revision당 작업은 하나이며 attempts/fence/lease로 회수/재시도한다. 오래된 fence 또는 다른 pending에 대한 결과는 반영하지 않는다.
+- UNIQUE(job_id,fence)가 판정 이력 중복을 막는다. reviewer는 관리자면 사용자 ID, 자동이면 NULL이다.
+- 별도 content_settings singleton은 운 범위/구역 수를 담고 기본 시드하지 않는다. 미설정 슬롯은 nullable 결과를 유지한다.
+- 아래 댓글/하트/시상 구조는 후속 설계다. 기존 계획의 wishes/cheer_cards는 해당 기능을 구현할 때 V6 슬롯을 참조하는 방식으로 다시 확정한다. 현재 구현은 [콘텐츠 계약](content.md)과 V6 DDL이 기준이다.
 
 ## 5. 소원과 댓글 — 후속 설계
 

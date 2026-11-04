@@ -101,27 +101,29 @@ GET `/event`, `/policies`, `/users/me/profile`, GET/POST `/tags/pending`, POST `
 - 미션 목록/수집판은 상태와 힌트를 보여줄 수 있지만 **각 미션 수행 API는 해당 사용자의 해금 기록을 서버에서 다시 확인**한다. 미해금 상태의 직접 요청은 403이다. 화면 잠금만으로 검사하지 않는다.
 - 성공 응답과 목록에는 원문 토큰이나 다른 태그 토큰을 포함하지 않는다. 추측하기 어려운 태그 토큰을 사용하되 일반 API 경로는 의미가 드러나는 이름으로 유지한다. 태그 URL 공유를 통한 해금은 가능하며 현장 체류를 증명하지 않는다.
 
-## 4. 콘텐츠 — 예정
+## 4. 콘텐츠 — 페이즈 4-2 구현 및 후속 범위
 
 | Method | 경로 | 요청/결과 요점 |
 | --- | --- | --- |
 | POST | `/wishes` | content → 202, 슬롯/revision ID 및 검수 상태 |
 | GET | `/wishes` | 승인된 공개 목록, 커서 |
-| GET | `/wishes/{id}` | 승인된 상세 정보 |
+| GET | `/wishes/{id}` | 후속: 승인된 상세 정보 |
 | GET | `/wishes/me` | 내 슬롯/승인본/대기본 상태 |
 | PUT | `/wishes/me` | 수정안 → 202 재검수; 운 점수 유지 |
-| POST | `/wishes/{id}/comments` | content, revealProfile → 202 검수 대기 |
-| GET | `/wishes/{id}/comments` | 승인 댓글만 공개 조회 |
+| POST | `/wishes/{id}/comments` | 후속: content, revealProfile → 202 검수 대기 |
+| GET | `/wishes/{id}/comments` | 후속: 승인 댓글만 공개 조회 |
 | POST | `/cheers` | content, templateId, style, anonymous → 202 |
 | GET | `/cheers` | 승인된 카드 목록 |
 | GET | `/cheers/me` | 내 카드와 검수 상태 |
 | PUT | `/cheers/me` | 수정안 → 202 재검수 |
-| PUT | `/cheers/{id}/like` | 최초 하트, 기존 하트는 그대로 → 현재 상태 |
-| DELETE | `/cheers/{id}/like` | 없으면 그대로 → 204 |
+| PUT | `/cheers/{id}/like` | 후속: 최초 하트, 기존 하트는 그대로 → 현재 상태 |
+| DELETE | `/cheers/{id}/like` | 후속: 없으면 그대로 → 204 |
 
 최초 작성 재시도는 Idempotency-Key를 사용한다. 같은 key/payload는 같은 리소스를 반환하고 같은 key/다른 payload는 409다. 사용자 슬롯 UNIQUE가 키 변경으로 인한 중복 생성도 막는다. 공개 목록에는 pending/거절 revision이 포함되지 않는다.
 
-대기 상태 응답 예시:
+아래 초기 응답 예시는 개념 설명이다. 구현된 요청은 content/templateId/style/anonymous/expectedVersion, 응답은 OwnSlot(approvedRevision/pendingRevision/latestRevision/version)이며 [콘텐츠 계약](content.md)과 [OpenAPI](content.openapi.yaml)가 정확한 기준이다.
+
+초기 개념 응답 예시:
 
 ```json
 {

@@ -2,7 +2,7 @@
 
 ## 1. 적용 범위
 
-현재 실행 가능한 DDL은 `backend/src/main/resources/db/migration`의 V1/V2/V3/V4/V5다. 콘텐츠, 검수, 시상은 아래 **후속 설계**이며 아직 테이블을 생성하지 않는다. 해당 도메인의 규칙과 함께 마이그레이션을 추가한다.
+현재 실행 가능한 DDL은 `backend/src/main/resources/db/migration`의 V1/V2/V3/V4/V5/V6다. 소원/응원과 검수는 V6에 구현하며 댓글/하트/시상은 아래 **후속 설계**다. 해당 도메인의 규칙과 함께 마이그레이션을 추가한다.
 
 이 문서의 ERD는 핵심 요약이다. 모든 도메인의 컬럼/관계/복합키와 nullable 규칙은 [전체 도메인 ERD](erd.md)를 함께 읽는다. 현재 SQL과 후속 설계의 경계를 유지하고, 후속 설계를 현재 DB에 적용된 것으로 간주하지 않는다.
 
@@ -103,37 +103,21 @@ erDiagram
 
 username은 정식 소문자 값, 최대 64자와 utf8mb4_0900_bin UNIQUE다. 기존 행은 실제 확인 전까지 NULL이다. 가입 전 프로필을 꾸며내지 않도록 real_name/region/class_no도 V3부터 NULL을 허용한다. 비밀번호는 PasswordEncoder 기반 적응형 단방향 해시만 보관하고 공개 DTO에 절대 포함하지 않는다. 변경/재설정은 hash/version을 한 트랜잭션에서 갱신하고 기존 세션을 전부 무효화한다. 기존 비밀번호 없는 계정은 본인 DM 인증 후 최초 비밀번호를 설정한다. [인증 설계](auth.md)와 [ERD의 V3 로그인 모델](erd.md)을 함께 따른다.
 
-## 4. 후속 콘텐츠/검수 ERD
+## 4. V6 소원/응원과 검수
 
-다음 구조는 수정본 재검수와 이전 버전 응답 경합을 처리하기 위한 계획이다.
+실제 실행 DDL은 V6이며 [콘텐츠 계약](content.md)을 따른다. 별도 wishes/cheer_cards 테이블 대신 content_items에 kind별 1회 슬롯과 운 결과를 저장한다. 댓글과 하트는 아직 만들지 않는다.
 
-```mermaid
-erDiagram
-    USERS ||--o{ CONTENT_ITEMS : authors
-    CONTENT_ITEMS ||--o{ CONTENT_REVISIONS : versions
-    CONTENT_REVISIONS ||--o{ MODERATION_JOBS : reviews
-    CONTENT_ITEMS ||--o| WISHES : wish
-    CONTENT_ITEMS ||--o| CHEER_CARDS : cheer
-    CONTENT_ITEMS ||--o| WISH_COMMENTS : comment
-    WISHES ||--o{ WISH_COMMENTS : receives
-    CHEER_CARDS ||--o{ CHEER_LIKES : receives
-    USERS ||--o{ CHEER_LIKES : likes
-```
-
-| 테이블 | 필수 컬럼/제약 및 인덱스 |
+| 테이블 | 실제 제약/역할 |
 | --- | --- |
-| content_items | id PK, author_id FK, kind, visibility_status, approved_revision_id, pending_revision_id, created_at, updated_at, optimistic version |
-| content_revisions | id PK, item_id FK, revision_no, text, presentation_json, submitted_at, moderation_status; UNIQUE(item_id, revision_no) |
-| wishes | id PK, user_id UNIQUE FK, content_item_id UNIQUE FK, luck_score, landing_zone; 운 결과는 슬롯에 최초 저장 |
-| wish_comments | id PK, wish_id FK, author_id FK, content_item_id UNIQUE FK, reveal_profile; INDEX(wish_id,id), INDEX(author_id,wish_id) |
-| cheer_cards | id PK, user_id UNIQUE FK, content_item_id UNIQUE FK, anonymous; 디자인 값은 revision에 저장해 함께 검수 |
-| cheer_likes | PK(card_id,user_id), created_at; 카드/사용자 FK |
-| moderation_jobs | id PK, revision_id FK, job_key UNIQUE, status, attempts, next_run_at, lease_until, result_json, provider, policy_version, last_error_code |
-| moderation_reviews | id PK, revision_id FK, reviewer_id, decision, reason, created_at; 자동/관리자 판정 이력 |
+| content_items | id PK, author_id FK, kind WISH/CHEER, visibility_status, approved_revision_id/pending_revision_id, luck_score/landing_zone nullable, version; UNIQUE(author_id,kind) |
+| content_revisions | id PK, item_id FK, revision_no, content_text, template_id, style, anonymous, submitted_at, moderation_status/reason_code, idempotency_key/payload_hash; UNIQUE(item_id,revision_no), UNIQUE(item_id,idempotency_key), UNIQUE(id,item_id) |
+| moderation_jobs | id PK, revision_id UNIQUE FK, status, attempts/fence, next_run_at/lease_until, provider/policy_version/last_error_code |
+| moderation_reviews | id PK, job_id FK, fence, reviewer_id nullable FK, decision/reason/created_at; UNIQUE(job_id,fence) |
+| content_settings | id=1, wish_luck_min/max, wish_zone_count; 선택적 운영 설정이며 기본 행 없음 |
 
-`content_items` 생성 → revision 생성 → 포인터 갱신 순으로 저장한다. 포인터 FK는 두 테이블 생성 후 ALTER로 추가한다. revision의 본문/스타일은 수정하지 않고 새로 삽입하며 검수 상태 메타데이터만 갱신한다. 포인터는 같은 item의 revision만 참조하고 도메인 작성자와 content_items.author_id가 일치해야 한다. 외부 입력 `presentation_json`은 허용 속성만 저장한다. AI 응답 원문을 무제한 보관하지 않고 필요한 분류/사유만 구조화한다.
+원본 생성 후 revision을 추가하고 approved/pending 복합 FK `(revision_id,item_id)`를 연결한다. FK는 같은 슬롯의 revision만 가리키게 한다. 본문/스타일/익명 여부는 revision 불변 값이며 검수 상태만 갱신한다. 현재 자동 작업은 revision당 1개이고 lease/fence/attempts로 재시도한다. 판정 이력은 fence별 여러 행이다. job/revision 생성과 원접수 receipt 저장은 같은 트랜잭션이다.
 
-익명 여부는 API serializer에서 강제한다. 내부 author_id가 있다는 이유로 공개 JSON에 그대로 직렬화하지 않는다.
+승인본과 대기본을 구분하고, 익명 JSON은 작성자/프로필/revision/접수 식별자를 반환하지 않는다. 댓글의 reveal_profile과 하트 복합키는 후속 기능과 함께 별도 마이그레이션을 추가한다.
 
 ## 5. V5 게임/결과와 후속 시상
 
@@ -143,7 +127,7 @@ erDiagram
 | tap_slots | V5 user_id PK/FK, current_attempt_id, version; 공식 참여 권리 하나 |
 | tap_attempts | V5 id PK, user_id FK, generation, idempotency_key, starts_at, ends_at, submit_deadline, status, tap_count, submitted_at, payload_hash; UNIQUE(user_id,generation), UNIQUE(user_id,idempotency_key), (id,user_id) 소유 FK |
 | tap_attempt_events | V5 id PK, attempt_id FK, event_type(TAP/HIDDEN/PAGE_HIDE), relative_time_ms; 제출된 이벤트. 관리자 조치는 후속 |
-| submission_receipts | id PK, user_id FK, source_kind, source_id, received_at; UNIQUE(user_id,source_kind,source_id), 최초 서버 접수 시각/순서. V4에 구현; PROFILE/TAG_UNLOCK만 실제 생성 |
+| submission_receipts | id PK, user_id FK, source_kind, source_id, received_at; UNIQUE(user_id,source_kind,source_id), 최초 서버 접수 시각/순서. V4부터 구현; PROFILE/TAG_UNLOCK/SYNC_RESULT/GAME_ATTEMPT/WISH_REVISION/CHEER_REVISION 생성 |
 | mission_completion_evidence | user_id/mission_id PK/FK, source_kind, source_id, accepted_received_at, receipt_order UNIQUE FK → submission_receipts.id; 최초 유효 근거 |
 | award_runs | id PK, cutoff_at, finalized_at, rules_version, status, created_by; 정산 실행 snapshot |
 | awards | id PK, award_run_id FK, award_type, user_id FK, rank, evidence_json, status; UNIQUE(run,type,rank) |
