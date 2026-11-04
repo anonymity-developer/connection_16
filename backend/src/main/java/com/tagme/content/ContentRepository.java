@@ -55,7 +55,7 @@ public class ContentRepository {
         if("APPROVED".equals(decision))db.update("UPDATE content_items SET approved_revision_id=?,pending_revision_id=NULL,version=version+1,updated_at=UTC_TIMESTAMP(6) WHERE id=?",j.revisionId(),j.itemId());
         else if("REJECTED".equals(decision)) {
             db.update("UPDATE content_items SET pending_revision_id=NULL,version=version+1,updated_at=UTC_TIMESTAMP(6) WHERE id=?",j.itemId());
-            db.update("UPDATE mission_progress p JOIN missions m ON m.id=p.mission_id JOIN content_items i ON i.author_id=p.user_id SET p.status='UNLOCKED' WHERE i.id=? AND m.code=IF(i.kind='WISH','MAKE_A_WISH','SAY_SOMETHING') AND p.status='IN_PROGRESS'",j.itemId());
+            db.update("UPDATE mission_progress p JOIN missions m ON m.id=p.mission_id JOIN content_items i ON i.author_id=p.user_id SET p.status='UNLOCKED' WHERE i.id=? AND i.kind IN ('WISH','CHEER') AND m.code=IF(i.kind='WISH','MAKE_A_WISH','SAY_SOMETHING') AND p.status='IN_PROGRESS'",j.itemId());
         }
     }
     public Job fenceManual(Job j) { db.update("UPDATE moderation_jobs SET fence=fence+1 WHERE id=?",j.id());return job(j.id(),false); }

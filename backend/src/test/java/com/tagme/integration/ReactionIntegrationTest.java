@@ -1,0 +1,106 @@
+package com.tagme.integration;
+
+import com.tagme.auth.*;
+import com.tagme.content.*;
+import com.tagme.participation.*;
+import com.tagme.content.ContentModels.*;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import java.util.*;
+import java.util.concurrent.*;
+import org.junit.jupiter.api.*;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.web.client.TestRestTemplate;
+import org.springframework.http.*;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.test.context.DynamicPropertyRegistry;
+import org.springframework.test.context.DynamicPropertySource;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
+import org.testcontainers.containers.GenericContainer;
+import org.testcontainers.containers.MySQLContainer;
+import org.testcontainers.junit.jupiter.Container;
+import org.testcontainers.junit.jupiter.Testcontainers;
+import org.testcontainers.utility.DockerImageName;
+import static org.assertj.core.api.Assertions.*;
+import static org.mockito.Mockito.*;
+
+@Tag("integration") @Testcontainers @SpringBootTest(webEnvironment=SpringBootTest.WebEnvironment.RANDOM_PORT,properties="tagme.content.worker-enabled=false")
+class ReactionIntegrationTest {
+    @Container static final MySQLContainer<?> MYSQL=new MySQLContainer<>("mysql:8.4");
+    @Container static final GenericContainer<?> REDIS=new GenericContainer<>(DockerImageName.parse("redis:7.4-alpine")).withExposedPorts(6379);
+    @DynamicPropertySource static void properties(DynamicPropertyRegistry r){r.add("spring.datasource.url",MYSQL::getJdbcUrl);r.add("spring.datasource.username",MYSQL::getUsername);r.add("spring.datasource.password",MYSQL::getPassword);r.add("spring.data.redis.host",REDIS::getHost);r.add("spring.data.redis.port",()->REDIS.getMappedPort(6379));r.add("tagme.auth.enabled",()->true);r.add("tagme.auth.token",()->"test-only-token");r.add("tagme.auth.channel-id",()->"c".repeat(26));r.add("tagme.auth.hmac-key",()->Base64.getEncoder().encodeToString(new byte[32]));}
+    @Autowired JdbcTemplate db;@Autowired AuthRepository accounts;@Autowired PasswordEncoder passwords;@Autowired ParticipationRepository participation;@Autowired ContentService service;@Autowired ModerationService moderation;@Autowired ObjectMapper json;@Autowired TestRestTemplate http;@Autowired PlatformTransactionManager manager;
+    @Autowired org.springframework.data.redis.core.StringRedisTemplate redis;
+    @MockitoSpyBean ContentRepository repository;@MockitoBean MattermostClient mattermost;@MockitoBean ModerationProvider provider;
+    @Autowired ReactionService reactions;
+    @MockitoSpyBean ReactionRepository reactionRepo;
+    AuthPrincipal actor,admin,bob;final Map<String,String> cookies=new HashMap<>();static final String PASSWORD="a long test password";
+    @BeforeEach void setup(){
+        reset(repository,mattermost,provider,reactionRepo);cookies.clear();
+        db.update("UPDATE content_items SET approved_revision_id=NULL,pending_revision_id=NULL");
+        for(String table:List.of("cheer_likes","wish_comments","moderation_reviews","moderation_jobs","content_revisions","content_items","content_settings","mission_completion_evidence","submission_receipts","event_completions","mission_progress","tags","user_consent_events","user_consents","user_interests","profiles","user_credentials","users","current_consent_policies","consent_policies","event_settings"))db.update("DELETE FROM "+table);
+        try(var c=redis.getConnectionFactory().getConnection()){c.serverCommands().flushDb();}
+        db.update("UPDATE event_completion_sequence SET next_value=1");db.update("UPDATE missions SET active=TRUE");
+        db.update("INSERT INTO event_settings(id,opens_at,submit_closes_at,moderation_closes_at) VALUES (1,UTC_TIMESTAMP(6)-INTERVAL 1 HOUR,UTC_TIMESTAMP(6)+INTERVAL 1 HOUR,UTC_TIMESTAMP(6)+INTERVAL 2 HOUR)");
+        long id=accounts.insertUser("a".repeat(26),"alice");accounts.insertCredential(id,passwords.encode(PASSWORD));actor=accounts.byId(id).orElseThrow().principal();
+        db.update("UPDATE users SET real_name='테스트',region='서울',class_no=1 WHERE id=?",id);db.update("INSERT INTO profiles(user_id,nickname,bio,is_public) VALUES (?,'테스트','테스트 소개',TRUE)",id);db.update("INSERT INTO user_interests SELECT ?,MIN(id) FROM interests",id);
+        for(String type:List.of("PARTICIPATION","PROFILE_PUBLICATION")){db.update("INSERT INTO consent_policies VALUES (?,'test-v1','테스트','테스트 전용')",type);db.update("INSERT INTO current_consent_policies VALUES (?,'test-v1')",type);db.update("INSERT INTO user_consents(user_id,policy_type,policy_version,agreed_at) VALUES (?,?,'test-v1',UTC_TIMESTAMP(6))",id,type);}
+        db.update("INSERT INTO mission_progress(user_id,mission_id,unlocked_at) SELECT ?,id,UTC_TIMESTAMP(6)-INTERVAL 1 MINUTE FROM missions",id);
+        long a=accounts.insertUser("z".repeat(26),"admin");accounts.insertCredential(a,accounts.byId(id).orElseThrow().hash());db.update("UPDATE users SET role='ADMIN' WHERE id=?",a);admin=accounts.byId(a).orElseThrow().principal();
+        when(mattermost.byUsername("alice")).thenReturn(Optional.of(new MattermostClient.Identity("a".repeat(26),"alice")));
+        bob=person("b".repeat(26),"bob");
+        when(provider.inspect(anyString())).thenAnswer(i->{assertThat(TransactionSynchronizationManager.isActualTransactionActive()).isFalse();return approved();});
+    }
+    ModerationProvider.Decision approved(){return new ModerationProvider.Decision("APPROVED","TEST_ACCEPTED","TEST","test-v1");}
+    ContentController.Submit body(String text,Long version){return new ContentController.Submit(text,"PLAIN","ROSE",true,version);}
+    OwnSlot submit(Kind kind,String key,String text,Long version){return service.submit(actor,kind,key,body(text,version),version!=null);}
+    AuthPrincipal person(String external,String username) {
+        long id=accounts.insertUser(external,username);accounts.insertCredential(id,accounts.byId(actor.userId()).orElseThrow().hash());
+        db.update("UPDATE users SET real_name='테스트',region='서울',class_no=1 WHERE id=?",id);db.update("INSERT INTO profiles(user_id,nickname,bio,is_public) VALUES (?,?,'테스트 소개',TRUE)",id,"테스트-"+username);db.update("INSERT INTO user_interests SELECT ?,MIN(id) FROM interests",id);
+        db.update("INSERT INTO user_consents(user_id,policy_type,policy_version,agreed_at) SELECT ?,policy_type,policy_version,UTC_TIMESTAMP(6) FROM current_consent_policies",id);
+        db.update("INSERT INTO mission_progress(user_id,mission_id,unlocked_at) SELECT ?,id,UTC_TIMESTAMP(6)-INTERVAL 1 MINUTE FROM missions",id);return accounts.byId(id).orElseThrow().principal();
+    }
+    long parent(Kind kind) { var slot=service.submit(bob,kind,UUID.randomUUID().toString(),body("공개 테스트 원문",null),false);moderation.processOne();return slot.id(); }
+    ReactionRepository.OwnComment comment(long wish,String key,String text,boolean reveal) { return reactions.submit(actor,wish,key,new ReactionController.CommentRequest(text,reveal)); }
+    ResponseEntity<Map> raw(HttpMethod method,String path,Object body,String csrf,String key){var h=new HttpHeaders();h.setContentType(MediaType.APPLICATION_JSON);if(!cookies.isEmpty())h.add(HttpHeaders.COOKIE,String.join("; ",cookies.entrySet().stream().map(e->e.getKey()+"="+e.getValue()).toList()));if(csrf!=null)h.add("X-XSRF-TOKEN",csrf);if(key!=null)h.add("Idempotency-Key",key);var r=http.exchange("/api/v1"+path,method,new HttpEntity<>(body,h),Map.class);for(String c:r.getHeaders().getOrEmpty(HttpHeaders.SET_COOKIE)){var p=c.split(";",2)[0].split("=",2);if(p.length==2)cookies.put(p[0],p[1]);}return r;}
+    ResponseEntity<Map> send(String path,Object body){var c=raw(HttpMethod.GET,"/csrf",null,null,null);return raw(HttpMethod.POST,path,body,(String)c.getBody().get("token"),"http-test-key-0001");}
+    @Test void pendingCommentOnlyAppearsToItsAuthorAndApprovalNeverGrantsALetter()throws Exception{
+        long wish=parent(Kind.WISH);var c=comment(wish,"comment-first-key01","테스트 댓글",false);
+        assertThat(c.status()).isEqualTo("QUEUED");assertThat(reactions.comments(wish,null).items()).isEmpty();assertThat(reactions.own(actor.userId(),wish,null).items().getFirst().id()).isEqualTo(c.id());
+        moderation.processOne();var publicComment=reactions.comments(wish,null).items().getFirst();assertThat(publicComment.content()).isEqualTo("테스트 댓글");assertThat(publicComment.nickname()).isNull();
+        assertThat(json.writeValueAsString(publicComment)).doesNotContain("authorId","userId","itemId","revisionId","submittedAt","hash");
+        assertThat(db.queryForObject("SELECT COUNT(*) FROM mission_completion_evidence WHERE user_id=?",Integer.class,actor.userId())).isZero();assertThat(participation.mission(actor.userId(),com.tagme.participation.ParticipationModels.MissionCode.MAKE_A_WISH).state()).isEqualTo("UNLOCKED");
+        assertThat(db.queryForObject("SELECT COUNT(*) FROM submission_receipts WHERE user_id=? AND source_kind='COMMENT_REVISION'",Integer.class,actor.userId())).isEqualTo(1);
+    }
+    @Test void concurrentCommentRetriesCreateOneImmutableItemJobAndReceipt()throws Exception{
+        long wish=parent(Kind.WISH);try(var pool=Executors.newFixedThreadPool(6)){List<Future<ReactionRepository.OwnComment>> tasks=new ArrayList<>();for(int i=0;i<16;i++)tasks.add(pool.submit(()->comment(wish,"concurrent-comment01","테스트 댓글",false)));Set<Long> ids=new HashSet<>();for(var task:tasks)ids.add(task.get(30,TimeUnit.SECONDS).id());assertThat(ids).hasSize(1);}
+        assertThat(db.queryForObject("SELECT COUNT(*) FROM wish_comments",Integer.class)).isEqualTo(1);assertThat(db.queryForObject("SELECT COUNT(*) FROM content_items WHERE kind='COMMENT'",Integer.class)).isEqualTo(1);
+        assertThatThrownBy(()->comment(wish,"concurrent-comment01","다른 내용",false)).isInstanceOf(AuthException.class);assertThatThrownBy(()->comment(wish,"concurrent-comment01","테스트 댓글",true)).isInstanceOf(AuthException.class);
+    }
+    @Test void multipleCommentsDoNotRelaxTheWishOrCheerSlotConstraint(){long wish=parent(Kind.WISH);comment(wish,"many-comment-key01","첫 댓글",false);comment(wish,"many-comment-key02","둘째 댓글",true);var own=submit(Kind.WISH,"own-wish-key-0001","내 소원",null);assertThat(own.id()).isNotNull();assertThatThrownBy(()->submit(Kind.WISH,"own-wish-key-0002","다른 소원",null)).isInstanceOf(AuthException.class);assertThat(db.queryForObject("SELECT COUNT(*) FROM content_items WHERE author_id=? AND kind='COMMENT'",Integer.class,actor.userId())).isEqualTo(2);}
+    @Test void parentAndCommentAuthorPrivacyAreRecheckedOnEveryPublicRead(){long wish=parent(Kind.WISH);comment(wish,"privacy-comment001","공개 닉네임 댓글",true);moderation.processOne();assertThat(reactions.comments(wish,null).items().getFirst().nickname()).isEqualTo("테스트");db.update("UPDATE profiles SET is_public=FALSE WHERE user_id=?",actor.userId());assertThat(reactions.comments(wish,null).items()).isEmpty();db.update("UPDATE profiles SET is_public=FALSE WHERE user_id=?",bob.userId());assertThatThrownBy(()->reactions.comments(wish,null)).isInstanceOf(AuthException.class);assertThat(reactionRepo.comments(wish,Long.MAX_VALUE).items()).isEmpty();assertThat(reactions.own(actor.userId(),wish,null).items()).hasSize(1);assertThat(reactions.own(admin.userId(),wish,null).items()).isEmpty();}
+    @Test void approvalDoesNotPublishACommentWhenItsParentIsNoLongerPublic(){long wish=parent(Kind.WISH);comment(wish,"hidden-parent-key01","테스트 댓글",false);var work=moderation.claim();repository.hide(wish,"HIDDEN");moderation.apply(work,approved());assertThat(reactions.own(actor.userId(),wish,null).items().getFirst().status()).isEqualTo("REVIEW_REQUIRED");var job=repository.job(work.job().id(),false);moderation.review(admin,job.id(),new ReviewRequest(job.fence(),"APPROVED","테스트 확인"));assertThat(reactions.own(actor.userId(),wish,null).items().getFirst().status()).isEqualTo("REVIEW_REQUIRED");}
+    @Test void lateAndDuplicateCommentDecisionsDoNotTouchMissionProgress(){long wish=parent(Kind.WISH);comment(wish,"duplicate-comment01","테스트 댓글",false);var old=moderation.claim();db.update("UPDATE moderation_jobs SET lease_until=UTC_TIMESTAMP(6)-INTERVAL 1 SECOND WHERE id=?",old.job().id());var next=moderation.claim();moderation.apply(old,approved());assertThat(reactions.comments(wish,null).items()).isEmpty();moderation.apply(next,approved());moderation.apply(next,approved());assertThat(reactions.comments(wish,null).items()).hasSize(1);assertThat(db.queryForObject("SELECT COUNT(*) FROM moderation_reviews WHERE job_id=?",Integer.class,old.job().id())).isEqualTo(1);assertThat(db.queryForObject("SELECT COUNT(*) FROM mission_completion_evidence WHERE user_id=?",Integer.class,actor.userId())).isZero();}
+    @Test void commentApprovalAfterSubmissionCloseUsesTheOriginalReceipt(){long wish=parent(Kind.WISH);comment(wish,"close-comment-key01","테스트 댓글",false);db.update("UPDATE content_revisions r JOIN content_items i ON i.id=r.item_id SET r.submitted_at=UTC_TIMESTAMP(6)-INTERVAL 5 SECOND WHERE i.kind='COMMENT'");db.update("UPDATE submission_receipts SET received_at=UTC_TIMESTAMP(6)-INTERVAL 5 SECOND WHERE source_kind='COMMENT_REVISION'");db.update("UPDATE event_settings SET submit_closes_at=UTC_TIMESTAMP(6)-INTERVAL 1 SECOND");moderation.processOne();assertThat(reactions.comments(wish,null).items()).hasSize(1);assertThatThrownBy(()->comment(wish,"close-comment-key02","늦은 댓글",false)).isInstanceOf(AuthException.class);}
+    @Test void commentInsertFailureRollsBackTheItemRevisionJobAndReceipt(){long wish=parent(Kind.WISH);doAnswer(i->{i.callRealMethod();throw new org.springframework.dao.DataAccessResourceFailureException("test rollback");}).when(reactionRepo).saveComment(anyLong(),anyLong(),anyLong(),anyString(),anyString());assertThatThrownBy(()->comment(wish,"rollback-comment01","테스트",false)).isInstanceOf(org.springframework.dao.DataAccessException.class);assertThat(db.queryForObject("SELECT COUNT(*) FROM content_items WHERE kind='COMMENT'",Integer.class)).isZero();assertThat(db.queryForObject("SELECT COUNT(*) FROM wish_comments",Integer.class)).isZero();assertThat(db.queryForObject("SELECT COUNT(*) FROM submission_receipts WHERE source_kind='COMMENT_REVISION'",Integer.class)).isZero();}
+    @Test void concurrentHeartsAndRepeatedRemovalAreIdempotent()throws Exception{long card=parent(Kind.CHEER);try(var pool=Executors.newFixedThreadPool(6)){List<Future<ReactionRepository.LikeState>> tasks=new ArrayList<>();for(int i=0;i<16;i++)tasks.add(pool.submit(()->reactions.like(actor,card,true)));for(var task:tasks)assertThat(task.get(30,TimeUnit.SECONDS).count()).isEqualTo(1);}assertThat(db.queryForObject("SELECT COUNT(*) FROM cheer_likes",Integer.class)).isEqualTo(1);assertThat(reactions.like(actor,card,false).count()).isZero();assertThat(reactions.like(actor,card,false).liked()).isFalse();assertThat(reactions.state(actor,card).count()).isZero();}
+    @Test void selfUnapprovedWrongKindAndLockedHeartsAreRejected(){long card=parent(Kind.CHEER);assertThat(reactions.state(bob,card).canLike()).isFalse();assertThatThrownBy(()->reactions.like(bob,card,true)).isInstanceOf(AuthException.class);long wish=parent(Kind.WISH);assertThatThrownBy(()->reactions.like(actor,wish,true)).isInstanceOf(AuthException.class);db.update("DELETE FROM mission_progress WHERE user_id=? AND mission_id=(SELECT id FROM missions WHERE code='SAY_SOMETHING')",actor.userId());assertThat(reactions.state(actor,card).canLike()).isFalse();assertThatThrownBy(()->reactions.like(actor,card,true)).isInstanceOf(AuthException.class);repository.hide(card,"HIDDEN");assertThatThrownBy(()->reactions.state(actor,card)).isInstanceOf(AuthException.class);}
+    @Test void heartCountsExcludeWithdrawnActorsAndNeverRevealLikerIds()throws Exception{long card=parent(Kind.CHEER);var charlie=person("c".repeat(26),"charlie");reactions.like(actor,card,true);reactions.like(charlie,card,true);assertThat(reactions.state(actor,card).count()).isEqualTo(2);db.update("UPDATE user_consents SET withdrawn_at=UTC_TIMESTAMP(6) WHERE user_id=?",charlie.userId());assertThat(reactions.state(actor,card).count()).isEqualTo(1);assertThat(json.writeValueAsString(reactions.state(actor,card))).doesNotContain("userId","authorId","nickname");db.update("UPDATE event_settings SET submit_closes_at=UTC_TIMESTAMP(6)-INTERVAL 1 SECOND");assertThat(reactions.state(actor,card).canLike()).isFalse();assertThatThrownBy(()->reactions.like(actor,card,false)).isInstanceOf(AuthException.class);}
+    @Test void heartWriteRollbackCannotChangeTheCount(){long card=parent(Kind.CHEER);doAnswer(i->{i.callRealMethod();throw new org.springframework.dao.DataAccessResourceFailureException("test rollback");}).when(reactionRepo).like(anyLong(),anyLong());assertThatThrownBy(()->reactions.like(actor,card,true)).isInstanceOf(org.springframework.dao.DataAccessException.class);assertThat(reactions.state(actor,card).count()).isZero();}
+    @Test void parentPrivacyChangeWhileApprovalWaitsOnLocksWins()throws Exception{
+        long wish=parent(Kind.WISH);comment(wish,"racing-comment-key01","테스트",false);var work=moderation.claim();var held=new CountDownLatch(1);var release=new CountDownLatch(1);var lookup=new CountDownLatch(1);
+        doAnswer(i->{var value=i.callRealMethod();lookup.countDown();return value;}).when(reactionRepo).byItem(work.job().itemId());
+        try(var pool=Executors.newFixedThreadPool(2)){
+            var hiding=pool.submit(()->new TransactionTemplate(manager).executeWithoutResult(s->{accounts.lockUser(bob.userId());db.update("UPDATE profiles SET is_public=FALSE WHERE user_id=?",bob.userId());held.countDown();try{assertThat(release.await(20,TimeUnit.SECONDS)).isTrue();}catch(InterruptedException e){throw new RuntimeException(e);}}));
+            assertThat(held.await(20,TimeUnit.SECONDS)).isTrue();var applying=pool.submit(()->moderation.apply(work,approved()));assertThat(lookup.await(20,TimeUnit.SECONDS)).isTrue();release.countDown();hiding.get(30,TimeUnit.SECONDS);applying.get(30,TimeUnit.SECONDS);
+        }finally{release.countDown();}
+        assertThat(reactions.own(actor.userId(),wish,null).items().getFirst().status()).isEqualTo("REVIEW_REQUIRED");
+    }
+    @Test void ownPaginationAndCrossKindForeignKeysKeepPrivateStateBounded(){long wish=parent(Kind.WISH);for(int i=0;i<21;i++)comment(wish,"page-comment-key-"+String.format("%04d",i),"댓글 "+i,false);var first=reactions.own(actor.userId(),wish,null);assertThat(first.items()).hasSize(20);var last=reactions.own(actor.userId(),wish,first.nextCursor());assertThat(last.items()).hasSize(1);assertThat(last.nextCursor()).isNull();assertThatThrownBy(()->db.update("INSERT INTO cheer_likes(card_id,user_id) VALUES (?,?)",wish,actor.userId())).isInstanceOf(org.springframework.dao.DataIntegrityViolationException.class);}
+    @Test void httpRequiresCsrfAndRejectsForgedCommentOwnership(){long wish=parent(Kind.WISH);long card=parent(Kind.CHEER);assertThat(send("/wishes/"+wish+"/comments",Map.of("content","테스트","revealProfile",false)).getStatusCode().value()).isEqualTo(401);assertThat(send("/auth/login",Map.of("username","alice","password",PASSWORD)).getStatusCode().value()).isEqualTo(200);assertThat(raw(HttpMethod.POST,"/wishes/"+wish+"/comments",Map.of("content","테스트","revealProfile",false),null,"http-test-key-0001").getStatusCode().value()).isEqualTo(403);assertThat(send("/wishes/"+wish+"/comments",Map.of("content","테스트","revealProfile",false,"authorId",bob.userId())).getStatusCode().value()).isEqualTo(400);assertThat(send("/wishes/"+wish+"/comments",Map.of("content","테스트","revealProfile",false)).getStatusCode().value()).isEqualTo(202);assertThat(raw(HttpMethod.PUT,"/cheers/"+card+"/like",null,null,null).getStatusCode().value()).isEqualTo(403);var csrf=raw(HttpMethod.GET,"/csrf",null,null,null);var token=(String)csrf.getBody().get("token");assertThat(raw(HttpMethod.PUT,"/cheers/"+card+"/like",null,token,null).getBody().get("count")).isEqualTo(1);assertThat(raw(HttpMethod.DELETE,"/cheers/"+card+"/like",null,token,null).getStatusCode().value()).isEqualTo(204);}
+}
