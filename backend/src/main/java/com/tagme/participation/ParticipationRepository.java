@@ -75,6 +75,10 @@ public class ParticipationRepository {
                 SELECT id,'WITHDRAWN',UTC_TIMESTAMP(6) FROM user_consents WHERE user_id=? AND policy_type=? AND policy_version=?
                 """, userId, type.name(), version);
     }
+    public void withdrawAll(long userId,PolicyType type) {
+        var versions = db.queryForList("SELECT policy_version FROM user_consents WHERE user_id=? AND policy_type=? AND withdrawn_at IS NULL",String.class,userId,type.name());
+        versions.forEach(version -> withdraw(userId,type,version));
+    }
     public List<Interest> interests() { return db.query("SELECT id,name FROM interests ORDER BY id", (row,n) -> new Interest(row.getLong("id"), row.getString("name"))); }
     public OwnProfile profile(long id) {
         return db.query("""
@@ -92,7 +96,7 @@ public class ParticipationRepository {
         var profile = profile(userId); var policies = policyState(userId, true);
         return profileComplete(profile) && profile.isPublic() && policies.ready() && policies.policies().stream().allMatch(Policy::agreed);
     }
-    public void hide(long userId) { db.update("UPDATE profiles SET is_public=FALSE,updated_at=UTC_TIMESTAMP(6),version=version+1 WHERE user_id=?",userId); }
+    public void hide(long userId) { db.update("UPDATE profiles SET is_public=FALSE,updated_at=UTC_TIMESTAMP(6),version=version+1 WHERE user_id=? AND is_public=TRUE",userId); }
     public void saveProfile(long userId, ParticipationController.ProfileRequest value) {
         db.update("UPDATE users SET real_name=?,region='서울',class_no=? WHERE id=?",value.realName().strip(),value.classNo(),userId);
         db.update("""
@@ -127,12 +131,12 @@ public class ParticipationRepository {
     }
     public Receipt receipt(long userId,String kind,long sourceId,Instant received) {
         db.update("INSERT INTO submission_receipts(user_id,source_kind,source_id,received_at) VALUES (?,?,?,?)",userId,kind,sourceId,Timestamp.from(received));
-        return db.query("SELECT * FROM submission_receipts WHERE user_id=? AND source_kind=? AND source_id=?",this::receipt,userId,kind,sourceId).getFirst();
+        return db.query("SELECT * FROM submission_receipts WHERE user_id=? AND source_kind=? AND source_id=?",this::mapReceipt,userId,kind,sourceId).getFirst();
     }
-    private Receipt receipt(ResultSet row,int n) throws SQLException { return new Receipt(row.getLong("id"),row.getLong("user_id"),row.getString("source_kind"),row.getLong("source_id"),instant(row,"received_at")); }
-    public Receipt receipt(long id) { return db.query("SELECT * FROM submission_receipts WHERE id=?",this::receipt,id).stream().findFirst().orElseThrow(AuthException::invalid); }
+    private Receipt mapReceipt(ResultSet row,int n) throws SQLException { return new Receipt(row.getLong("id"),row.getLong("user_id"),row.getString("source_kind"),row.getLong("source_id"),instant(row,"received_at")); }
+    public Receipt receipt(long id) { return db.query("SELECT * FROM submission_receipts WHERE id=?",this::mapReceipt,id).stream().findFirst().orElseThrow(AuthException::invalid); }
     public Receipt profileReceipt(long userId,long version) {
-        return db.query("SELECT * FROM submission_receipts WHERE user_id=? AND source_kind='PROFILE' AND source_id=?",this::receipt,userId,version).stream().findFirst().orElse(null);
+        return db.query("SELECT * FROM submission_receipts WHERE user_id=? AND source_kind='PROFILE' AND source_id=?",this::mapReceipt,userId,version).stream().findFirst().orElse(null);
     }
     public Completion completion(long id) {
         return db.query("SELECT * FROM event_completions WHERE user_id=?",(row,n) -> new Completion(true,instant(row,"completed_at"),row.getLong("completion_order"),false),id)

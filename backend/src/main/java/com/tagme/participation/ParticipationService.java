@@ -90,7 +90,7 @@ public class ParticipationService {
         transactions.executeWithoutResult(status -> {
             repository.lockPrincipal(principal);
             if (!value.agreed()) { // withdrawal remains available after closure or policy replacement
-                repository.withdraw(principal.userId(),type,value.version()); repository.hide(principal.userId()); return;
+                repository.withdrawAll(principal.userId(),type); repository.hide(principal.userId()); return;
             }
             repository.requireOpen(true);
             var policy = requirePolicies(principal.userId()).get(type);
