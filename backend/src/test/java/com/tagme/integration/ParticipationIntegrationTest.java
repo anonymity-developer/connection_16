@@ -176,7 +176,7 @@ class ParticipationIntegrationTest {
             return repository.receipt(userId,"SYNC_RESULT",mission.id(),now);
         });
     }
-    @Test void differentFinalMissionsAndUsersAllocateUniqueOrdersAndRetriesKeepThem() throws Exception {
+    @Test void differentFinalMissionsAllocateOneOrderAndRetriesKeepIt() throws Exception {
         service.save(principal,request(true,0));service.resolve(principal,ParticipationService.tokenHash(token));
         for(var code:List.of(MissionCode.SYNC_ME,MissionCode.MAKE_A_WISH)){var r=fixture(alice,code);completion.complete(alice,code,r.id());}
         var tap=fixture(alice,MissionCode.FAST_TAP);var cheer=fixture(alice,MissionCode.SAY_SOMETHING);
@@ -187,6 +187,41 @@ class ParticipationIntegrationTest {
         assertThat(repository.completion(alice).completionOrder()).isEqualTo(1);assertThat(repository.completion(alice).awardConfirmed()).isFalse();
         assertThat(completion.complete(alice,MissionCode.FAST_TAP,tap.id())).isFalse();
         assertThat(db.queryForObject("SELECT next_value FROM event_completion_sequence WHERE id=1",Long.class)).isEqualTo(2);
+    }
+    @Test void finalCompletionForDifferentUsersSerializesOnlyTheGlobalSequence() throws Exception {
+        long bob=accounts.insertUser("b".repeat(26),"bob");accounts.insertCredential(bob,accounts.byId(alice).orElseThrow().hash());
+        Map<Long,Receipt> last=new HashMap<>();
+        for(long userId:List.of(alice,bob)) {
+            var actor=accounts.byId(userId).orElseThrow().principal();service.save(actor,request(true,0));service.resolve(actor,ParticipationService.tokenHash(token));
+            for(var code:List.of(MissionCode.SYNC_ME,MissionCode.MAKE_A_WISH,MissionCode.FAST_TAP)){var receipt=fixture(userId,code);completion.complete(userId,code,receipt.id());}
+            last.put(userId,fixture(userId,MissionCode.SAY_SOMETHING));
+        }
+        try(var pool=Executors.newFixedThreadPool(2)){
+            var a=pool.submit(() -> completion.complete(alice,MissionCode.SAY_SOMETHING,last.get(alice).id()));
+            var b=pool.submit(() -> completion.complete(bob,MissionCode.SAY_SOMETHING,last.get(bob).id()));
+            assertThat(a.get(30,TimeUnit.SECONDS)).isTrue();assertThat(b.get(30,TimeUnit.SECONDS)).isTrue();
+        }
+        assertThat(List.of(repository.completion(alice).completionOrder(),repository.completion(bob).completionOrder())).containsExactlyInAnyOrder(1L,2L);
+        assertThat(db.queryForObject("SELECT next_value FROM event_completion_sequence WHERE id=1",Long.class)).isEqualTo(3);
+    }
+    @Test void inactiveAndUnknownTagsAndUnboundEvidenceCannotUnlockOrComplete() {
+        var validUnknown=Base64.getUrlEncoder().withoutPadding().encodeToString(new byte[]{1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0});
+        assertThatThrownBy(() -> service.resolve(principal,ParticipationService.tokenHash(validUnknown))).isInstanceOf(AuthException.class).satisfies(e -> assertThat(((AuthException)e).status()).isEqualTo(404));
+        db.update("UPDATE tags SET active=FALSE");
+        assertThatThrownBy(() -> service.resolve(principal,ParticipationService.tokenHash(token))).isInstanceOf(AuthException.class).satisfies(e -> assertThat(((AuthException)e).status()).isEqualTo(404));
+        db.update("UPDATE tags SET active=TRUE");db.update("UPDATE missions SET active=FALSE WHERE code='SHOW_ME'");
+        assertThatThrownBy(() -> service.resolve(principal,ParticipationService.tokenHash(token))).isInstanceOf(AuthException.class).satisfies(e -> assertThat(((AuthException)e).status()).isEqualTo(403));
+        db.update("UPDATE missions SET active=TRUE");service.save(principal,request(true,0));
+        var receipt=repository.profileReceipt(alice,1);
+        assertThatThrownBy(() -> completion.complete(alice,MissionCode.SHOW_ME,receipt.id())).isInstanceOf(AuthException.class).satisfies(e -> assertThat(((AuthException)e).status()).isEqualTo(403));
+        assertThat(db.queryForObject("SELECT COUNT(*) FROM mission_progress",Integer.class)).isZero();
+    }
+    @Test void preUnlockEvidenceForAnotherMissionCannotBePromotedByACompletionRule() {
+        var earlier=fixture(alice,MissionCode.SYNC_ME);
+        db.update("UPDATE submission_receipts SET received_at=received_at-INTERVAL 1 HOUR WHERE id=?",earlier.id());
+        assertThatThrownBy(() -> completion.complete(alice,MissionCode.SYNC_ME,earlier.id())).isInstanceOf(AuthException.class)
+                .satisfies(e -> assertThat(((AuthException)e).code()).isEqualTo("INVALID_EVIDENCE"));
+        assertThat(repository.mission(alice,MissionCode.SYNC_ME).state()).isEqualTo("UNLOCKED");
     }
     @Test void sequenceFailureRollsBackEvidenceProgressAndAllocation() {
         service.save(principal,request(true,0));service.resolve(principal,ParticipationService.tokenHash(token));

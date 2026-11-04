@@ -322,7 +322,7 @@ p { word-break: keep-all; overflow-wrap: anywhere; }
 .policy-row .text-button { margin-top: 4px; }
 .policy-body { white-space: pre-wrap; max-height: 50svh; overflow-y: auto; overflow-wrap: anywhere; font-size: 14px; margin-bottom: 24px; }
 .policy-version { color: var(--muted); font-size: 13px; margin-bottom: 12px; }
-.profile-preview { padding: 24px; background: var(--accent-soft); border-radius: var(--radius); position: sticky; top: 24px; }
+.profile-preview { padding: 24px; background: var(--accent-soft); border-radius: var(--radius); position: static; }
 .profile-preview h2 { font-size: 16px; }
 .profile-initial { width: 56px; height: 56px; border-radius: 50%; background: var(--surface); color: var(--accent-ink); display: grid; place-items: center; font-size: 24px; margin-bottom: 16px; }
 .profile-preview-name { font-size: 20px; font-weight: 600; overflow-wrap: anywhere; margin-bottom: 8px; }
@@ -337,5 +337,8 @@ p { word-break: keep-all; overflow-wrap: anywhere; }
 .tag-footnote { color: var(--muted); font-size: 13px; margin: 24px 0 16px; }
 .tag-error { margin-top: 24px; }
 .account-panel > .button { margin-top: 12px; }
-@media (max-width: 900px) { .profile-grid { grid-template-columns: minmax(0, 1fr); } .profile-preview { position: static; } }
+@media (max-width: 900px) { .profile-grid { grid-template-columns: minmax(0, 1fr); }  }
 @media (max-width: 640px) { .profile-form section, .profile-preview { padding: 20px; } .session-flash { margin: 12px 16px 0; } .profile-pair { gap: 12px; } .profile-pair .field { min-width: 0; } }
+
+.profile-form .field-help { font-size: 13px; }
+.policy-title { font-weight: 500; font-size: 16px; margin-bottom: 8px; }

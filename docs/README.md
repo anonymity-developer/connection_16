@@ -21,6 +21,8 @@ Codex로 구현을 이어갈 때는 먼저 [현재 페이즈](progress.md)와 [�
 
 인증을 구현할 때는 [회원가입과 비밀번호 인증](auth.md)을 우선 읽는다. 아이디는 Mattermost username, 비밀번호는 가입 시 TAG ME에 설정한 값이다. DM의 숫자 6자리 인증은 가입/비밀번호 변경/재설정용이며 일반 로그인은 아이디/비밀번호로 처리한다.
 
+프로필/동의/태그/완료 구현은 [참여 계약](participation.md)과 [참여 OpenAPI](participation.openapi.yaml)를 우선 읽는다.
+
 기획 변경은 overview와 해당 도메인 문서에 함께 반영한다. 화면 분기는 user-flows/UI, 저장 방식은 data-model/ERD, 요청 계약은 API, 처리 순서는 implementation-plan을 함께 확인한다.
 
 ## 2. 서비스 한 장 요약
@@ -56,9 +58,9 @@ SSAFY 16기 서울캠퍼스 참여자가 NFC/QR 태그를 찾아 다섯 미션�
 | --- | --- |
 | 실행 기반 | React/TypeScript 초기 화면, Java 21/Spring Boot, Gradle Wrapper, Docker Compose, Caddy, MySQL/Redis 설정 있음 |
 | 기본 API | `/api/v1/meta`, `/api/v1/csrf`, 보안 필터와 헬스체크 있음 |
-| 영속 스키마 | V1 핵심 테이블, V2 미션 시드, V3 username/credentials 있음 |
+| 영속 스키마 | V1 핵심 테이블, V2 미션 시드, V3 username/credentials, V4 정책/동의/행사/접수 근거 있음 |
 | 인증 | 사용자/채널/DM 어댑터, username/해시, 가입/로그인/변경/재설정과 세션 차단 구현. 실제 외부 권한 검증 대기 |
-| 주요 기능 | 프로필 API, 태그 해금, 다섯 미션, AI 검수, 추천/그래프, 관리자와 시상은 미구현 |
+| 주요 기능 | 프로필/동의·태그·수집판·SHOW ME와 공통 완료 구현. 다른 네 미션·AI 검수·탐색/운영은 후속 |
 | 운영 | CI/백업/실행 설정은 있음. 실제 서버/DNS/외부 비밀키/행사 태그는 연결되지 않음 |
 | 검증 이력 | 초기 로컬 빌드와 단위/설정 검사 이력은 development에 기록. 문서 추가는 기능 또는 실기기 검증 완료를 의미하지 않음 |
 

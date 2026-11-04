@@ -20,6 +20,8 @@ public class MissionCompletionService {
         if ("COMPLETED".equals(mission.state())) return false;
         var receipt = repository.receipt(receiptId);
         if (receipt.userId() != userId) throw error(403,"INVALID_EVIDENCE","완료 근거를 확인할 수 없어요.");
+        if (code != MissionCode.SHOW_ME && receipt.receivedAt().isBefore(mission.unlockedAt()))
+            throw error(403,"INVALID_EVIDENCE","미션을 열기 전의 수행은 완료로 인정하지 않아요.");
         var rule = rules.stream().filter(r -> r.code() == code).findFirst().orElseThrow(() -> error(409,"MISSION_NOT_READY","아직 준비 중인 미션이에요."));
         if (!rule.accepts(userId,mission,receipt)) throw error(409,"MISSION_REQUIREMENTS","프로필과 공개 동의를 확인해 주세요.");
         var accepted = receipt.receivedAt().isAfter(mission.unlockedAt()) ? receipt.receivedAt() : mission.unlockedAt();

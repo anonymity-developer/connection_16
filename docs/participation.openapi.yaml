@@ -1,0 +1,611 @@
+openapi: 3.1.0
+info:
+  title: TAG ME 페이즈 3 참여 API
+  version: 0.3.0
+  description: 실제 운영 날짜/동의/태그는 별도 설정. SHOW_ME만 완료 규칙 구현. 공개 탐색은 후속 범위.
+servers:
+- url: /api/v1
+paths:
+  /event:
+    get:
+      summary: 행사 상태
+      security: []
+      responses:
+        '200':
+          description: 성공
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Event'
+        default:
+          $ref: '#/components/responses/Error'
+  /policies:
+    get:
+      summary: 현재 정책과 본인 동의
+      security:
+      - session: []
+      responses:
+        '200':
+          description: 성공
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Policies'
+        default:
+          $ref: '#/components/responses/Error'
+  /interests:
+    get:
+      summary: 관심사 카탈로그
+      security:
+      - session: []
+      responses:
+        '200':
+          description: 성공
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Interest'
+        default:
+          $ref: '#/components/responses/Error'
+  /users/me/profile:
+    get:
+      summary: 본인 프로필/동의/준비 상태
+      security:
+      - session: []
+      responses:
+        '200':
+          description: 성공
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProfileState'
+        default:
+          $ref: '#/components/responses/Error'
+    put:
+      summary: 버전 확인 후 프로필 저장
+      security:
+      - session: []
+        csrfCookie: []
+        csrfHeader: []
+      responses:
+        '200':
+          description: 성공
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProfileState'
+        default:
+          $ref: '#/components/responses/Error'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProfileRequest'
+      description: 현재 PARTICIPATION 동의 필수. 공개 시 PROFILE_PUBLICATION 동의도 필요. 이름/반은
+        직접 입력이며 외부 검증을 뜻하지 않는다. 길이 상한은 Jakarta Size의 UTF-16 단위다.
+  /users/me/consents/{type}:
+    put:
+      summary: 현재 문구 동의 또는 종류별 전체 버전 철회
+      security:
+      - session: []
+        csrfCookie: []
+        csrfHeader: []
+      responses:
+        '204':
+          description: 성공
+        default:
+          $ref: '#/components/responses/Error'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ConsentRequest'
+      description: agreed=false는 마감/정책 교체에도 가능하며 해당 종류의 모든 활성 버전을 철회하고 비공개로 전환한다.
+        기존 완료는 유지한다.
+      parameters:
+      - name: type
+        in: path
+        required: true
+        schema:
+          $ref: '#/components/schemas/PolicyType'
+  /missions:
+    get:
+      summary: 서버 수집판
+      security:
+      - session: []
+      responses:
+        '200':
+          description: 성공
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Collection'
+        default:
+          $ref: '#/components/responses/Error'
+  /missions/collection:
+    get:
+      summary: 서버 수집판
+      security:
+      - session: []
+      responses:
+        '200':
+          description: 성공
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Collection'
+        default:
+          $ref: '#/components/responses/Error'
+  /missions/completion:
+    get:
+      summary: 전체 완료와 운영상 순번
+      security:
+      - session: []
+      responses:
+        '200':
+          description: 성공
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Completion'
+        default:
+          $ref: '#/components/responses/Error'
+  /tags/pending:
+    get:
+      summary: 태그 임시 의도 존재 여부
+      security: []
+      responses:
+        '200':
+          description: 성공
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Pending'
+        default:
+          $ref: '#/components/responses/Error'
+    post:
+      summary: 태그 hash와 만료를 서버 세션에 임시 저장
+      security:
+      - csrfCookie: []
+        csrfHeader: []
+      responses:
+        '202':
+          description: 성공
+        default:
+          $ref: '#/components/responses/Error'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TagRequest'
+      description: 익명 요청은 실제 태그를 조회하거나 해금하지 않는다. CSRF 필요. 15분 만료. 응답 본문 없음.
+  /tags/resolve:
+    post:
+      summary: 태그 검증 후 본인 미션 해금
+      security:
+      - session: []
+        csrfCookie: []
+        csrfHeader: []
+      responses:
+        '200':
+          description: 성공
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TagResult'
+        default:
+          $ref: '#/components/responses/Error'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TagRequest'
+  /tags/resume:
+    post:
+      summary: 서버 세션의 임시 태그로 이어가기
+      security:
+      - session: []
+        csrfCookie: []
+        csrfHeader: []
+      responses:
+        '200':
+          description: 성공
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TagResult'
+        default:
+          $ref: '#/components/responses/Error'
+      description: 성공 후 임시 의도를 삭제. 만료 시 404. 요청 본문에 토큰이나 외부 복귀 URL을 받지 않는다.
+components:
+  schemas:
+    Event:
+      type: object
+      additionalProperties: false
+      properties:
+        status:
+          enum:
+          - NOT_CONFIGURED
+          - BEFORE_OPEN
+          - OPEN
+          - CLOSED
+        opensAt:
+          type:
+          - string
+          - 'null'
+          format: date-time
+        submitClosesAt:
+          type:
+          - string
+          - 'null'
+          format: date-time
+        profilePreparationEnabled:
+          type: boolean
+      required:
+      - status
+      - opensAt
+      - submitClosesAt
+      - profilePreparationEnabled
+    PolicyType:
+      type: string
+      enum:
+      - PARTICIPATION
+      - PROFILE_PUBLICATION
+    Policy:
+      type: object
+      additionalProperties: false
+      properties:
+        type:
+          $ref: '#/components/schemas/PolicyType'
+        version:
+          type: string
+        title:
+          type: string
+        body:
+          type: string
+        agreed:
+          type: boolean
+      required:
+      - type
+      - version
+      - title
+      - body
+      - agreed
+    Policies:
+      type: object
+      additionalProperties: false
+      properties:
+        ready:
+          type: boolean
+        policies:
+          type: array
+          items:
+            $ref: '#/components/schemas/Policy'
+      required:
+      - ready
+      - policies
+    Interest:
+      type: object
+      additionalProperties: false
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+      required:
+      - id
+      - name
+    Profile:
+      type: object
+      additionalProperties: false
+      properties:
+        nickname:
+          type: string
+        realName:
+          type:
+          - string
+          - 'null'
+        region:
+          type:
+          - string
+          - 'null'
+        classNo:
+          type:
+          - integer
+          - 'null'
+        bio:
+          type:
+          - string
+          - 'null'
+        githubUrl:
+          type:
+          - string
+          - 'null'
+        blogUrl:
+          type:
+          - string
+          - 'null'
+        isPublic:
+          type: boolean
+        version:
+          type: integer
+        interestIds:
+          type: array
+          items:
+            type: integer
+      required:
+      - nickname
+      - realName
+      - region
+      - classNo
+      - bio
+      - githubUrl
+      - blogUrl
+      - isPublic
+      - version
+      - interestIds
+    ProfileState:
+      type: object
+      additionalProperties: false
+      properties:
+        profile:
+          anyOf:
+          - $ref: '#/components/schemas/Profile'
+          - type: 'null'
+        consents:
+          $ref: '#/components/schemas/Policies'
+        profileComplete:
+          type: boolean
+        participationReady:
+          type: boolean
+      required:
+      - profile
+      - consents
+      - profileComplete
+      - participationReady
+    Acceptance:
+      type: object
+      additionalProperties: false
+      properties:
+        type:
+          $ref: '#/components/schemas/PolicyType'
+        version:
+          type: string
+          pattern: ^[A-Za-z0-9._-]{1,64}$
+      required:
+      - type
+      - version
+    ProfileRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        nickname:
+          type: string
+          minLength: 1
+          maxLength: 30
+        realName:
+          type: string
+          minLength: 1
+          maxLength: 100
+        classNo:
+          type: integer
+          minimum: 1
+          maximum: 9999
+        bio:
+          type: string
+          minLength: 1
+          maxLength: 200
+        githubUrl:
+          type:
+          - string
+          - 'null'
+          maxLength: 2048
+        blogUrl:
+          type:
+          - string
+          - 'null'
+          maxLength: 2048
+        isPublic:
+          type: boolean
+        expectedVersion:
+          type: integer
+          minimum: 0
+        interestIds:
+          type: array
+          items:
+            type: integer
+            minimum: 1
+          minItems: 1
+          maxItems: 5
+          uniqueItems: true
+        acceptPolicies:
+          type: array
+          items:
+            $ref: '#/components/schemas/Acceptance'
+          maxItems: 2
+      required:
+      - nickname
+      - realName
+      - classNo
+      - bio
+      - isPublic
+      - expectedVersion
+      - interestIds
+      - acceptPolicies
+    ConsentRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        version:
+          type: string
+          pattern: ^[A-Za-z0-9._-]{1,64}$
+        agreed:
+          type: boolean
+      required:
+      - version
+      - agreed
+    MissionCode:
+      type: string
+      enum:
+      - SHOW_ME
+      - SYNC_ME
+      - MAKE_A_WISH
+      - FAST_TAP
+      - SAY_SOMETHING
+    Mission:
+      type: object
+      additionalProperties: false
+      properties:
+        id:
+          type: integer
+        code:
+          $ref: '#/components/schemas/MissionCode'
+        letter:
+          type: string
+        title:
+          type: string
+        hint:
+          type: string
+        active:
+          type: boolean
+        state:
+          enum:
+          - LOCKED
+          - UNLOCKED
+          - IN_PROGRESS
+          - COMPLETED
+        unlockedAt:
+          type:
+          - string
+          - 'null'
+          format: date-time
+        completedAt:
+          type:
+          - string
+          - 'null'
+          format: date-time
+      required:
+      - id
+      - code
+      - letter
+      - title
+      - hint
+      - active
+      - state
+      - unlockedAt
+      - completedAt
+    Completion:
+      type: object
+      additionalProperties: false
+      properties:
+        complete:
+          type: boolean
+        completedAt:
+          type:
+          - string
+          - 'null'
+          format: date-time
+        completionOrder:
+          type:
+          - integer
+          - 'null'
+        awardConfirmed:
+          const: false
+      required:
+      - complete
+      - completedAt
+      - completionOrder
+      - awardConfirmed
+    Collection:
+      type: object
+      additionalProperties: false
+      properties:
+        missions:
+          type: array
+          items:
+            $ref: '#/components/schemas/Mission'
+        completedCount:
+          type: integer
+          minimum: 0
+          maximum: 5
+        completion:
+          $ref: '#/components/schemas/Completion'
+      required:
+      - missions
+      - completedCount
+      - completion
+    TagRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        token:
+          type: string
+          pattern: ^[A-Za-z0-9_-]{43}$
+          description: 32-byte canonical Base64URL; never include actual event tokens
+            in examples.
+      required:
+      - token
+    TagResult:
+      type: object
+      additionalProperties: false
+      properties:
+        missionCode:
+          $ref: '#/components/schemas/MissionCode'
+        state:
+          enum:
+          - UNLOCKED
+          - IN_PROGRESS
+          - COMPLETED
+        route:
+          type: string
+          pattern: ^/missions/(show-me|sync-me|make-a-wish|fast-tap|say-something)$
+        newlyUnlocked:
+          type: boolean
+        newlyCompleted:
+          type: boolean
+      required:
+      - missionCode
+      - state
+      - route
+      - newlyUnlocked
+      - newlyCompleted
+    Pending:
+      type: object
+      additionalProperties: false
+      properties:
+        present:
+          type: boolean
+      required:
+      - present
+  responses:
+    Error:
+      description: 400 형식, 401 인증/버전, 403 CSRF/기간/해금, 404 태그/임시 연결, 409 프로필·정책·조건,
+        429 제한, 503 설정/저장소
+      headers:
+        Retry-After:
+          schema:
+            type: integer
+          description: 429에서 재시도 대기 초
+      content:
+        application/json:
+          schema:
+            $ref: ./auth.openapi.yaml#/components/schemas/Error
+  securitySchemes:
+    session:
+      type: apiKey
+      in: cookie
+      name: TAGME_SESSION
+    csrfCookie:
+      type: apiKey
+      in: cookie
+      name: XSRF-TOKEN
+    csrfHeader:
+      type: apiKey
+      in: header
+      name: X-XSRF-TOKEN

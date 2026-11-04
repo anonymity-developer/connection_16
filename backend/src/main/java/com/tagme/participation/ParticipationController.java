@@ -28,7 +28,7 @@ public class ParticipationController {
                                  @NotNull @Size(max=2) List<@Valid Acceptance> acceptPolicies,@Min(0) long expectedVersion) {
         @Override public String toString() { return "ProfileRequest[redacted]"; }
     }
-    private record PendingTag(String hash,Instant expiresAt) implements Serializable {
+    record PendingTag(String hash,Instant expiresAt) implements Serializable {
         @Override public String toString() { return "PendingTag[redacted]"; }
     }
     private static final String PENDING_TAG = "TAGME_PENDING_TAG";
