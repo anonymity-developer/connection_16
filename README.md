@@ -22,7 +22,7 @@ SSAFY 16기 네트워킹 이벤트. 현장의 NFC/QR로 다섯 미션을 열고 
 
 React + TypeScript 시작 화면, Spring Boot 기본 서버, 보안 필터, CSRF 토큰 API, Redis 세션 설정, Flyway 기반 핵심 테이블과 5개 미션 시드, Docker Compose, 개발/운영용 Caddy, CI를 준비했습니다.
 
-**페이즈 2 인증 API와 화면 연결을 구현했습니다.** Mattermost 아이디 + TAG ME 비밀번호 로그인, 가입/변경/재설정의 숫자 6자리 DM 인증과 세션 무효화를 제공합니다. 기본 `AUTH_ENABLED=false`이며 실제 Mattermost 토큰/지정 채널/DM 권한은 별도로 검증해야 합니다. [인증 구현과 설정](docs/auth.md)을 확인하세요. 페이즈 3에서 프로필/동의, 태그 해금, 서버 수집판과 SHOW ME를 연결했습니다. 성향/소원/탭/응원 수행, AI 검수, 탐색과 시상은 후속 개발 대상입니다. `/api/v1/meta`는 초기 연결 확인용이며 사용자별 미션 상태가 아닙니다.
+**페이즈 2 인증 API와 화면 연결을 구현했습니다.** Mattermost 아이디 + TAG ME 비밀번호 로그인, 가입/변경/재설정의 숫자 6자리 DM 인증과 세션 무효화를 제공합니다. 기본 `AUTH_ENABLED=false`이며 실제 Mattermost 토큰/지정 채널/DM 권한은 별도로 검증해야 합니다. [인증 구현과 설정](docs/auth.md)을 확인하세요. 페이즈 3에서 프로필/동의, 태그 해금, 서버 수집판과 SHOW ME를 연결했습니다. SYNC 성향/FAST TAP 공식 도전도 페이즈 4-1에 연결했습니다. 소원/응원 수행과 비동기 검수, 탐색/공개 순위/시상은 후속 개발 대상입니다. `/api/v1/meta`는 초기 연결 확인용이며 사용자별 미션 상태가 아닙니다.
 
 ## 빠른 시작: 전체 Docker 실행
 
@@ -87,3 +87,5 @@ cd backend
 CI는 프론트 lint/build, 백엔드 단위/통합 테스트와 두 Docker 이미지의 빌드 및 전체 연결 검증을 수행하도록 구성되어 있습니다. 세부 운영 절차와 아직 확정하지 않은 사항은 문서를 참고하세요.
 
 프로필·동의·태그·서버 수집판 구현은 [참여 계약](docs/participation.md), 현재 요청/응답은 [참여 OpenAPI](docs/participation.openapi.yaml)를 따른다. 실제 행사 일정/동의 문구/태그는 별도로 설정해야 한다.
+
+SYNC/FAST TAP의 1회 제한과 운영 문항 설정, 중단/기한/잠정 점수는 [결과 계약](docs/results.md)과 [OpenAPI](docs/results.openapi.yaml)에 있습니다. 문항 초안은 운영에 자동 반영되지 않습니다.

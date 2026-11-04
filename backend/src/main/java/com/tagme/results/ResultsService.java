@@ -41,12 +41,13 @@ public class ResultsService {
         return transactions.execute(status->{
             participation.lockPrincipal(actor);
             var existing=repository.sync(actor.userId());
+            if(existing==null)guard(actor,MissionCode.SYNC_ME);
             var definition=existing==null?repository.currentDefinition():repository.definition(existing.version());var q=parse(definition);
             if(!definition.version().equals(body.questionnaireVersion()))throw error(409,"QUESTIONNAIRE_CHANGED","질문 버전이 변경됐어요. 다시 불러와 주세요.");
             Questionnaire.Score score;try{score=q.score(body.answers().stream().map(a->new Questionnaire.Answer(a.questionId(),a.optionId())).toList());}catch(IllegalArgumentException invalid){throw error(400,"INVALID_ANSWERS","모든 질문의 선택지를 확인해 주세요.");}
             String answers=encode(score.canonicalAnswers()),hash=digest(body.questionnaireVersion()+"|"+answers);
             if(existing!=null){if(!existing.hash().equals(hash))throw error(409,"SYNC_ALREADY_SUBMITTED","최초 성향 결과는 바꿀 수 없어요.");return syncResult(existing);}
-            guard(actor,MissionCode.SYNC_ME);repository.saveSync(actor.userId(),definition.version(),answers,encode(score.axes()),score.type().code(),hash,received);
+            repository.saveSync(actor.userId(),definition.version(),answers,encode(score.axes()),score.type().code(),hash,received);
             var receipt=participation.receipt(actor.userId(),"SYNC_RESULT",actor.userId(),received);completion.complete(actor.userId(),MissionCode.SYNC_ME,receipt.id());return sync(actor.userId());
         });
     }
@@ -73,7 +74,7 @@ public class ResultsService {
     public TapAttempt cancel(AuthPrincipal actor,long id){return transactions.execute(status->{
         participation.lockPrincipal(actor);var attempt=owned(actor.userId(),id);Instant now=repository.now();
         if(!"COUNTDOWN".equals(attempt.status()))return view(attempt,now);
-        repository.cancel(attempt,now.isBefore(attempt.startsAt())?"CANCELLED":"INTERRUPTED");return view(owned(actor.userId(),id),now);
+        repository.cancel(attempt,now.isAfter(attempt.deadline())?"EXPIRED":now.isBefore(attempt.startsAt())?"CANCELLED":"INTERRUPTED");return view(owned(actor.userId(),id),now);
     });}
     private record TapPayload(List<Integer> taps,List<TapValidation.Interruption> interruptions) { }
     public TapAttempt finish(AuthPrincipal actor,FinishRequest body){

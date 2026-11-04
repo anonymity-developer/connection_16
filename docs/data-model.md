@@ -2,7 +2,7 @@
 
 ## 1. 적용 범위
 
-현재 실행 가능한 DDL은 `backend/src/main/resources/db/migration`의 V1/V2/V3/V4다. 콘텐츠, 게임, 검수, 시상은 아래 **후속 설계**이며 아직 테이블을 생성하지 않는다. 해당 도메인의 규칙과 함께 마이그레이션을 추가한다.
+현재 실행 가능한 DDL은 `backend/src/main/resources/db/migration`의 V1/V2/V3/V4/V5다. 콘텐츠, 검수, 시상은 아래 **후속 설계**이며 아직 테이블을 생성하지 않는다. 해당 도메인의 규칙과 함께 마이그레이션을 추가한다.
 
 이 문서의 ERD는 핵심 요약이다. 모든 도메인의 컬럼/관계/복합키와 nullable 규칙은 [전체 도메인 ERD](erd.md)를 함께 읽는다. 현재 SQL과 후속 설계의 경계를 유지하고, 후속 설계를 현재 DB에 적용된 것으로 간주하지 않는다.
 
@@ -135,14 +135,14 @@ erDiagram
 
 익명 여부는 API serializer에서 강제한다. 내부 author_id가 있다는 이유로 공개 JSON에 그대로 직렬화하지 않는다.
 
-## 5. 게임/결과/시상 계획과 V4 참여 테이블
+## 5. V5 게임/결과와 후속 시상
 
 | 테이블 | 주요 컬럼/제약 |
 | --- | --- |
-| sync_results | user_id PK/FK, questionnaire_version, answers_json, axis_scores_json, type_code, submitted_at |
-| tap_slots | user_id PK/FK, current_attempt_id, version; 공식 참여 권리 하나 |
-| tap_attempts | id PK, user_id FK, generation, idempotency_key UNIQUE, starts_at, ends_at, submit_deadline, status, tap_count, submitted_at, payload_hash; UNIQUE(user_id,generation) |
-| tap_attempt_events | id PK, attempt_id FK, type, relative_time_ms, payload_json, created_at; 원본 이벤트/중단/관리자 조치 이력 |
+| sync_results | V5 user_id PK/FK, questionnaire_version FK, answers_json, axis_scores_json, type_code, payload_hash, submitted_at |
+| tap_slots | V5 user_id PK/FK, current_attempt_id, version; 공식 참여 권리 하나 |
+| tap_attempts | V5 id PK, user_id FK, generation, idempotency_key, starts_at, ends_at, submit_deadline, status, tap_count, submitted_at, payload_hash; UNIQUE(user_id,generation), UNIQUE(user_id,idempotency_key), (id,user_id) 소유 FK |
+| tap_attempt_events | V5 id PK, attempt_id FK, event_type(TAP/HIDDEN/PAGE_HIDE), relative_time_ms; 제출된 이벤트. 관리자 조치는 후속 |
 | submission_receipts | id PK, user_id FK, source_kind, source_id, received_at; UNIQUE(user_id,source_kind,source_id), 최초 서버 접수 시각/순서. V4에 구현; PROFILE/TAG_UNLOCK만 실제 생성 |
 | mission_completion_evidence | user_id/mission_id PK/FK, source_kind, source_id, accepted_received_at, receipt_order UNIQUE FK → submission_receipts.id; 최초 유효 근거 |
 | award_runs | id PK, cutoff_at, finalized_at, rules_version, status, created_by; 정산 실행 snapshot |
@@ -178,3 +178,9 @@ submission_receipts는 제출을 받는 같은 트랜잭션에서 생성하며 �
 현재 적용 DDL에 event_settings, consent_policies, current_consent_policies, user_consents, user_consent_events, submission_receipts, mission_completion_evidence를 추가했고 profiles.version을 추가했다. 날짜/정책 원문/태그는 비워 두며 관심사 카테고리만 시드한다. 이름/반은 사용자 직접 입력이고 외부 검증 정보가 아니다.
 
 정책 원문은 `(policy_type,policy_version)`별 보존하고 현재 포인터와 동의 이력을 분리한다. 철회는 과거 완료를 삭제하지 않는다. receipts는 `(user_id,source_kind,source_id)` UNIQUE이며 PROFILE source_id는 **사용자별 profile.version**이다. evidence의 복합 FK는 receipt의 소유자/종류/source_id까지 묶는다. accepted_received_at은 태그/유효 수행 조건을 만족한 시각의 최댓값이다. 구체 계약은 [참여 구현](participation.md), 다이어그램은 [ERD](erd.md)를 따른다.
+
+## V5 적용: 최초 성향과 공식 탭
+
+sync_questionnaires는 버전별 검토한 JSON을 보존하고 current_sync_questionnaire가 현재 버전을 가리킨다. 운영 문항은 시드하지 않는다. sync_results의 PK는 사용자이며 같은 정규화 답변 hash만 재시도한다. type/score는 서버가 계산한다.
+
+tap_slots.current_attempt_id와 user_id 복합 FK가 다른 사용자의 도전을 가리키는 것을 막는다. 시작 key는 사용자 범위로 유일하고 준비 중 취소만 슬롯을 복구한다. events/최초 상태/payload_hash/receipt/글자를 한 트랜잭션에 쓴다. status의 COUNTDOWN은 저장된 진행 상태이며 PLAYING/AWAITING_SUBMISSION/기한 만료 표시는 시각으로 계산한다. 입력 원본과 결과의 외부 공개/관리자 재도전은 후속이다. 자세한 상태 전이는 [결과 계약](results.md)을 따른다.
