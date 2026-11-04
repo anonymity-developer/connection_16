@@ -66,6 +66,9 @@ class ParticipationIntegrationTest {
     @Autowired PlatformTransactionManager manager;
     @Autowired TestRestTemplate http;
     @MockitoBean MattermostClient mattermost;
+    // This class tests the generic completion engine with its explicit fixture rules.
+    @MockitoBean com.tagme.results.SyncCompletionRule syncCompletionRule;
+    @MockitoBean com.tagme.results.TapCompletionRule tapCompletionRule;
     @MockitoSpyBean ParticipationRepository repository;
     static final String PASSWORD="a long test password";
     final Map<String,String> cookies=new HashMap<>();
