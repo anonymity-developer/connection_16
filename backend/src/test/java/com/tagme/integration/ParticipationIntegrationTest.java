@@ -66,6 +66,8 @@ class ParticipationIntegrationTest {
     @Autowired PlatformTransactionManager manager;
     @Autowired TestRestTemplate http;
     @MockitoBean MattermostClient mattermost;
+    @MockitoBean(name="wishCompletionRule") CompletionRule actualWishRule;
+    @MockitoBean(name="cheerCompletionRule") CompletionRule actualCheerRule;
     // This class tests the generic completion engine with its explicit fixture rules.
     @MockitoBean com.tagme.results.SyncCompletionRule syncCompletionRule;
     @MockitoBean com.tagme.results.TapCompletionRule tapCompletionRule;
