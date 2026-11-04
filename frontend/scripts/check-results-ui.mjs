@@ -61,15 +61,15 @@ try {
   await page.getByRole('button', { name: '공식 도전 시작하기 (1회)', exact: true }).click(); await page.getByRole('button', { name: '준비 중 취소하기', exact: true }).waitFor(); assert.equal(key, firstKey);
   await page.getByRole('button', { name: '준비 중 취소하기', exact: true }).click(); await page.getByRole('button', { name: '공식 도전 시작하기 (1회)', exact: true }).waitFor(); assert.equal(cancels, 1);
   record('uncertain start retries reuse an idempotency key and countdown cancellation restores availability');
-  await page.getByRole('button', { name: '공식 도전 시작하기 (1회)', exact: true }).click(); await page.clock.fastForward(5100);
-  const area = page.getByRole('button', { name: '탭 영역', exact: true }); await area.waitFor();
+  await page.getByRole('button', { name: '공식 도전 시작하기 (1회)', exact: true }).click(); await page.getByRole('button', { name: '준비 중 취소하기', exact: true }).waitFor(); await page.clock.fastForward(5100);
+  const area = page.getByRole('button', { name: '탭 영역', exact: true }); await area.waitFor(); await page.waitForFunction(() => document.querySelector('.tap-area')?.textContent?.startsWith('탭!'));
   assert.equal(await area.evaluate(el => getComputedStyle(el).touchAction), 'none');
   await area.click(); await page.clock.fastForward(100); await area.click(); await page.clock.fastForward(100); await area.focus(); await page.keyboard.press('Space');
   for (const width of [360, 390, 430, 768, 1440]) { await page.setViewportSize({ width, height: 900 }); assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth), false); await page.screenshot({ path: resolve(output, `tap-playing-${width}.png`), fullPage: true }); }
   failFinish = true; await page.clock.fastForward(10000); await page.getByRole('button', { name: '같은 기록 다시 전송하기', exact: true }).waitFor(); await page.getByRole('button', { name: '같은 기록 다시 전송하기', exact: true }).click(); await page.getByRole('heading', { name: '공식 기록을 저장했어요', exact: true }).waitFor(); assert.equal(finishes, 2); assert.equal(submitted.taps.length, 3);
   await page.setViewportSize({ width: 390, height: 900 }); await page.screenshot({ path: resolve(output, 'tap-valid-390.png'), fullPage: true }); await page.reload(); await page.getByRole('heading', { name: '공식 기록을 저장했어요', exact: true }).waitFor(); assert.equal(await page.getByRole('button', { name: '공식 도전 시작하기 (1회)', exact: true }).count(), 0);
   record('official pointer and keyboard events are submitted once, uncertain finish retries the same payload and saved score restores');
-  state = { officialAvailable: true, attempt: null }; key = null; submitted = null; await visit('/missions/fast-tap'); await page.getByRole('button', { name: '공식 도전 시작하기 (1회)', exact: true }).click(); await page.clock.fastForward(5100);
+  state = { officialAvailable: true, attempt: null }; key = null; submitted = null; await visit('/missions/fast-tap'); await page.getByRole('button', { name: '공식 도전 시작하기 (1회)', exact: true }).click(); await page.getByRole('button', { name: '준비 중 취소하기', exact: true }).waitFor(); await page.clock.fastForward(5100);
   await page.evaluate(() => window.dispatchEvent(new Event('pagehide'))); await page.getByRole('heading', { name: '공식 도전이 중단됐어요', exact: true }).waitFor(); assert.equal(state.officialAvailable, false);
   await page.reload(); await page.getByRole('heading', { name: '공식 도전이 중단됐어요', exact: true }).waitFor(); assert.equal(await page.getByRole('button', { name: '공식 도전 시작하기 (1회)', exact: true }).count(), 0);
   record('page exit after play starts interrupts the official slot and refresh never creates a new chance');
