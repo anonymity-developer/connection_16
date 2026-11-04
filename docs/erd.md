@@ -276,7 +276,7 @@ erDiagram
 
 카드 슬롯은 사용자당 1개, 하트는 `(card_id,user_id)` 복합 PK다. 템플릿/허용 스타일은 presentation_json에 넣어 문구와 같은 버전으로 검수한다. 자신의 카드 하트는 서비스에서 거절한다. anonymous가 true인 공개 DTO에는 작성자 식별자를 넣지 않는다.
 
-## 7. 성향과 공식 게임 — 후속 설계
+## 7. 성향과 공식 게임 — V5
 
 ```mermaid
 erDiagram
@@ -305,7 +305,7 @@ erDiagram
         bigint id PK
         bigint user_id FK
         int generation
-        varchar idempotency_key UK
+        varchar idempotency_key
         datetime starts_at
         datetime ends_at
         datetime submit_deadline
@@ -317,16 +317,14 @@ erDiagram
     TAP_ATTEMPT_EVENTS {
         bigint id PK
         bigint attempt_id FK
-        varchar type
+        varchar event_type
         int relative_time_ms
-        json payload_json
-        datetime created_at
     }
 ```
 
-- sync_results.user_id PK로 최초 결과만 보관한다. 문항/유형 점수표는 버전 고정 설정으로 시작하고 결과에 버전을 남긴다.
+- sync_results.user_id PK로 최초 결과만 보관한다. V5의 sync_questionnaires 버전 FK와 payload_hash가 있고 current_sync_questionnaire가 현재 JSON을 가리킨다. 운영 문항은 시드하지 않는다.
 - tap_slots는 공식 참여 권리, attempts는 도전 이력이다. `UNIQUE(user_id,generation)`으로 차수를 구분하고 관리자 승인 없이 새 공식 시도를 만들지 않는다.
-- current_attempt_id는 같은 사용자의 attempt만 가리켜야 한다. 슬롯과 attempt의 생성/포인터 갱신은 한 트랜잭션이며 순환 FK 생성 순서를 검증한다.
+- V5의 `(current_attempt_id,user_id)` FK는 `(tap_attempts.id,user_id)`를 가리킨다. 시작 key는 `(user_id,idempotency_key)` UNIQUE다. 슬롯과 attempt의 생성/포인터 갱신은 한 트랜잭션이며 순환 FK 생성 순서를 검증한다.
 - 시작 전 취소는 CANCELLED, 시작 후 중단은 INTERRUPTED 등 이력으로 남긴다. 상세 전이는 [서버 처리 설계](architecture.md)의 게임 상태를 따른다.
 - 서버 시작 시각/종료 시각/제출 유예가 기준이다. 이벤트 상대 시간은 검증 보조 데이터이며 브라우저 조작을 완전히 방지하지 못한다.
 
@@ -501,3 +499,5 @@ erDiagram
 ```
 
 user_consents의 `(user_id,policy_type,policy_version)`은 UNIQUE이며 재동의/철회 사건은 append-only events에 남긴다. event_settings는 기존 계획 컬럼에 profile_preparation_enabled를 추가했고 기본 false다. profiles.version은 낙관적 충돌 검사와 PROFILE 접수 식별에 사용한다. 실제 제약은 수정하지 않은 V1~V3와 추가 V4 DDL이 기준이다.
+
+V5의 실제 이벤트 행은 event_type/relative_time_ms이며 attempt에 payload_hash/review_reason을 둔다. 플레이 중 상태는 타임스탬프로 계산하며, 검토/순위/관리자 재도전은 후속이다. [결과 구현](results.md)이 현재 규칙이다.

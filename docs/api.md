@@ -2,7 +2,7 @@
 
 ## 1. 공통 규칙
 
-기본 경로는 `/api/v1`, JSON 응답, 서버 세션 쿠키, UTC ISO-8601 시각을 사용한다. 브라우저는 동일 출처로 요청하며 변경 요청은 CSRF 헤더가 필요하다. 기본 API는 아래 표에 있으며, 인증과 페이즈 3의 프로필/동의/태그/수집판 API도 구현했다. 그 밖의 도메인은 개발 계획이다. 정확한 스키마는 [인증 OpenAPI](auth.openapi.yaml)와 [참여 OpenAPI](participation.openapi.yaml)를 따른다.
+기본 경로는 `/api/v1`, JSON 응답, 서버 세션 쿠키, UTC ISO-8601 시각을 사용한다. 브라우저는 동일 출처로 요청하며 변경 요청은 CSRF 헤더가 필요하다. 기본 API는 아래 표에 있으며, 인증, 페이즈 3 참여와 페이즈 4-1 SYNC/FAST TAP API도 구현했다. 그 밖의 도메인은 개발 계획이다. 정확한 스키마는 [인증 OpenAPI](auth.openapi.yaml)와 [참여 OpenAPI](participation.openapi.yaml)를 따른다.
 
 사용자 동선은 [유저 플로우](user-flows.md), 저장 관계는 [전체 ERD](erd.md), 트랜잭션은 [구현 계획](implementation-plan.md)을 따른다. 아래 예시와 추가 경로는 후속 구현 계약이며 현재 호출 가능한 API라고 안내하지 않는다.
 
@@ -132,7 +132,7 @@ GET `/event`, `/policies`, `/users/me/profile`, GET/POST `/tags/pending`, POST `
 }
 ```
 
-## 5. 게임과 성향 — 예정
+## 5. 게임과 성향 구현
 
 | Method | 경로 | 요청/결과 요점 |
 | --- | --- | --- |
@@ -146,7 +146,7 @@ GET `/event`, `/policies`, `/users/me/profile`, GET/POST `/tags/pending`, POST `
 | GET | `/sync/me` | 저장된 결과 |
 | GET | `/sync/types` | 유형별 공개 설명 |
 
-`tap_count`, 운 점수, 유형 코드를 클라이언트가 확정할 수 없다. finish의 실제 이벤트 포맷/크기 제한은 모바일 검증 후 OpenAPI로 고정한다.
+위 표 중 공개 `/tap/rankings`만 후속이며 그 외 경로는 구현했다. `/tap/start`의 준비/플레이/유예는 5/10/5초다. finish는 attemptId, taps(최대 1000개 상대 ms), interruptions를 받고 count를 서버에서 계산한다. 실제 형식/초기 검토 기준/기한/재시도는 [결과 계약](results.md)과 [결과 OpenAPI](results.openapi.yaml)를 따른다. `tap_count`, 운 점수, 유형 코드는 클라이언트가 확정하지 않는다.
 
 ## 6. 동료 탐색 — 예정
 

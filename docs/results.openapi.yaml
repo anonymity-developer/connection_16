@@ -1,0 +1,430 @@
+openapi: 3.1.0
+info:
+  title: TAG ME SYNC/FAST TAP API
+  version: 0.4.1
+  description: 정책/프로필/해금/기간을 서버 확인. 문항은 운영자가 버전별 별도 등록. 순위/관리자 검토·재도전은 후속.
+servers:
+- url: /api/v1
+paths:
+  /sync/questions:
+    get:
+      summary: 해금된 미션의 현재 질문
+      security:
+      - session: []
+      responses:
+        '200':
+          description: 성공
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Questions'
+        default:
+          $ref: '#/components/responses/Error'
+      description: 설정이 없으면 available=false. 실제 점수표/유형 코드 입력은 받지 않는다.
+  /sync/me:
+    get:
+      summary: 본인의 최초 결과
+      security:
+      - session: []
+      responses:
+        '200':
+          description: 성공
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SyncState'
+        default:
+          $ref: '#/components/responses/Error'
+  /sync/types:
+    get:
+      summary: 현재 버전의 유형 설명
+      security:
+      - session: []
+      responses:
+        '200':
+          description: 성공
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Type'
+        default:
+          $ref: '#/components/responses/Error'
+  /sync/submit:
+    post:
+      summary: 서버 계산 최초 결과 저장
+      security:
+      - session: []
+        csrfCookie: []
+        csrfHeader: []
+      responses:
+        '200':
+          description: 성공
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SyncResult'
+        default:
+          $ref: '#/components/responses/Error'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SyncRequest'
+      description: 같은 버전/답변은 같은 결과. 다른 답변/버전으로 덮어쓰기는 409. 전문 성격 진단이 아니다.
+  /tap/me:
+    get:
+      summary: 본인 공식 슬롯과 현재 도전
+      security:
+      - session: []
+      responses:
+        '200':
+          description: 성공
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TapState'
+        default:
+          $ref: '#/components/responses/Error'
+  /tap/start:
+    post:
+      summary: 1회 공식 도전 준비 시작
+      security:
+      - session: []
+        csrfCookie: []
+        csrfHeader: []
+      responses:
+        '200':
+          description: 성공
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TapAttempt'
+        default:
+          $ref: '#/components/responses/Error'
+      description: 서버 기준 5초 준비/10초 플레이/5초 제출 유예. 같은 사용자/key는 같은 attempt. 준비 중 취소만
+        슬롯 복구.
+      parameters:
+      - name: Idempotency-Key
+        in: header
+        required: true
+        schema:
+          type: string
+          pattern: ^[A-Za-z0-9_-]{16,64}$
+  /tap/cancel:
+    post:
+      summary: 준비 중 취소 또는 이후 중단
+      security:
+      - session: []
+        csrfCookie: []
+        csrfHeader: []
+      responses:
+        '200':
+          description: 성공
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TapAttempt'
+        default:
+          $ref: '#/components/responses/Error'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CancelRequest'
+  /tap/finish:
+    post:
+      summary: 이벤트 검증 후 최초 점수 확정
+      security:
+      - session: []
+        csrfCookie: []
+        csrfHeader: []
+      responses:
+        '200':
+          description: 성공
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TapAttempt'
+        default:
+          $ref: '#/components/responses/Error'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FinishRequest'
+      description: 점수는 배열 크기로 서버 계산. VALID만 글자 지급, REVIEW_REQUIRED/INTERRUPTED/EXPIRED는
+        미지급. 같은 payload 재시도만 허용. 상세 기한/의심 기준은 results.md 참조.
+components:
+  schemas:
+    QuestionOption:
+      type: object
+      additionalProperties: false
+      properties:
+        id:
+          type: string
+        label:
+          type: string
+      required:
+      - id
+      - label
+    Question:
+      type: object
+      additionalProperties: false
+      properties:
+        id:
+          type: string
+        text:
+          type: string
+        options:
+          type: array
+          items:
+            $ref: '#/components/schemas/QuestionOption'
+      required:
+      - id
+      - text
+      - options
+    Questions:
+      type: object
+      additionalProperties: false
+      properties:
+        available:
+          type: boolean
+        version:
+          type:
+          - string
+          - 'null'
+        title:
+          type:
+          - string
+          - 'null'
+        questions:
+          type: array
+          items:
+            $ref: '#/components/schemas/Question'
+      required:
+      - available
+      - version
+      - title
+      - questions
+    Type:
+      type: object
+      additionalProperties: false
+      properties:
+        code:
+          type: string
+        title:
+          type: string
+        description:
+          type: string
+      required:
+      - code
+      - title
+      - description
+    SyncResult:
+      type: object
+      additionalProperties: false
+      properties:
+        questionnaireVersion:
+          type: string
+        type:
+          $ref: '#/components/schemas/Type'
+        axisScores:
+          type: object
+          additionalProperties:
+            type: integer
+        submittedAt:
+          type: string
+          format: date-time
+      required:
+      - questionnaireVersion
+      - type
+      - axisScores
+      - submittedAt
+    SyncState:
+      type: object
+      additionalProperties: false
+      properties:
+        result:
+          anyOf:
+          - $ref: '#/components/schemas/SyncResult'
+          - type: 'null'
+      required:
+      - result
+    Answer:
+      type: object
+      additionalProperties: false
+      properties:
+        questionId:
+          type: string
+          minLength: 1
+          maxLength: 32
+        optionId:
+          type: string
+          minLength: 1
+          maxLength: 32
+      required:
+      - questionId
+      - optionId
+    SyncRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        questionnaireVersion:
+          type: string
+          pattern: ^[A-Za-z0-9._-]{1,64}$
+        answers:
+          type: array
+          items:
+            $ref: '#/components/schemas/Answer'
+          minItems: 1
+          maxItems: 20
+      required:
+      - questionnaireVersion
+      - answers
+    TapAttempt:
+      type: object
+      additionalProperties: false
+      properties:
+        attemptId:
+          type: integer
+          minimum: 1
+        generation:
+          type: integer
+          minimum: 1
+        status:
+          type: string
+          enum:
+          - COUNTDOWN
+          - PLAYING
+          - AWAITING_SUBMISSION
+          - CANCELLED
+          - INTERRUPTED
+          - VALID
+          - REVIEW_REQUIRED
+          - EXPIRED
+        serverNow:
+          type: string
+          format: date-time
+        startsAt:
+          type: string
+          format: date-time
+        endsAt:
+          type: string
+          format: date-time
+        submitDeadline:
+          type: string
+          format: date-time
+        tapCount:
+          type:
+          - integer
+          - 'null'
+          minimum: 0
+        reviewReason:
+          type:
+          - string
+          - 'null'
+        provisional:
+          type: boolean
+      required:
+      - attemptId
+      - generation
+      - status
+      - serverNow
+      - startsAt
+      - endsAt
+      - submitDeadline
+      - tapCount
+      - reviewReason
+      - provisional
+    TapState:
+      type: object
+      additionalProperties: false
+      properties:
+        officialAvailable:
+          type: boolean
+        attempt:
+          anyOf:
+          - $ref: '#/components/schemas/TapAttempt'
+          - type: 'null'
+      required:
+      - officialAvailable
+      - attempt
+    CancelRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        attemptId:
+          type: integer
+          minimum: 1
+      required:
+      - attemptId
+    Interruption:
+      type: object
+      additionalProperties: false
+      properties:
+        type:
+          type: string
+          enum:
+          - HIDDEN
+          - PAGE_HIDE
+        atMs:
+          type: integer
+          minimum: -5000
+          maximum: 15000
+      required:
+      - type
+      - atMs
+    FinishRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        attemptId:
+          type: integer
+          minimum: 1
+        taps:
+          type: array
+          maxItems: 1000
+          items:
+            type: integer
+            minimum: 0
+            maximum: 9999
+          description: 오름차순 상대 밀리초. Server derives count; input order retained.
+        interruptions:
+          type: array
+          items:
+            $ref: '#/components/schemas/Interruption'
+          maxItems: 20
+      required:
+      - attemptId
+      - taps
+      - interruptions
+  responses:
+    Error:
+      description: 400 형식/이벤트, 401 세션, 403 CSRF/해금/기간, 404 본인 도전, 409 최초 결과/버전/슬롯/payload
+        충돌, 429 제한, 503 설정/저장소
+      headers:
+        Retry-After:
+          schema:
+            type: integer
+      content:
+        application/json:
+          schema:
+            $ref: ./auth.openapi.yaml#/components/schemas/Error
+  securitySchemes:
+    session:
+      type: apiKey
+      in: cookie
+      name: TAGME_SESSION
+    csrfCookie:
+      type: apiKey
+      in: cookie
+      name: XSRF-TOKEN
+    csrfHeader:
+      type: apiKey
+      in: header
+      name: X-XSRF-TOKEN
