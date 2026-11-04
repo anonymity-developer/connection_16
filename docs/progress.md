@@ -106,3 +106,5 @@
 - 자동 검증/화면 확인을 진행 중이며 최종 결과는 PR checks/스크린샷 아티팩트에서 확인한다. [콘텐츠 계약](content.md)에 현재 API와 한계를 정리했다.
 - [서버 1차 CI 41792449584](https://github.com/anonymity-developer/connection_16/actions/runs/41792449584)에서 Frontend/Backend/Docker가 모두 성공했다. 백엔드는 실제 MySQL/Redis를 사용했다. 후속 UI CI에서 완료 문구 중복 locator를 발견해 콘텐츠 상태 표시로 한정했으며 기대 동작을 낮추지 않았다.
 - 테스트 컨텍스트가 클래스별 컨테이너보다 오래 남아 새 worker가 종료된 DB에 재접속하는 잡음이 있었다. 테스트에서만 스케줄을 멈추고 claim/processOne/지연 응답/동시 작업을 직접 검사하도록 분리했다. 운영 worker는 기본 활성이다. 최종 CI와 모바일/데스크톱 스크린샷 검토는 PR checks/아티팩트를 기준으로 한다.
+- [UI/통합 검증 CI 41793883811](https://github.com/anonymity-developer/connection_16/actions/runs/41793883811)에서 Frontend/Backend/Docker 모두 성공했다. 프론트 단위 12개와 기존 22개/콘텐츠 7개 브라우저 그룹, 정적·운영 화면 검사 0 FAIL/0 WARN을 확인했다. 360/390/430/768/1440px 소원/응원 작성 및 모바일 대기/승인본·수정본 분리 화면을 열어 검토했다.
+- 마지막 보완은 최초/수정 대기 문구 구분, 승인본의 카드 형태 반영, 현재 잠금 읽기로 행사 시각 재확인, 실제 HTTP 202/본인 상태/허용 스타일 검사다. 최종 커밋 결과는 PR checks를 따른다.

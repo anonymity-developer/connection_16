@@ -53,7 +53,7 @@ public class ContentService {
                 if(replay!=null){if(!replay.hash().equals(hash))throw error(409,"IDEMPOTENCY_CONFLICT","같은 요청의 내용이 변경됐어요. 저장된 글을 먼저 확인해 주세요.");return snapshot(actor.userId(),kind);}
             }
             guard(actor,kind);
-            if(!repository.now().isBefore(participation.event(false).submitClosesAt())||received.isBefore(participation.event(false).opensAt()))throw error(403,"EVENT_CLOSED","지금은 제출 가능한 시간이 아니에요.");
+            if(!repository.now().isBefore(participation.event(true).submitClosesAt())||received.isBefore(participation.event(true).opensAt()))throw error(403,"EVENT_CLOSED","지금은 제출 가능한 시간이 아니에요.");
             if(item==null) {
                 if(edit||body.expectedVersion()!=null)throw error(409,"SLOT_NOT_CREATED","내 글을 다시 불러와 주세요.");
                 Integer luck=null,zone=null;

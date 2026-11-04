@@ -121,18 +121,7 @@ GET `/event`, `/policies`, `/users/me/profile`, GET/POST `/tags/pending`, POST `
 
 최초 작성 재시도는 Idempotency-Key를 사용한다. 같은 key/payload는 같은 리소스를 반환하고 같은 key/다른 payload는 409다. 사용자 슬롯 UNIQUE가 키 변경으로 인한 중복 생성도 막는다. 공개 목록에는 pending/거절 revision이 포함되지 않는다.
 
-아래 초기 응답 예시는 개념 설명이다. 구현된 요청은 content/templateId/style/anonymous/expectedVersion, 응답은 OwnSlot(approvedRevision/pendingRevision/latestRevision/version)이며 [콘텐츠 계약](content.md)과 [OpenAPI](content.openapi.yaml)가 정확한 기준이다.
-
-초기 개념 응답 예시:
-
-```json
-{
-  "id": 101,
-  "revision": 1,
-  "moderationStatus": "QUEUED",
-  "missionCompleted": false
-}
-```
+요청은 `content/templateId/style/anonymous/expectedVersion`, 응답은 OwnSlot(approvedRevision/pendingRevision/latestRevision/version)이다. 최초 소원도 `templateId=PLAIN`, `style=ROSE`, `anonymous=true`를 전송한다. 수정에는 현재 `expectedVersion`이 필요하며 최초 작성/수정 모두 Idempotency-Key를 요구한다. [콘텐츠 계약](content.md)과 [OpenAPI](content.openapi.yaml)에 정확한 DTO/상태/오류를 정리했다.
 
 ## 5. 게임과 성향 구현
 
@@ -142,7 +131,7 @@ GET `/event`, `/policies`, `/users/me/profile`, GET/POST `/tags/pending`, POST `
 | POST | `/tap/cancel` | attemptId → 시작 전 취소만 기회 복구 |
 | POST | `/tap/finish` | attemptId, events, interruptions → 확정/보류 결과 |
 | GET | `/tap/me` | 공식 슬롯과 현재 도전 상태 복구 |
-| GET | `/tap/rankings` | 유효 점수/잠정 여부/커서 |
+| GET | `/tap/rankings` | 후속: 유효 점수/잠정 여부/커서 |
 | GET | `/sync/questions` | 버전 및 문항/선택지 |
 | POST | `/sync/submit` | questionnaireVersion, answers → 서버 계산 최초 결과 |
 | GET | `/sync/me` | 저장된 결과 |
@@ -258,27 +247,23 @@ route는 서버가 정한 내부 경로이며 토큰에서 외부 URL을 읽어 
 
 ### 내 소원/응원 슬롯
 
+주요 필드 발췌다. 각 revision에는 itemId, templateId/style/anonymous, submittedAt/reason도 포함된다. 전체 필드는 [콘텐츠 OpenAPI](content.openapi.yaml)를 따른다.
+
 ```json
 {
   "id": 101,
-  "visibilityStatus": "VISIBLE",
-  "approvedRevision": {
-    "id": 201,
-    "revisionNo": 1,
-    "content": "함께 성장하고 싶어요.",
-    "moderationStatus": "APPROVED"
-  },
-  "pendingRevision": {
-    "id": 202,
-    "revisionNo": 2,
-    "content": "좋은 동료들과 함께 성장하고 싶어요.",
-    "moderationStatus": "QUEUED"
-  },
-  "missionCompleted": true
+  "version": 4,
+  "visibility": "VISIBLE",
+  "approvedRevision": {"id": 201, "number": 1, "content": "함께 성장하고 싶어요.", "status": "APPROVED"},
+  "pendingRevision": {"id": 202, "number": 2, "content": "좋은 동료들과 함께 성장하고 싶어요.", "status": "QUEUED"},
+  "latestRevision": {"id": 202, "number": 2, "content": "좋은 동료들과 함께 성장하고 싶어요.", "status": "QUEUED"},
+  "missionCompleted": true,
+  "luckScore": null,
+  "landingZone": null
 }
 ```
 
-위 상태에서 공개 목록에는 revision 201만 노출한다. revision 202가 거절되면 기존 승인본은 유지한다. 사용자 본인과 관리자만 대기본을 볼 수 있다. 최초 검수 중이면 approvedRevision이 null이고 missionCompleted는 false다.
+위 상태에서 공개 목록은 revision 201의 내용/설정만 노출하고 revision 식별자는 주지 않는다. 202가 거절되면 기존 승인본을 유지한다. 본인과 관리자만 대기본을 볼 수 있다. 최초 검수 중이면 approvedRevision은 null, missionCompleted는 false다.
 
 ### 게임 시작/종료
 

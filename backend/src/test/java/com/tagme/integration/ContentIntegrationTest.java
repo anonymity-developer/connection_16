@@ -119,5 +119,15 @@ class ContentIntegrationTest {
     }
     ResponseEntity<Map> raw(HttpMethod method,String path,Object body,String csrf,String key){var h=new HttpHeaders();h.setContentType(MediaType.APPLICATION_JSON);if(!cookies.isEmpty())h.add(HttpHeaders.COOKIE,String.join("; ",cookies.entrySet().stream().map(e->e.getKey()+"="+e.getValue()).toList()));if(csrf!=null)h.add("X-XSRF-TOKEN",csrf);if(key!=null)h.add("Idempotency-Key",key);var r=http.exchange("/api/v1"+path,method,new HttpEntity<>(body,h),Map.class);for(String c:r.getHeaders().getOrEmpty(HttpHeaders.SET_COOKIE)){var p=c.split(";",2)[0].split("=",2);if(p.length==2)cookies.put(p[0],p[1]);}return r;}
     ResponseEntity<Map> send(String path,Object body){var c=raw(HttpMethod.GET,"/csrf",null,null,null);return raw(HttpMethod.POST,path,body,(String)c.getBody().get("token"),"http-test-key-0001");}
+    @Test void httpAcceptedResponseContainsPrivateStateAndNeverCompletesEarly(){
+        assertThat(send("/auth/login",Map.of("username","alice","password",PASSWORD)).getStatusCode().value()).isEqualTo(200);
+        var payload=Map.of("content","테스트 소원","templateId","PLAIN","style","ROSE","anonymous",true);
+        var first=send("/wishes",payload);assertThat(first.getStatusCode().value()).isEqualTo(202);assertThat(first.getBody().get("missionCompleted")).isEqualTo(false);
+        assertThat(((Map<?,?>)first.getBody().get("pendingRevision")).containsKey("hash")).isFalse();
+        assertThat(send("/wishes",payload).getBody().get("id")).isEqualTo(first.getBody().get("id"));
+        assertThat(raw(HttpMethod.GET,"/wishes/me",null,null,null).getBody().get("id")).isEqualTo(first.getBody().get("id"));
+        assertThat(db.queryForObject("SELECT COUNT(*) FROM mission_completion_evidence",Integer.class)).isZero();
+        var invalid=new HashMap<String,Object>(payload);invalid.put("style","CUSTOM_CSS");assertThat(send("/cheers",invalid).getStatusCode().value()).isEqualTo(400);
+    }
     @Test void httpRequiresSessionCsrfAndUnlockAndRejectsClientApproval(){var payload=Map.of("content","테스트","templateId","PLAIN","style","ROSE","anonymous",true);assertThat(send("/wishes",payload).getStatusCode().value()).isEqualTo(401);assertThat(send("/auth/login",Map.of("username","alice","password",PASSWORD)).getStatusCode().value()).isEqualTo(200);assertThat(raw(HttpMethod.POST,"/wishes",payload,null,"http-test-key-0001").getStatusCode().value()).isEqualTo(403);var extra=new HashMap<String,Object>(payload);extra.put("moderationStatus","APPROVED");assertThat(send("/wishes",extra).getStatusCode().value()).isEqualTo(400);assertThat(send("/admin/moderation/1/decision",Map.of("expectedFence",0,"decision","APPROVED","reason","테스트")).getStatusCode().value()).isEqualTo(403);db.update("DELETE FROM mission_progress WHERE user_id=? AND mission_id=(SELECT id FROM missions WHERE code='MAKE_A_WISH')",actor.userId());assertThat(send("/wishes",payload).getStatusCode().value()).isEqualTo(403);}
 }
