@@ -33,8 +33,8 @@ p { word-break: keep-all; overflow-wrap: anywhere; }
 ::selection { background: var(--accent-track); color: var(--accent-ink); }
 #main-content { min-height: calc(100svh - 149px); }
 #main-content:focus { outline: none; }
-.skip-link { position: fixed; top: -100px; left: 16px; z-index: 100; padding: 12px 18px; color: white; background: var(--ink); }
-.skip-link:focus { top: 12px; }
+.skip-link { position: fixed; top: 12px; left: 16px; z-index: 100; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; color: white; background: var(--ink); }
+.skip-link:focus { width: auto; height: auto; padding: 12px 18px; overflow: visible; clip-path: none; }
 .page { max-width: 1120px; margin: 0 auto; padding: 36px 24px 48px; }
 .page-heading { margin-bottom: 28px; }
 .page-heading h1 { margin: 4px 0 8px; }
@@ -291,3 +291,10 @@ p { word-break: keep-all; overflow-wrap: anywhere; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { scroll-behavior: auto !important; animation: none !important; transition: none !important; }
 }
+
+.account-panel { padding: 28px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); }
+.account-panel dl { margin: 24px 0; }
+.account-panel dl > div { padding: 16px 0; border-bottom: 1px solid var(--border); }
+.account-panel dt { font-size: 13px; color: var(--muted); margin-bottom: 6px; }
+.account-panel dd { margin: 0; font-size: 15px; overflow-wrap: anywhere; }
+.account-panel .form-notice { margin-top: 16px; }

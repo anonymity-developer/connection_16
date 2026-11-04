@@ -1,4 +1,5 @@
 import { useRef, useState } from 'react';
+import { useAuth } from '../features/auth/context';
 import { Link } from '../app/navigation';
 import { Icon } from '../components/Icon';
 import { Button, Dialog } from '../components/ui';
@@ -10,6 +11,7 @@ export function WishLake() {
 }
 
 export function MissionPage({ mission, data }: { mission: Mission; data: ScreenData }) {
+  const auth = useAuth();
   const state = data.progress[mission.code];
   const [draft, setDraft] = useState('');
   const [error, setError] = useState('');
@@ -20,7 +22,7 @@ export function MissionPage({ mission, data }: { mission: Mission; data: ScreenD
     <header className="mission-detail-heading"><span className={`mission-letter ${state === 'COMPLETED' ? 'is-collected' : ''}`} aria-hidden="true">{mission.letter}</span><div><p className="context-label">{mission.name}</p><h1>{mission.korean}</h1></div><StateBadge state={state} /></header>
     <div className="mission-detail-grid"><section className="mission-detail" aria-label={`${mission.name} 참여 화면`}><p className="detail-intro">{mission.description}</p>
       {mission.code === 'MAKE_A_WISH' && <WishLake />}
-      {state === 'LOCKED' && <div className="mission-message"><Icon name="tag" size={28} /><h2>현장에서 태그를 찾아주세요</h2><p>{mission.hint}<br />NFC를 읽거나 QR을 스캔하면 미션으로 이어져요.</p><Link className="button button--primary" href={data.preview ? '/' : '/auth'}>{data.preview ? '다른 미션 둘러보기' : '로그인 화면으로'}<Icon name="arrow" size={18} /></Link></div>}
+      {state === 'LOCKED' && <div className="mission-message"><Icon name="tag" size={28} /><h2>현장에서 태그를 찾아주세요</h2><p>{mission.hint}<br />NFC를 읽거나 QR을 스캔하면 미션으로 이어져요.</p><Link className="button button--primary" href={data.preview ? '/' : auth.user ? '/me' : '/auth'}>{data.preview ? '다른 미션 둘러보기' : auth.user ? '내 계정 확인하기' : '로그인 화면으로'}<Icon name="arrow" size={18} /></Link></div>}
       {state === 'PENDING' && <div className="mission-message" role="status"><Icon name="clock" size={28} /><h2>마음을 담은 글을 확인하고 있어요</h2><p>검수 승인 후 글자가 지급돼요.<br />기다리는 동안 다른 미션을 둘러보세요.</p><Link className="button button--secondary" href="/">다른 미션 보기<Icon name="arrow" size={16} /></Link></div>}
       {state === 'COMPLETED' && <div className="mission-message"><span className="earned-letter" aria-label={`획득 글자 ${mission.letter}`}>{mission.letter}</span><h2>연결의 한 조각을 모았어요</h2><p>개발용 완료 화면 미리보기예요.<br />실제 참여 기록이나 결과는 저장되지 않아요.</p><Link className="button button--secondary" href="/">수집판으로 돌아가기<Icon name="arrow" size={16} /></Link></div>}
       {canPreviewWish && <form className="wish-form" onSubmit={(event) => { event.preventDefault(); if (!draft.trim()) { setError('호수에 띄울 소원을 적어주세요.'); input.current?.focus(); return; } setEarned(true); }}><label htmlFor="wish-content">지금, 어떤 소원을 품고 있나요?</label><textarea ref={input} id="wish-content" placeholder="함께 이루고 싶은 작은 바람을 적어주세요." rows={4} maxLength={200} value={draft} aria-invalid={error ? true : undefined} aria-describedby="wish-help wish-count" onChange={(event) => { setDraft(event.target.value); setError(''); }} /><div className="wish-input-footer"><p id="wish-help" className={error ? 'field-help--error' : ''} role={error ? 'alert' : undefined}>{error || '미리보기 소원은 전송되거나 저장되지 않아요.'}</p><span id="wish-count">{draft.length}/200</span></div><Button className="full-width" type="submit">소원 띄우기 미리보기<Icon name="arrow" size={18} /></Button></form>}

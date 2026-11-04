@@ -65,10 +65,15 @@ try {
   });
   await check('login validation, password visibility, navigation and credential isolation', async () => {
     await visit(`${productionUrl}/auth`);
+    await page.getByRole('link', { name: 'TAG ME 홈', exact: true }).focus();
+    await page.keyboard.press('Shift+Tab');
+    assert.equal(await page.getByRole('link', { name: '본문으로 바로가기', exact: true }).evaluate((element) => element === document.activeElement), true);
+    await page.keyboard.press('Enter');
+    assert.equal(await page.evaluate(() => document.activeElement?.id), 'main-content');
     await page.getByRole('button', { name: '로그인하기', exact: true }).click();
     assert.equal(await page.locator('input[name="username"]').evaluate((element) => document.activeElement === element), true);
     await page.getByLabel('Mattermost 아이디', { exact: true }).fill('ui_test');
-    await page.getByLabel('비밀번호', { exact: true }).fill('example-only');
+    await page.getByLabel('비밀번호', { exact: true }).fill('example-only-password');
     await page.getByRole('button', { name: '비밀번호 표시', exact: true }).click();
     assert.equal(await page.getByLabel('비밀번호', { exact: true }).getAttribute('type'), 'text');
     await page.getByRole('button', { name: '비밀번호 숨기기', exact: true }).click();
@@ -117,11 +122,11 @@ try {
     await code.focus();
     await page.keyboard.press('Control+V');
     assert.equal(await code.inputValue(), '012345');
-    await page.getByLabel('비밀번호', { exact: true }).fill('example-only');
+    await page.getByLabel('비밀번호', { exact: true }).fill('example-only-password');
     await page.getByLabel('비밀번호 확인', { exact: true }).fill('mismatch');
     await page.getByRole('button', { name: '가입하기', exact: true }).click();
     assert.equal(await page.getByLabel('비밀번호 확인', { exact: true }).evaluate((element) => element === document.activeElement), true);
-    await page.getByLabel('비밀번호 확인', { exact: true }).fill('example-only');
+    await page.getByLabel('비밀번호 확인', { exact: true }).fill('example-only-password');
     const submit = page.getByRole('button', { name: '가입하기', exact: true });
     await submit.click();
     await page.getByRole('dialog').waitFor();

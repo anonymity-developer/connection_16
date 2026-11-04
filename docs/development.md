@@ -2,7 +2,7 @@
 
 ## 1. 버전과 필수 도구
 
-- Java 21, Gradle Wrapper 8.14.3 (별도 Gradle 설치 불필요)
+- JDK 21 (javac 포함; JRE만으로 컴파일 불가), Gradle Wrapper 8.14.3 (별도 Gradle 설치 불필요)
 - Node.js 24, npm 및 `package-lock.json`
 - Docker Engine 또는 Docker Desktop, Compose v2
 - Spring Boot 3.5.16, MySQL 8.4, Redis 7.4, Caddy 2
@@ -22,7 +22,11 @@ Gradle 배포 파일은 SHA-256으로 검증하며 Wrapper JAR도 저장소에 �
 | DB_HOST / REDIS_HOST | IDE API 또는 Compose | IDE는 localhost, Docker는 서비스명 |
 | APP_DOMAIN | 운영 Caddy | 실제 DNS 이름; example.com은 예시 |
 | APP_SESSION_SECURE | API | Compose 운영 override에서 true |
-| MATTERMOST_* / AI_API_KEY | 후속 외부 연동 | 현재 사용 코드 없음, 브라우저/VITE 변수에 넣지 않음 |
+| AUTH_ENABLED | API | 기본 false; 실제 외부 권한 확인 후 true |
+| MATTERMOST_BASE_URL / MATTERMOST_TOKEN / MATTERMOST_CHANNEL_ID | API 서버 전용 | 지정 채널 조회·DM 생성/작성 권한 필요. 브라우저/VITE 변수 금지 |
+| AUTH_HMAC_KEY | API 서버 전용 | 최소 32바이트 무작위 Base64. 로컬에서 `openssl rand -base64 32`로 생성하고 .env에만 보관 |
+| AUTH_OTP_* / AUTH_RESEND_SECONDS / AUTH_LOGIN_ACCOUNT_LIMIT / AUTH_IP_PER_MINUTE | API | `.env.example`의 기본 제한. 캠퍼스 공유 NAT와 실서버 비용 검증 후 조정 |
+| AI_API_KEY | 후속 외부 연동 | 현재 사용 코드 없음; 브라우저/VITE 변수 금지 |
 | API_PROXY_TARGET | 로컬 Vite | API 포트 변경 시 지정; 기본 http://127.0.0.1:8080 |
 
 MySQL 볼륨이 이미 초기화된 뒤 `.env` 비밀번호만 변경해도 DB 계정의 실제 비밀번호는 바뀌지 않는다. 기존 DB에서 계정 비밀번호를 변경하고 API 설정을 맞춰야 한다. 볼륨 삭제는 데이터가 필요 없는 로컬 환경에서만 한다.
@@ -108,3 +112,23 @@ gzip -dc backups/선택한_백업.sql.gz | docker compose exec -T mysql sh -c 'M
 기능별 브랜치에서 작업하고 PR에 문제/변경/검증 결과를 적는다. 커밋은 `chore`, `docs`, `feat`, `fix`, `test` 등 목적을 드러내는 접두어를 사용한다. 브랜치 보호와 필수 검사 지정은 저장소 운영자가 별도 설정한다.
 
 운영 배포 전 DB 백업 및 migration 호환성을 확인하고, 이전 이미지 태그를 보관한다. 애플리케이션 롤백은 이전 태그로 가능하지만 파괴적 DDL은 자동 복구되지 않는다. 데이터 변경은 새 migration 또는 검증한 복원 절차로 처리한다.
+
+## 인증 구현 실행과 검증
+
+기본 비활성 상태는 실제 DM을 발송하지 않는다. 서버에 토큰/채널/HMAC 키를 안전하게 제공하고 권한을 확인한 뒤 활성화한다. 로그/화면에 실제 키를 출력해서 점검하지 않는다. 외부 base URL은 HTTPS를 사용하고 HTTP는 로컬 테스트 서버만 허용한다. 쿠키/CSRF와 구체 흐름은 [인증 문서](auth.md)를 따른다.
+
+```bash
+cd backend
+./gradlew test bootJar
+./gradlew integrationTest
+cd ../frontend
+npm ci
+npm run lint
+npm run test:unit
+npm run build
+npx playwright install --with-deps chromium
+npm run test:ui
+npm run test:auth-ui
+```
+
+MySQL/Redis 통합 검사는 Docker가 필요하고 H2로 대체/생략하지 않는다. 브라우저 auth 검사는 테스트 파일에서 API를 가로채는 계약 검사이며 실제 DM 성공과 구분한다. CI는 두 브라우저 검사 결과와 인증 단계/계정 화면을 `frontend-ui-review` 아티팩트에 남긴다. 실제 외부 권한, 휴대전화, 현장 네트워크와 부하는 별도 검증한다.

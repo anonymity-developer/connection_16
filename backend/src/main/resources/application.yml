@@ -24,6 +24,10 @@ spring:
     timeout: 2h
     redis:
       namespace: tagme:session
+      repository-type: indexed
+  jackson:
+    deserialization:
+      fail-on-unknown-properties: true
   autoconfigure:
     exclude: org.springframework.boot.autoconfigure.security.servlet.UserDetailsServiceAutoConfiguration
 
@@ -51,3 +55,18 @@ management:
       group:
         readiness:
           include: readinessState,db,redis
+
+# Disabled until an operator provides the real integration credentials.
+tagme:
+  auth:
+    enabled: ${AUTH_ENABLED:false}
+    base-url: ${MATTERMOST_BASE_URL:https://meeting.ssafy.com}
+    token: ${MATTERMOST_TOKEN:}
+    channel-id: ${MATTERMOST_CHANNEL_ID:}
+    hmac-key: ${AUTH_HMAC_KEY:}
+    otp-ttl-seconds: ${AUTH_OTP_TTL_SECONDS:180}
+    resend-seconds: ${AUTH_RESEND_SECONDS:60}
+    otp-max-attempts: ${AUTH_OTP_MAX_ATTEMPTS:5}
+    otp-account-limit: ${AUTH_OTP_ACCOUNT_LIMIT:5}
+    login-account-limit: ${AUTH_LOGIN_ACCOUNT_LIMIT:10}
+    ip-per-minute: ${AUTH_IP_PER_MINUTE:120}

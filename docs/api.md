@@ -2,7 +2,7 @@
 
 ## 1. 공통 규칙
 
-기본 경로는 `/api/v1`, JSON 응답, 서버 세션 쿠키, UTC ISO-8601 시각을 사용한다. 브라우저는 동일 출처로 요청하며 변경 요청은 CSRF 헤더가 필요하다. 현재 API는 아래 두 개뿐이며, 나머지 표는 개발 계획이다.
+기본 경로는 `/api/v1`, JSON 응답, 서버 세션 쿠키, UTC ISO-8601 시각을 사용한다. 브라우저는 동일 출처로 요청하며 변경 요청은 CSRF 헤더가 필요하다. 기본 API는 아래 표에 있으며, 인증/내 계정 API도 구현했다. 나머지 도메인은 개발 계획이다. 인증의 정확한 스키마는 [인증 OpenAPI](auth.openapi.yaml)를 따른다.
 
 사용자 동선은 [유저 플로우](user-flows.md), 저장 관계는 [전체 ERD](erd.md), 트랜잭션은 [구현 계획](implementation-plan.md)을 따른다. 아래 예시와 추가 경로는 후속 구현 계약이며 현재 호출 가능한 API라고 안내하지 않는다.
 
@@ -26,10 +26,11 @@ Actuator의 `/actuator/health`, `/actuator/health/readiness`는 컨테이너/로
 | 429 | 발송/입력/제출 속도 제한; Retry-After 제공 |
 | 503 | 외부 인증 API 장애 등 일시적 처리 불가 |
 
-## 2. 인증과 프로필 — 예정
+## 2. 인증 구현과 후속 프로필
 
 | Method | 경로 | 요청/결과 요점 |
 | --- | --- | --- |
+| GET | `/auth/config` | 인증 활성 설정과 비밀번호 길이; 외부 접속 확인 결과는 아님 |
 | POST | `/auth/otp/request` | purpose, username(SIGN_UP/RESET만) → challengeId, expiresIn; PASSWORD_CHANGE는 세션의 본인 대상 |
 | POST | `/auth/signup` | challengeId, code, password → DM 소유 확인 후 회원/해시 생성, 세션 및 onboardingRequired |
 | POST | `/auth/login` | Mattermost username, TAG ME password → 세션 및 onboardingRequired; OTP 불필요 |
@@ -41,7 +42,9 @@ Actuator의 `/actuator/health`, `/actuator/health/readiness`는 컨테이너/로
 | GET | `/profiles` | 공개 목록; cursor, limit, interestId, typeCode 필터 |
 | GET | `/interests` | 관심사 ID/이름 목록 |
 
-가입/로그인/OTP 발송/분실 재설정은 구현 단계에서 필요한 경로만 permitAll에 추가한다. PASSWORD_CHANGE 발송과 `/users/me/password`는 세션이 필요하다. permitAll도 CSRF와 rate limit을 적용한다. 일반 로그인은 아이디/비밀번호이며 OTP만으로 로그인하는 `/auth/otp/verify`는 제공하지 않는다. GET `/users/{id}`를 별도로 만들면 방문 기록을 우회하기 쉬우므로 **상세 정보는 아래 POST open 경로로 통일**한다.
+가입/로그인/OTP 발송/분실 재설정은 필요한 POST 경로만 permitAll에 추가했다. PASSWORD_CHANGE 발송과 `/users/me/password`는 세션이 필요하다. permitAll도 CSRF와 rate limit을 적용한다. 일반 로그인은 아이디/비밀번호이며 OTP만으로 로그인하는 `/auth/otp/verify`는 제공하지 않는다. GET `/users/{id}`를 별도로 만들면 방문 기록을 우회하기 쉬우므로 **상세 정보는 아래 POST open 경로로 통일**한다.
+
+위 표 중 인증과 GET `/users/me`는 구현했고 프로필 수정/목록/관심사는 예정 API다. `onboardingRequired`는 현재 프로필/핵심 정보 미완성 여부이며 동의 완료를 확인했다는 뜻이 아니다.
 
 `code`는 **숫자 6자리 문자열**이며 `^[0-9]{6}$`로 검증한다. 숫자 타입으로 변환하지 않아 앞자리 0을 유지한다. 영문/기호는 허용하지 않는다. 인증번호는 매 발급 시 안전하게 새로 생성하는 일회용 값이며 고정 공용 번호가 아니다. challenge ID는 인증 요청을 식별하는 별도 값으로, 사용자가 입력하는 인증번호와 구분한다.
 
@@ -353,4 +356,4 @@ route는 서버가 정한 내부 경로이며 토큰에서 외부 URL을 읽어 
 | PUT | `/users/me/consents/{policyType}` | 버전과 동의/철회; 공개 설정/참여 자격 영향을 함께 처리 |
 | POST | `/users/me/withdrawal` | 확인 후 탈퇴 절차; 즉시 공개 중단과 보관 정책 적용 |
 
-현재 permitAll은 이 추가 예정 경로를 아직 허용하지 않는다. 동의 철회/탈퇴의 실제 삭제 범위와 보존 기간은 배포 전 운영 정책으로 확정한다. 신고를 콘텐츠 자동 삭제로 처리하거나, 탈퇴를 모든 감사/시상 데이터의 무조건 cascade 삭제로 구현하지 않는다. 공개 결과 발표 API와 경품 발송은 운영 정책/개인정보 범위를 확정한 후 별도 계약으로 추가한다.
+현재 permitAll은 이 추가 예정 경로를 허용하지 않는다. 동의 철회/탈퇴의 실제 삭제 범위와 보존 기간은 배포 전 운영 정책으로 확정한다. 신고를 콘텐츠 자동 삭제로 처리하거나, 탈퇴를 모든 감사/시상 데이터의 무조건 cascade 삭제로 구현하지 않는다. 공개 결과 발표 API와 경품 발송은 운영 정책/개인정보 범위를 확정한 후 별도 계약으로 추가한다.
