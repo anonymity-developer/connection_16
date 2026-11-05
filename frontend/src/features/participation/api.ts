@@ -5,7 +5,7 @@ export interface Policy { type: PolicyType; version: string; title: string; body
 export interface Policies { ready: boolean; policies: Policy[] }
 export interface EventState { status: 'NOT_CONFIGURED' | 'BEFORE_OPEN' | 'OPEN' | 'CLOSED'; opensAt: string | null; submitClosesAt: string | null; profilePreparationEnabled: boolean }
 export interface Profile { nickname: string; bio: string | null; githubUrl: string | null; blogUrl: string | null; version: number; interestIds: number[] }
-export interface ProfileIdentity { realName: string; region: string; classNo: number; photoUrl: string | null; ready: boolean }
+export interface ProfileIdentity { realName: string | null; region: string | null; classNo: number | null; photoUrl: string | null; ready: boolean }
 export interface ProfileState { identity: ProfileIdentity; profile: Profile | null; consents: Policies; profileComplete: boolean; participationReady: boolean }
 export interface Interest { id: number; name: string; category?: 'DOMAIN' | 'TECH_STACK' }
 export interface ServerMission { id: number; code: MissionCode; letter: string; title: string; hint: string; active: boolean; state: 'LOCKED' | 'UNLOCKED' | 'IN_PROGRESS' | 'COMPLETED'; unlockedAt: string | null; completedAt: string | null }

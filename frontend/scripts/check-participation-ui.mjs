@@ -1,14 +1,27 @@
 /* global document, window, getComputedStyle */
 import assert from 'node:assert/strict';
-import { mkdir, writeFile } from 'node:fs/promises';
+import { mkdir, writeFile, chmod } from 'node:fs/promises';
 import { resolve } from 'node:path';
+import { spawn } from 'node:child_process';
 import { chromium } from 'playwright';
 import { preview } from 'vite';
 
 // Explicit API contract fixtures, never imported by the application.
 const output = resolve('../output/playwright');
 await mkdir(output, { recursive: true });
-const server = await preview({ preview: { host: '127.0.0.1', port: 4373, strictPort: true } });
+const catalog = [{ id: 1, name: '백엔드', category: 'DOMAIN' }, { id: 2, name: 'AI', category: 'DOMAIN' }, { id: 3, name: '클라우드', category: 'DOMAIN' }, { id: 4, name: 'React', category: 'TECH_STACK' }, ...['프론트엔드', '데이터', '게임', '디자인'].map((name, i) => ({ id: i + 5, name, category: 'DOMAIN' })), ...['Java', 'Spring Boot', 'Python', 'FastAPI', 'Django', 'JavaScript', 'TypeScript', 'Vue', 'Next.js', 'MySQL', 'PostgreSQL', 'Redis', 'Docker', 'Kubernetes', 'AWS', 'Flutter', 'Kotlin', 'Swift', 'C++', 'PyTorch'].map((name, i) => ({ id: i + 9, name, category: 'TECH_STACK' }))];
+const renderFixture = path => ({
+  '/auth/config': { available: true, passwordMinLength: 15, passwordMaxLength: 64 },
+  '/users/me': { id: 1, username: 'profile-render-test', nickname: null, onboardingRequired: true },
+  '/tags/pending': { present: false },
+  '/event': { status: 'OPEN', opensAt: null, submitClosesAt: null, profilePreparationEnabled: false },
+  '/interests': catalog,
+  '/missions/collection': { missions: ['SHOW_ME','SYNC_ME','MAKE_A_WISH','FAST_TAP','SAY_SOMETHING'].map((code, i) => ({ id: i + 1, code, state: 'LOCKED', active: true })), completedCount: 0, completion: { complete: false, completedAt: null, completionOrder: null, awardConfirmed: false } },
+  '/users/me/profile': { identity: { realName: '테스트이름', region: '서울', classNo: 13, photoUrl: null, ready: true }, profile: null, consents: { ready: true, policies: ['PARTICIPATION', 'PROFILE_PUBLICATION'].map(type => ({ type, version: 'test-v1', title: type === 'PARTICIPATION' ? '참여 안내 (테스트)' : '프로필 공개 안내 (테스트)', body: '검사 전용 안내입니다. 실제 운영 정책이 아닙니다.', agreed: false })) }, profileComplete: false, participationReady: false },
+})[path];
+// Read-only, loopback-only fixtures let the rendered-page inspector see the actual profile form.
+// This middleware belongs only to this test preview; no app or production configuration imports it.
+const server = await preview({ preview: { host: '127.0.0.1', port: 4373, strictPort: true }, plugins: [{ name: 'profile-read-fixture', configurePreviewServer(server) { server.middlewares.use('/api/v1', (req, res) => { const value = renderFixture(new URL(req.url, 'http://127.0.0.1').pathname); res.setHeader('Content-Type', 'application/json'); res.statusCode = req.method !== 'GET' ? 405 : value === undefined ? 404 : 200; res.end(JSON.stringify(value ?? {})); }); } }] });
 let browser;
 try {
   browser = await chromium.launch();
@@ -30,7 +43,7 @@ try {
       if (method === 'GET' && path === '/tags/pending') return reply(200, { present: pending });
       if (method === 'GET' && path === '/csrf') return reply(200, { headerName: 'X-XSRF-TOKEN', token: 'contract-csrf' });
       if (method === 'GET' && path === '/event') return reply(200, { status: closed ? 'CLOSED' : 'OPEN', opensAt: null, submitClosesAt: null, profilePreparationEnabled: false });
-      if (method === 'GET' && path === '/interests') return reply(200, [{ id: 1, name: '백엔드', category: 'DOMAIN' }, { id: 2, name: 'AI', category: 'DOMAIN' }, { id: 3, name: '클라우드', category: 'DOMAIN' }, { id: 4, name: 'React', category: 'TECH_STACK' }]);
+      if (method === 'GET' && path === '/interests') return reply(200, catalog);
       if (method === 'GET' && path === '/users/me/photo') return photoFails ? reply(503, { code: 'UNAVAILABLE', message: '사진을 불러오지 못했어요.' }) : route.fulfill({ status: 200, contentType: 'image/png', body: Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aENcAAAAASUVORK5CYII=', 'base64') });
       if (method === 'GET' && path === '/users/me/profile') return reply(200, state());
       if (method === 'GET' && path === '/missions/collection') {
@@ -69,6 +82,11 @@ try {
   async function fill() {
     await page.getByLabel('닉네임', { exact: true }).fill('테스트별명');
     await page.getByLabel('한 줄 소개 (선택)', { exact: true }).fill('함께 배우고 만드는 걸 좋아해요.');
+    await page.getByRole('checkbox', { name: '백엔드', exact: true }).check(); await page.getByRole('checkbox', { name: 'React', exact: true }).check();
+    const extra = page.locator('input[name="interest"]:not(:checked)');
+    for (let i = 0; i < 8; i++) await extra.first().check();
+    assert.equal(await extra.first().isDisabled(), true);
+    while (await page.locator('input[name="interest"]:checked').count()) await page.locator('input[name="interest"]:checked').first().uncheck();
     await page.getByRole('checkbox', { name: '백엔드', exact: true }).check(); await page.getByRole('checkbox', { name: 'React', exact: true }).check();
   }
   async function agree() { for (const box of await page.locator('input[name="policy"]').all()) await box.check(); }
@@ -145,4 +163,7 @@ try {
   record('expired tag, unconfigured policies and collection failure never advance or display fake counts');
   assert.deepEqual(pageErrors, []); assert.deepEqual(routeErrors, []); assert.ok(resolves >= 3);
   await writeFile(resolve(output, 'participation-contract-checks.json'), JSON.stringify({ kind: 'browser API contract fixtures; no real participants, policies or event tags', checks, pageErrors, routeErrors }, null, 2));
+  const inspector = resolve('../.taste-skill/profile-render'); await mkdir(inspector, { recursive: true }); const launcher = resolve(inspector, 'chromium.sh'); await writeFile(launcher, `#!/usr/bin/env bash\nexec "${chromium.executablePath()}" --no-sandbox "$@"\n`); await chmod(launcher, 0o700);
+  await new Promise((done, reject) => { const child = spawn(process.execPath, ['scripts/taste.mjs', 'inspect', 'http://127.0.0.1:4373/me/profile', '--app', '--widths', '1440,768,390', '--out', '.taste-skill/profile-render'], { cwd: resolve('..'), env: { ...process.env, CHROME_PATH: launcher }, stdio: 'inherit' }); child.on('error', reject); child.on('exit', code => code === 0 ? done() : reject(new Error(`Profile render check exited ${code}`))); });
+
 } finally { await browser?.close(); await server.httpServer.close(); }
