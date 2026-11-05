@@ -1,6 +1,6 @@
 import { request } from '../auth/api';
 export interface LikeState { liked: boolean; count: number; canLike: boolean }
-export interface PublicComment { id: number; content: string; revealProfile: boolean; nickname: string | null }
+export interface PublicComment { profileId: number | null; id: number; content: string; revealProfile: boolean; nickname: string | null }
 export interface OwnComment { id: number; content: string; revealProfile: boolean; status: 'QUEUED' | 'PROCESSING' | 'APPROVED' | 'REJECTED' | 'REVIEW_REQUIRED' | 'SUPERSEDED'; reason: string | null; submittedAt: string; requestKey: string }
 export interface CommentPage<T> { items: T[]; nextCursor: number | null }
 export const reactionsApi = {
