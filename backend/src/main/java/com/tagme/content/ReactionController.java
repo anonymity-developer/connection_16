@@ -18,6 +18,7 @@ public class ReactionController {
     @GetMapping("/wishes/{id}/comments/me") public OwnComments own(Authentication auth,@PathVariable long id,@RequestParam(required=false) Long cursor) { return service.own(actor(auth).userId(),id,cursor); }
     @PostMapping("/wishes/{id}/comments") @ResponseStatus(HttpStatus.ACCEPTED)
     public OwnComment submit(Authentication auth,@PathVariable long id,@RequestHeader("Idempotency-Key") String key,@Valid @RequestBody CommentRequest body) { return service.submit(actor(auth),id,key,body); }
+    @GetMapping("/cheers/likes") public java.util.Map<Long,LikeState> states(Authentication auth,@RequestParam java.util.List<Long> ids) { return service.states(actor(auth),ids); }
     @GetMapping("/cheers/{id}/like") public LikeState state(Authentication auth,@PathVariable long id) { return service.state(actor(auth),id); }
     @PutMapping("/cheers/{id}/like") public LikeState like(Authentication auth,@PathVariable long id) { return service.like(actor(auth),id,true); }
     @DeleteMapping("/cheers/{id}/like") @ResponseStatus(HttpStatus.NO_CONTENT)

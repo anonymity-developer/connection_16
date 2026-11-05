@@ -43,16 +43,23 @@ public class ReactionService {
         limits.check("comment-user",Long.toString(actor.userId()),30,60);String text=body.content().strip(),hash=hash(wish,text,body.revealProfile());var target=target(wish,Kind.WISH);var received=content.now();
         return tx.execute(s->{
             lock(actor,target);var replay=repository.byKey(actor.userId(),key);
-            if(replay!=null){if(!hash.equals(replay.hash())||wish!=replay.wishId())throw error(409,"IDEMPOTENCY_CONFLICT","같은 요청의 내용이 변경됐어요.");return ownComment(replay.id(),content.latest(replay.itemId()));}
+            if(replay!=null){if(!hash.equals(replay.hash())||wish!=replay.wishId())throw error(409,"IDEMPOTENCY_CONFLICT","같은 요청의 내용이 변경됐어요.");return ownComment(replay.id(),content.latest(replay.itemId()),key);}
             writeGuard(actor,MissionCode.MAKE_A_WISH);visible(target);
             var event=participation.event(true);if(received.isBefore(event.opensAt())||!received.isBefore(event.submitClosesAt()))throw error(403,"EVENT_CLOSED","지금은 댓글을 남길 수 없어요.");
             long itemId=content.create(actor.userId(),Kind.COMMENT,null,null);var item=content.item(itemId,true);
             long revision=content.addRevision(itemId,1,new ContentController.Submit(text,"PLAIN","ROSE",!body.revealProfile(),null),key,hash,received);
             content.queue(item,revision);long id=repository.saveComment(wish,itemId,actor.userId(),key,hash);participation.receipt(actor.userId(),Kind.COMMENT.source(),revision,received);
-            return ownComment(id,content.revision(revision));
+            return ownComment(id,content.revision(revision),key);
         });
     }
-    private OwnComment ownComment(long id,Revision r) { return new OwnComment(id,r.content(),!r.anonymous(),r.status(),r.reason(),r.submittedAt()); }
+    private OwnComment ownComment(long id,Revision r,String key) { return new OwnComment(id,r.content(),!r.anonymous(),r.status(),r.reason(),r.submittedAt(),key); }
+    public Map<Long,LikeState> states(AuthPrincipal actor,List<Long> ids) {
+        if(ids==null||ids.isEmpty()||ids.size()>20||ids.stream().anyMatch(id->id==null||id<1)||ids.stream().distinct().count()!=ids.size())throw error(400,"INVALID_CARD_IDS","한 번에 최대 20개의 서로 다른 카드를 확인해 주세요.");
+        return tx.execute(s->{participation.lockPrincipal(actor);var mission=participation.mission(actor.userId(),MissionCode.SAY_SOMETHING);
+            boolean allowed="OPEN".equals(participation.event(true).status())&&mission.active()&&!"LOCKED".equals(mission.state())&&participation.eligible(actor.userId());
+            return repository.states(ids,actor.userId(),allowed);
+        });
+    }
     public LikeState state(AuthPrincipal actor,long card) { var target=target(card,Kind.CHEER);return tx.execute(s->{lock(actor,target);visible(target);return stateLocked(actor,target);}); }
     private LikeState stateLocked(AuthPrincipal actor,Item target) {
         var mission=participation.mission(actor.userId(),MissionCode.SAY_SOMETHING);

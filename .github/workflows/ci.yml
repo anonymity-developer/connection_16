@@ -46,6 +46,8 @@ jobs:
         run: npm run test:results-ui
       - name: Check moderated content in the browser
         run: npm run test:content-ui
+      - name: Check comments and hearts in the browser
+        run: npm run test:reactions-ui
       - name: Inspect production app with Taste
         run: |
           npm run preview -- --port 4173 > /tmp/tagme-preview.log 2>&1 &

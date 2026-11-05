@@ -11,7 +11,7 @@ import static com.tagme.content.ContentModels.*;
 public class ReactionRepository {
     public record CommentLink(long id,long wishId,long itemId,long authorId,long wishAuthorId,String hash) { }
     public record PublicComment(long id,String content,boolean revealProfile,String nickname) { }
-    public record OwnComment(long id,String content,boolean revealProfile,String status,String reason,java.time.Instant submittedAt) { }
+    public record OwnComment(long id,String content,boolean revealProfile,String status,String reason,java.time.Instant submittedAt,String requestKey) { }
     public record Comments(List<PublicComment> items,Long nextCursor) { }
     public record OwnComments(List<OwnComment> items,Long nextCursor) { }
     public record LikeState(boolean liked,long count,boolean canLike) { }
@@ -53,9 +53,9 @@ public class ReactionRepository {
     }
     public OwnComments own(long wish,long user,long cursor) {
         var rows=db.query("""
-            SELECT c.id AS comment_id,r.* FROM wish_comments c JOIN content_revisions r ON r.item_id=c.content_item_id
+            SELECT c.id AS comment_id,c.idempotency_key AS request_key,r.* FROM wish_comments c JOIN content_revisions r ON r.item_id=c.content_item_id
             WHERE c.wish_id=? AND c.author_id=? AND c.id<? ORDER BY c.id DESC LIMIT 21
-            """,(r,n)->new OwnComment(r.getLong("comment_id"),r.getString("content_text"),!r.getBoolean("anonymous"),r.getString("moderation_status"),r.getString("reason_code"),r.getTimestamp("submitted_at").toInstant()),wish,user,cursor);
+            """,(r,n)->new OwnComment(r.getLong("comment_id"),r.getString("content_text"),!r.getBoolean("anonymous"),r.getString("moderation_status"),r.getString("reason_code"),r.getTimestamp("submitted_at").toInstant(),r.getString("request_key")),wish,user,cursor);
         var items=rows.stream().limit(20).toList();return new OwnComments(items,rows.size()>20?items.getLast().id():null);
     }
     public long count(long card) {
@@ -66,6 +66,24 @@ public class ReactionRepository {
             """,Long.class,card);
     }
     public boolean liked(long card,long user) { return db.queryForObject("SELECT COUNT(*) FROM cheer_likes WHERE card_id=? AND user_id=?",Integer.class,card,user)==1; }
+    public Map<Long,LikeState> states(List<Long> ids,long user,boolean allowed) {
+        String placeholders=String.join(",",Collections.nCopies(ids.size(),"?"));
+        List<Object> args=new ArrayList<>();args.add(user);args.addAll(ids);
+        var rows=db.query("""
+            SELECT i.id,i.author_id,
+            EXISTS(SELECT 1 FROM cheer_likes mine WHERE mine.card_id=i.id AND mine.user_id=?) AS liked,
+            (SELECT COUNT(*) FROM cheer_likes l JOIN users lu ON lu.id=l.user_id JOIN profiles lp ON lp.user_id=lu.id
+             WHERE l.card_id=i.id AND lu.status='ACTIVE' AND lp.is_public=TRUE AND
+             2=(SELECT COUNT(*) FROM current_consent_policies cp JOIN user_consents uc ON uc.policy_type=cp.policy_type AND uc.policy_version=cp.policy_version AND uc.user_id=lu.id AND uc.withdrawn_at IS NULL)) AS like_count
+            FROM content_items i JOIN content_revisions r ON r.id=i.approved_revision_id
+            JOIN users u ON u.id=i.author_id JOIN profiles p ON p.user_id=u.id
+            WHERE i.kind='CHEER' AND i.visibility_status='VISIBLE' AND r.moderation_status='APPROVED'
+            AND u.status='ACTIVE' AND p.is_public=TRUE AND
+            2=(SELECT COUNT(*) FROM current_consent_policies cp JOIN user_consents uc ON uc.policy_type=cp.policy_type AND uc.policy_version=cp.policy_version AND uc.user_id=u.id AND uc.withdrawn_at IS NULL)
+            AND i.id IN (
+            """+placeholders+")",(r,n)->Map.entry(r.getLong("id"),new LikeState(r.getBoolean("liked"),r.getLong("like_count"),allowed&&r.getLong("author_id")!=user)),args.toArray());
+        Map<Long,LikeState> result=new LinkedHashMap<>();for(var row:rows)result.put(row.getKey(),row.getValue());return result;
+    }
     public void like(long card,long user) { db.update("INSERT INTO cheer_likes(card_id,user_id) VALUES (?,?) ON DUPLICATE KEY UPDATE card_id=VALUES(card_id)",card,user); }
     public void unlike(long card,long user) { db.update("DELETE FROM cheer_likes WHERE card_id=? AND user_id=?",card,user); }
 }

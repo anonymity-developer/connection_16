@@ -16,7 +16,8 @@
     "test:auth-ui": "node scripts/check-auth-ui.mjs",
     "test:participation-ui": "node scripts/check-participation-ui.mjs",
     "test:results-ui": "node scripts/check-results-ui.mjs",
-    "test:content-ui": "node scripts/check-content-ui.mjs"
+    "test:content-ui": "node scripts/check-content-ui.mjs",
+    "test:reactions-ui": "node scripts/check-reactions-ui.mjs"
   },
   "dependencies": {
     "react": "19.3.1",
