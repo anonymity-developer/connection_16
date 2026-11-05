@@ -464,3 +464,81 @@ p { word-break: keep-all; overflow-wrap: anywhere; }
 @media (max-width: 480px) { .visit-stats { gap: 12px; } .visit-stats dd { font-size: 26px; } .person-row { gap: 12px; } .public-profile { padding: 20px; } .discovery-graph { padding: 16px; } }
 
 @media (min-width: 1000px) { .discovery-relationships { display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1fr); gap: 32px; align-items: start; margin-top: 24px; } .discovery-relationships .discovery-graph { margin: 0; } .discovery-relationships .people-list { margin-top: 0; } }
+
+/* Operations: 1072px canvas = 352px list + 1px rule + 719px detail at desktop. */
+.ops-page { --ops-active: var(--accent-soft); }
+.ops-title { display: flex; align-items: start; justify-content: space-between; gap: 20px; margin-bottom: 24px; }
+.ops-title h1 { font-size: 26px; margin: 4px 0 8px; }
+.ops-title p:not(.context-label) { color: var(--muted); margin: 0; }
+.ops-tabs { display: flex; gap: 28px; border-bottom: 1px solid var(--border); margin-bottom: 24px; }
+.ops-tabs a { padding: 12px 2px; font-size: 15px; color: var(--muted); border-bottom: 2px solid transparent; }
+.ops-tabs a[aria-current] { color: var(--ink); border-color: var(--ink); font-weight: 600; }
+.ops-toolbar { display: flex; justify-content: space-between; align-items: end; gap: 16px; margin-bottom: 24px; }
+.ops-filters { display: flex; gap: 16px; min-width: 0; }
+.ops-filters label { display: flex; flex-direction: column; gap: 6px; font-size: 13px; color: var(--muted); }
+.ops-filters select { min-height: 44px; max-width: 220px; border: 1px solid var(--control); background: var(--surface); border-radius: var(--control-radius); padding: 8px 28px 8px 12px; color: var(--ink); font: inherit; font-size: 14px; }
+.ops-sheet { display: grid; grid-template-columns: 352px minmax(0,1fr); border: 1px solid var(--border); border-radius: 16px; background: var(--surface); overflow: hidden; }
+.ops-sheet.is-audit { display: block; }
+.ops-list-pane { min-width: 0; }
+.ops-list-heading { padding: 20px; display: flex; gap: 12px; justify-content: space-between; align-items: baseline; }
+.ops-list-heading h2 { font-size: 16px; margin: 0; }
+.ops-list-heading span { font-size: 13px; color: var(--muted); white-space: nowrap; font-variant-numeric: tabular-nums; }
+.ops-list, .ops-audit-list { list-style: none; padding: 0; margin: 0; }
+.ops-row { display: flex; flex-direction: column; gap: 7px; padding: 16px 20px; border-top: 1px solid var(--border); }
+.ops-row[aria-current] { background: var(--ops-active); }
+.ops-row:hover { outline: 1px solid var(--control); outline-offset: -1px; }
+.ops-row-main { display: flex; gap: 12px; justify-content: space-between; align-items: baseline; flex-wrap: wrap; }
+.ops-row-main strong { font-size: 15px; }
+.ops-state { font-size: 12px; color: var(--muted); }
+.ops-snippet { display: block; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font-size: 14px; }
+.ops-meta { font-size: 13px; line-height: 1.7; color: var(--muted); margin: 4px 0 0; overflow-wrap: anywhere; }
+.ops-detail-pane { min-width: 0; padding: 24px; border-left: 1px solid var(--border); }
+.ops-detail-heading h2 { font-size: 20px; margin: 0 0 8px; }
+.ops-comparison { margin: 24px 0; }
+.ops-revision + .ops-revision { margin-top: 24px; border-top: 1px solid var(--border); padding-top: 24px; }
+.ops-revision h3 { font-size: 16px; margin: 0 0 6px; }
+.ops-body { font-size: 16px; line-height: 1.7; white-space: pre-wrap; overflow-wrap: anywhere; margin: 12px 0; }
+.ops-detail-actions { display: flex; flex-wrap: wrap; gap: 12px; margin: 24px 0 16px; }
+.ops-select-prompt h2 { font-size: 18px; margin: 0 0 12px; }
+.ops-select-prompt p { font-size: 14px; color: var(--muted); }
+.ops-message { padding: 20px; font-size: 14px; }
+.ops-notice { font-size: 14px; color: var(--positive); }
+.ops-next { margin: 16px 20px 20px; }
+.ops-audit-list li { padding: 24px; border-top: 1px solid var(--border); }
+.ops-audit-list time { font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.ops-audit-list summary { cursor: pointer; font-size: 13px; min-height: 44px; padding-top: 12px; }
+.ops-audit-list pre { font-size: 13px; background: var(--ground); overflow: auto; padding: 16px; border-radius: var(--control-radius); max-height: 300px; }
+.ops-reason-label { display: block; margin: 24px 0 8px; font-size: 14px; }
+#ops-reason { display: block; width: 100%; padding: 12px; border: 1px solid var(--control); border-radius: var(--control-radius); color: var(--ink); background: var(--surface); font: inherit; resize: vertical; }
+.ops-command-target { font-size: 16px; font-weight: 600; }
+.ops-back { display: none; margin-bottom: 24px; }
+@media (max-width: 900px) {
+  .ops-sheet { display: block; }
+  .ops-sheet .ops-detail-pane { display: none; border-left: 0; }
+  .ops-sheet.has-selection .ops-list-pane { display: none; }
+  .ops-sheet.has-selection .ops-detail-pane { display: block; }
+  .ops-back { display: inline-flex; }
+}
+@media (max-width: 480px) {
+  .ops-title h1 { font-size: 24px; }
+  .ops-title { gap: 12px; }
+  .ops-title > .text-link { font-size: 13px; white-space: nowrap; }
+  .ops-toolbar { align-items: center; gap: 8px; }
+  .ops-filters { gap: 8px; }
+  .ops-filters select { padding-left: 8px; padding-right: 18px; max-width: 156px; font-size: 13px; }
+  .ops-toolbar > button { font-size: 13px; padding: 8px; }
+  .ops-tabs { gap: 24px; }
+  .ops-detail-pane, .ops-audit-list li { padding: 20px; }
+}
+@media (min-width: 1000px) {
+  .ops-audit-list li { display: grid; grid-template-columns: 220px minmax(0,1fr) 180px; gap: 4px 24px; padding: 20px 24px; }
+  .ops-audit-list .ops-row-main { display: contents; }
+  .ops-audit-list .ops-row-main strong { grid-column: 1; grid-row: 1; }
+  .ops-audit-list time { grid-column: 3; grid-row: 1; text-align: right; }
+  .ops-audit-list .ops-meta { grid-column: 1; grid-row: 2; margin: 0; }
+  .ops-audit-list .ops-body { grid-column: 2; grid-row: 1 / span 2; margin: 0; font-size: 15px; }
+  .ops-audit-list details { grid-column: 3; grid-row: 2; min-width: 0; }
+  .ops-audit-list summary { min-height: 28px; padding-top: 0; text-align: right; }
+  .ops-audit-list details[open] { grid-column: 2 / 4; grid-row: 3; }
+  .ops-audit-list details[open] summary { text-align: left; }
+}

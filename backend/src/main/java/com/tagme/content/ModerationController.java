@@ -11,7 +11,7 @@ import static com.tagme.content.ContentModels.*;
 
 @RestController @RequestMapping("/api/v1/admin/moderation")
 public class ModerationController {
-    public record DecisionRequest(@Min(0) long expectedFence,@NotNull @Pattern(regexp="APPROVED|REJECTED") String decision,@NotBlank @Size(max=300) String reason) { }
+    public record DecisionRequest(@NotNull @Min(0) Long expectedFence,@NotNull @Pattern(regexp="APPROVED|REJECTED") String decision,@NotBlank @Size(max=300) String reason) { }
     private final ModerationService service;
     public ModerationController(ModerationService service) { this.service=service; }
     private AuthPrincipal actor(Authentication auth) { if(auth==null||!(auth.getPrincipal() instanceof AuthPrincipal p))throw AuthException.invalid();return p; }

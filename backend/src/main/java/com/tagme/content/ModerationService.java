@@ -1,6 +1,7 @@
 package com.tagme.content;
 
 import com.tagme.auth.*;
+import com.tagme.operations.AdminAuditRepository;
 import com.tagme.participation.*;
 import java.util.*;
 import java.util.regex.Pattern;
@@ -19,9 +20,10 @@ public class ModerationService {
     private final TransactionTemplate tx;
     private final ModerationProvider provider;
     private final ReactionRepository reactions;
+    private final AdminAuditRepository audit;
     private static final Pattern CONTACT=Pattern.compile("(?i)(?:[a-z0-9._%+-]+@[a-z0-9.-]+\\.[a-z]{2,}|0\\d{1,2}[- .]?\\d{3,4}[- .]?\\d{4}|https?://|www\\.)");
-    public ModerationService(ContentRepository repository,ParticipationRepository participation,MissionCompletionService completion,AuthRepository accounts,PlatformTransactionManager manager,ModerationProvider provider,ReactionRepository reactions) {
-        this.repository=repository;this.participation=participation;this.completion=completion;this.accounts=accounts;this.tx=new TransactionTemplate(manager);this.provider=provider;this.reactions=reactions;
+    public ModerationService(ContentRepository repository,ParticipationRepository participation,MissionCompletionService completion,AuthRepository accounts,PlatformTransactionManager manager,ModerationProvider provider,ReactionRepository reactions,AdminAuditRepository audit) {
+        this.repository=repository;this.participation=participation;this.completion=completion;this.accounts=accounts;this.tx=new TransactionTemplate(manager);this.provider=provider;this.reactions=reactions;this.audit=audit;
     }
     public Work claim() { return tx.execute(s->repository.claim()); }
     public void processOne() {
@@ -90,6 +92,7 @@ public class ModerationService {
     public List<ReviewTask> queue(AuthPrincipal actor) { return tx.execute(s->{admin(actor);return repository.reviewQueue().stream().map(j->{var i=repository.item(j.itemId(),false);return new ReviewTask(j,repository.revision(j.revisionId()),i.approvedId()==null?null:repository.revision(i.approvedId()));}).toList();}); }
     public OwnSlot review(AuthPrincipal actor,long jobId,ReviewRequest body) {
         if(body.reason()==null||body.reason().isBlank()||body.reason().length()>300||!List.of("APPROVED","REJECTED").contains(body.decision()))throw error(400,"INVALID_REVIEW","판정과 사유를 확인해 주세요.");
+        tx.executeWithoutResult(s->admin(actor));
         var selected=repository.job(jobId,false);if(selected==null)throw error(404,"JOB_NOT_FOUND","검수 작업을 찾을 수 없어요.");
         long[] owners=owners(selected.authorId(),selected.itemId(),actor.userId());
         return tx.execute(s->{
@@ -99,7 +102,11 @@ public class ModerationService {
             if(!List.of("QUEUED","PROCESSING","REVIEW_REQUIRED").contains(job.status()))throw error(409,"REVIEW_CHANGED","이미 처리한 버전이에요. 다시 불러와 주세요.");
             if(job.fence()!=body.expectedFence()||!Objects.equals(item.pendingId(),job.revisionId()))throw error(409,"REVIEW_CHANGED","검수 상태가 변경됐어요. 다시 불러와 주세요.");
             if(!repository.inModerationWindow())throw error(403,"MODERATION_CLOSED","검수 가능한 기간이 아니에요.");
+            var before=AdminAuditRepository.state(item,job);
             job=repository.fenceManual(job);decide(job,body.decision(),"ADMIN_DECISION",body.reason().strip(),"ADMIN","manual-v1",actor.userId());
+            var after=AdminAuditRepository.state(repository.item(item.id(),false),repository.job(jobId,false));
+            after.put("requestedDecision",body.decision());
+            audit.record(actor.userId(),"MODERATION_DECISION","MODERATION_JOB",jobId,body.reason(),before,after);
             // Return no body containing pending text through a public resource.
             return null;
         });

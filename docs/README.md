@@ -27,6 +27,8 @@ Codex로 구현을 이어갈 때는 먼저 [현재 페이즈](progress.md)와 [�
 
 소원/응원과 검수는 [콘텐츠 계약](content.md)과 [콘텐츠 OpenAPI](content.openapi.yaml)를 따른다. 댓글/하트는 [반응 계약](reactions.md)과 [반응 OpenAPI](reactions.openapi.yaml)를 따른다.
 
+관리자 검수/공개 관리/감사는 [운영 계약](operations-admin.md)과 [운영 OpenAPI](operations.openapi.yaml)를 따른다. 실제 ADMIN 계정 지정/외부 검수·운영 배포는 별도다.
+
 탐색/상세/방문/관계는 [탐색 계약](discovery.md)과 [탐색 OpenAPI](discovery.openapi.yaml)를 따른다. 공개 목록에는 닉네임만, 실명/반은 OPEN 기간의 POST 상세에만 포함한다.
 
 기획 변경은 overview와 해당 도메인 문서에 함께 반영한다. 화면 분기는 user-flows/UI, 저장 방식은 data-model/ERD, 요청 계약은 API, 처리 순서는 implementation-plan을 함께 확인한다.
@@ -64,9 +66,9 @@ SSAFY 16기 서울캠퍼스 참여자가 NFC/QR 태그를 찾아 다섯 미션�
 | --- | --- |
 | 실행 기반 | React/TypeScript 초기 화면, Java 21/Spring Boot, Gradle Wrapper, Docker Compose, Caddy, MySQL/Redis 설정 있음 |
 | 기본 API | `/api/v1/meta`, `/api/v1/csrf`, 보안 필터와 헬스체크 있음 |
-| 영속 스키마 | V1 핵심 테이블, V2 미션 시드, V3 username/credentials, V4 정책/동의/행사/근거, V5 성향/게임, V6 콘텐츠/검수, V7 댓글/하트 있음. 탐색은 V1 profile_views 사용 |
+| 영속 스키마 | V1 핵심 테이블, V2 미션 시드, V3 username/credentials, V4 정책/동의/행사/근거, V5 성향/게임, V6 콘텐츠/검수, V7 댓글/하트, V8 관리자 감사/재처리 한도 있음. 탐색은 V1 profile_views 사용 |
 | 인증 | 사용자/채널/DM 어댑터, username/해시, 가입/로그인/변경/재설정과 세션 차단 구현. 실제 외부 권한 검증 대기 |
-| 주요 기능 | 프로필/동의·태그·수집판·SHOW ME와 공통 완료 구현. SYNC/FAST TAP과 1회 결과 구현. 소원/응원·revision 검수·댓글/하트 구현. 닉네임 탐색/POST 상세/최초 방문/내 그래프·통계 구현. 외부 검수 제공자/개인별 차단/관리자 화면/시상은 후속 |
+| 주요 기능 | 프로필/동의·태그·수집판·SHOW ME와 공통 완료 구현. SYNC/FAST TAP과 1회 결과 구현. 소원/응원·revision 검수·댓글/하트 구현. 닉네임 탐색/POST 상세/최초 방문/내 그래프·통계 구현. 관리자 검수·공개 관리·감사 화면 구현. 외부 검수 제공자/신고/개인별 차단/게임 검토/시상은 후속 |
 | 운영 | CI/백업/실행 설정은 있음. 실제 서버/DNS/외부 비밀키/행사 태그는 연결되지 않음 |
 | 검증 이력 | 초기 로컬 빌드와 단위/설정 검사 이력은 development에 기록. 문서 추가는 기능 또는 실기기 검증 완료를 의미하지 않음 |
 

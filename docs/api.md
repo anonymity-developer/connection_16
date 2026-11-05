@@ -187,15 +187,15 @@ GET `/event`, `/policies`, `/users/me/profile`, GET/POST `/tags/pending`, POST `
 
 익명 응원/댓글은 프로필 연결용 식별자를 반환하지 않으며 profileId=null이다. 승인된 비익명 응원/revealProfile=true 댓글은 현재 공개 가능한 작성자의 profileId만 제공한다. 브라우저는 해당 ID를 상세 POST 화면으로 연결한다. 모든 사용자별 응답은 no-store다. 개인 간 차단 기능은 아직 없다.
 
-## 7. 운영자 — 예정
+## 7. 운영자 — 페이즈 5-2 일부 구현
 
 `/admin` 하위 API는 ADMIN 역할을 서버에서 확인한다. 검수 대기 조회 및 판정, 신고 처리, 회원 제한, 게임 재도전 승인, 시상 후보 정산/확정, 행사 설정을 제공한다. 변경 요청에는 사유를 필수로 받고 모든 조치를 감사 로그에 남긴다. 최종 확정은 조회나 페이지 진입만으로 실행하지 않는다.
 
-상세 요청 DTO, validation, 페이지네이션 응답과 OpenAPI 파일은 각 단계 착수 시 함께 작성한다. 이 문서의 계획을 이미 구현된 계약으로 배포하지 않는다.
+현재 구현은 [운영 계약](operations-admin.md)과 [운영 OpenAPI](operations.openapi.yaml)가 기준이다. GET `/admin/access`, `/admin/moderation/tasks`와 작업 상세, `/admin/content`와 콘텐츠 상세, `/admin/audit-logs`, 기존 수동 판정 POST, 재처리 POST와 공개 상태 PATCH를 제공한다. 검수 목록은 after 오름차순, 콘텐츠/감사는 cursor 내림차순이며 기본 20/최대 50건이다. 사유/현재 버전/CSRF와 실제 DB ADMIN을 확인한다. 나머지 아래 표는 후속 계획이다.
 
 ### 운영자 경로 상세 계획
 
-모든 경로는 ADMIN과 CSRF(변경 요청)를 확인한다. 변경 본문에 reason을 포함하고 현재 상태 또는 version, 필요한 멱등 키를 확인한다. 아래 명칭은 후속 구현 시 OpenAPI로 고정한다.
+모든 경로는 ADMIN과 CSRF(변경 요청)를 확인한다. 변경 본문에 reason을 포함하고 현재 상태 또는 version, 필요한 멱등 키를 확인한다. 현재 구현된 경로의 DTO는 운영 OpenAPI를 따르며 회원 제재/신고/게임/시상/행사 설정은 후속 구현 시 고정한다.
 
 | Method | 경로 | 역할 |
 | --- | --- | --- |

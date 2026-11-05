@@ -2,7 +2,7 @@
 
 ## 1. 적용 범위
 
-현재 실행 가능한 DDL은 `backend/src/main/resources/db/migration`의 V1/V2/V3/V4/V5/V6/V7다. 소원/응원과 검수는 V6, 댓글/하트는 V7이며 시상은 아래 **후속 설계**다. 해당 도메인의 규칙과 함께 마이그레이션을 추가한다.
+현재 실행 가능한 DDL은 `backend/src/main/resources/db/migration`의 V1/V2/V3/V4/V5/V6/V7/V8다. 소원/응원과 검수는 V6, 댓글/하트는 V7, 관리자 감사/재처리 한도는 V8이며 시상은 아래 **후속 설계**다. 해당 도메인의 규칙과 함께 마이그레이션을 추가한다.
 
 이 문서의 ERD는 핵심 요약이다. 모든 도메인의 컬럼/관계/복합키와 nullable 규칙은 [전체 도메인 ERD](erd.md)를 함께 읽는다. 현재 SQL과 후속 설계의 경계를 유지하고, 후속 설계를 현재 DB에 적용된 것으로 간주하지 않는다.
 
@@ -111,7 +111,7 @@ username은 정식 소문자 값, 최대 64자와 utf8mb4_0900_bin UNIQUE다. �
 | --- | --- |
 | content_items | id PK, author_id FK, kind WISH/CHEER, visibility_status, approved_revision_id/pending_revision_id, luck_score/landing_zone nullable, version; V7부터 UNIQUE(author_id,slot_kind) |
 | content_revisions | id PK, item_id FK, revision_no, content_text, template_id, style, anonymous, submitted_at, moderation_status/reason_code, idempotency_key/payload_hash; UNIQUE(item_id,revision_no), UNIQUE(item_id,idempotency_key), UNIQUE(id,item_id) |
-| moderation_jobs | id PK, revision_id UNIQUE FK, status, attempts/fence, next_run_at/lease_until, provider/policy_version/last_error_code |
+| moderation_jobs | id PK, revision_id UNIQUE FK, status, attempts/fence, next_run_at/lease_until, provider/policy_version/last_error_code; V8 manual_retry_count 0~3 |
 | moderation_reviews | id PK, job_id FK, fence, reviewer_id nullable FK, decision/reason/created_at; UNIQUE(job_id,fence) |
 | content_settings | id=1, wish_luck_min/max, wish_zone_count; 선택적 운영 설정이며 기본 행 없음 |
 
@@ -180,3 +180,9 @@ tap_slots.current_attempt_id와 user_id 복합 FK가 다른 사용자의 도전�
 | submission_receipts | COMMENT_REVISION 허용. 본문/revision/job/bridge와 같은 트랜잭션에 접수 저장 |
 
 댓글 revealProfile은 revision.anonymous의 반대 값으로 저장한다. 본인 전용 내역에만 requestKey/접수 시각을 주고 공개 댓글에는 ID/본문/표시 설정/허용된 닉네임만 반환한다. 댓글/하트는 최초 미션 완료 근거를 추가하거나 바꾸지 않는다. 상세 공개 조건과 승인 경합은 [반응 계약](reactions.md)을 따른다.
+
+## V8 관리자 감사와 재처리 한도
+
+admin_audit_logs는 id PK, actor_id → users FK, action, target_type/id, reason(1~300), before_json/after_json, created_at이다. (action,id), (target_type,target_id,id) 인덱스로 조회한다. 대상은 CONTENT 또는 MODERATION_JOB이며 두 테이블을 가리키므로 단일 FK로 주장하지 않는다. 서비스가 대상을 확인하고 같은 트랜잭션에서 상태/버전/포인터 메타데이터만 기록한다.
+
+moderation_jobs.manual_retry_count는 기본 0, CHECK 0~3이다. 자동 attempts와 별개로 수동 retry 시 fence와 함께 증가하고 attempts만 0으로 초기화한다. 같은 revision/job/원접수 근거를 유지한다. (status,id) 검수 커서 인덱스와 content_items(kind,visibility_status,id) 운영 목록 인덱스를 추가했다. 기존 V1~V7는 변경하지 않는다. [운영 계약](operations-admin.md)을 따른다.

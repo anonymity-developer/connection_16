@@ -1,0 +1,532 @@
+openapi: 3.1.0
+info:
+  title: TAG ME 관리자 검수·공개 관리·감사 API
+  version: 0.5.2
+  description: 모든 조회/변경 현재 ADMIN 필요. 변경 CSRF/사유/버전 검사. 공개 허용은 승인/참가자 동의를 대체하지 않음.
+    신고/회원 제재/게임/시상은 후속.
+servers:
+- url: /api/v1
+paths:
+  /admin/access:
+    get:
+      summary: 현재 DB ADMIN 역할 검사
+      security:
+      - session: []
+      parameters: []
+      responses:
+        '200':
+          description: 현재 서버 상태
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Access'
+        default:
+          $ref: '#/components/responses/Error'
+  /admin/moderation/tasks:
+    get:
+      summary: 오래된 작업부터 커서 목록
+      security:
+      - session: []
+      parameters:
+      - name: after
+        in: query
+        schema:
+          type: integer
+          minimum: 1
+      - name: limit
+        in: query
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 50
+          default: 20
+      - name: status
+        in: query
+        schema:
+          type: string
+          enum:
+          - PENDING
+          - QUEUED
+          - PROCESSING
+          - REVIEW_REQUIRED
+          - APPROVED
+          - REJECTED
+          - SUPERSEDED
+          - ALL
+          default: PENDING
+      responses:
+        '200':
+          description: 현재 서버 상태
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Tasks'
+        default:
+          $ref: '#/components/responses/Error'
+  /admin/moderation/tasks/{id}:
+    get:
+      summary: 현재 검수 작업과 승인본 비교
+      security:
+      - session: []
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+          minimum: 1
+      responses:
+        '200':
+          description: 현재 서버 상태
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Task'
+        default:
+          $ref: '#/components/responses/Error'
+  /admin/content:
+    get:
+      summary: 종류/공개 상태별 콘텐츠 목록
+      security:
+      - session: []
+      parameters:
+      - name: cursor
+        in: query
+        schema:
+          type: integer
+          minimum: 1
+      - name: limit
+        in: query
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 50
+          default: 20
+      - name: kind
+        in: query
+        schema:
+          type: string
+          enum:
+          - WISH
+          - CHEER
+          - COMMENT
+      - name: visibility
+        in: query
+        schema:
+          type: string
+          enum:
+          - VISIBLE
+          - HIDDEN
+      responses:
+        '200':
+          description: 현재 서버 상태
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Contents'
+        default:
+          $ref: '#/components/responses/Error'
+  /admin/content/{id}:
+    get:
+      summary: 관리자용 콘텐츠 상세; 일반 공개 상세가 아님
+      security:
+      - session: []
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+          minimum: 1
+      responses:
+        '200':
+          description: 현재 서버 상태
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Content'
+        default:
+          $ref: '#/components/responses/Error'
+  /admin/audit-logs:
+    get:
+      summary: 운영자 조치 메타데이터 목록
+      security:
+      - session: []
+      parameters:
+      - name: cursor
+        in: query
+        schema:
+          type: integer
+          minimum: 1
+      - name: limit
+        in: query
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 50
+          default: 20
+      - name: action
+        in: query
+        schema:
+          type: string
+          enum:
+          - MODERATION_DECISION
+          - MODERATION_RETRY
+          - CONTENT_VISIBILITY
+      responses:
+        '200':
+          description: 현재 서버 상태
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Audits'
+        default:
+          $ref: '#/components/responses/Error'
+  /admin/moderation/{id}/decision:
+    post:
+      summary: 현재 pending/fence의 수동 판정
+      security:
+      - session: []
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+          minimum: 1
+      - name: X-XSRF-TOKEN
+        in: header
+        required: true
+        schema:
+          type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              properties:
+                expectedFence:
+                  type: integer
+                  format: int64
+                  minimum: 0
+                decision:
+                  type: string
+                  enum:
+                  - APPROVED
+                  - REJECTED
+                reason:
+                  type: string
+                  minLength: 1
+                  maxLength: 300
+                  description: 공백만 불가; 불필요한 개인정보/비밀값 금지
+              required:
+              - expectedFence
+              - decision
+              - reason
+      responses:
+        '204':
+          description: 저장됨; 실제 판정/최신 상태는 상세 GET 재조회
+        default:
+          $ref: '#/components/responses/Error'
+  /admin/moderation/{id}/retry:
+    post:
+      summary: REVIEW_REQUIRED 현재 수정본만 최대 3회 재처리
+      security:
+      - session: []
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+          minimum: 1
+      - name: X-XSRF-TOKEN
+        in: header
+        required: true
+        schema:
+          type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              properties:
+                expectedFence:
+                  type: integer
+                  format: int64
+                  minimum: 0
+                reason:
+                  type: string
+                  minLength: 1
+                  maxLength: 300
+                  description: 공백만 불가; 불필요한 개인정보/비밀값 금지
+              required:
+              - expectedFence
+              - reason
+      responses:
+        '204':
+          description: 저장됨; 실제 판정/최신 상태는 상세 GET 재조회
+        default:
+          $ref: '#/components/responses/Error'
+  /admin/content/{id}/visibility:
+    patch:
+      summary: 승인과 별개인 공개 허용; 숨김은 대기 fence 무효화
+      security:
+      - session: []
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+          minimum: 1
+      - name: X-XSRF-TOKEN
+        in: header
+        required: true
+        schema:
+          type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              properties:
+                expectedVersion:
+                  type: integer
+                  format: int64
+                  minimum: 1
+                visibility:
+                  type: string
+                  enum:
+                  - VISIBLE
+                  - HIDDEN
+                reason:
+                  type: string
+                  minLength: 1
+                  maxLength: 300
+                  description: 공백만 불가; 불필요한 개인정보/비밀값 금지
+              required:
+              - expectedVersion
+              - visibility
+              - reason
+      responses:
+        '204':
+          description: 저장됨; 실제 판정/최신 상태는 상세 GET 재조회
+        default:
+          $ref: '#/components/responses/Error'
+components:
+  securitySchemes:
+    session:
+      type: apiKey
+      in: cookie
+      name: TAGME_SESSION
+  schemas:
+    Access:
+      type: object
+      additionalProperties: false
+      properties:
+        admin:
+          type: boolean
+          const: true
+      required:
+      - admin
+    Task:
+      type: object
+      additionalProperties: false
+      properties:
+        review:
+          $ref: content.openapi.yaml#/components/schemas/ReviewTask
+        kind:
+          type: string
+          enum:
+          - WISH
+          - CHEER
+          - COMMENT
+        visibility:
+          type: string
+          enum:
+          - VISIBLE
+          - HIDDEN
+        version:
+          type: integer
+          format: int64
+        retryCount:
+          type: integer
+          minimum: 0
+          maximum: 3
+      required:
+      - review
+      - kind
+      - visibility
+      - version
+      - retryCount
+    Content:
+      type: object
+      additionalProperties: false
+      properties:
+        id:
+          type: integer
+          format: int64
+        kind:
+          type: string
+          enum:
+          - WISH
+          - CHEER
+          - COMMENT
+        authorId:
+          type: integer
+          format: int64
+        visibility:
+          type: string
+          enum:
+          - VISIBLE
+          - HIDDEN
+        version:
+          type: integer
+          format: int64
+        parentWishId:
+          type:
+          - integer
+          - 'null'
+          format: int64
+        approvedRevision:
+          anyOf:
+          - $ref: content.openapi.yaml#/components/schemas/Revision
+          - type: 'null'
+        pendingRevision:
+          anyOf:
+          - $ref: content.openapi.yaml#/components/schemas/Revision
+          - type: 'null'
+        latestRevision:
+          anyOf:
+          - $ref: content.openapi.yaml#/components/schemas/Revision
+          - type: 'null'
+      required:
+      - id
+      - kind
+      - authorId
+      - visibility
+      - version
+      - parentWishId
+      - approvedRevision
+      - pendingRevision
+      - latestRevision
+    Audit:
+      type: object
+      additionalProperties: false
+      properties:
+        id:
+          type: integer
+          format: int64
+        actorId:
+          type: integer
+          format: int64
+        action:
+          type: string
+          enum:
+          - MODERATION_DECISION
+          - MODERATION_RETRY
+          - CONTENT_VISIBILITY
+        targetType:
+          type: string
+          enum:
+          - CONTENT
+          - MODERATION_JOB
+        targetId:
+          type: integer
+          format: int64
+        reason:
+          type: string
+          minLength: 1
+          maxLength: 300
+          description: 공백만 불가; 불필요한 개인정보/비밀값 금지
+        before:
+          type: object
+          additionalProperties: true
+          description: 상태/버전/포인터 등 메타데이터만; 원문/자격증명 미포함
+        after:
+          type: object
+          additionalProperties: true
+        createdAt:
+          type: string
+          format: date-time
+      required:
+      - id
+      - actorId
+      - action
+      - targetType
+      - targetId
+      - reason
+      - before
+      - after
+      - createdAt
+    Tasks:
+      type: object
+      additionalProperties: false
+      properties:
+        items:
+          type: array
+          maxItems: 50
+          items:
+            $ref: '#/components/schemas/Task'
+        nextCursor:
+          type:
+          - integer
+          - 'null'
+          format: int64
+      required:
+      - items
+      - nextCursor
+    Contents:
+      type: object
+      additionalProperties: false
+      properties:
+        items:
+          type: array
+          maxItems: 50
+          items:
+            $ref: '#/components/schemas/Content'
+        nextCursor:
+          type:
+          - integer
+          - 'null'
+          format: int64
+      required:
+      - items
+      - nextCursor
+    Audits:
+      type: object
+      additionalProperties: false
+      properties:
+        items:
+          type: array
+          maxItems: 50
+          items:
+            $ref: '#/components/schemas/Audit'
+        nextCursor:
+          type:
+          - integer
+          - 'null'
+          format: int64
+      required:
+      - items
+      - nextCursor
+  responses:
+    Error:
+      description: 400 입력/필터, 401 세션, 403 권한/CSRF/검수 기간, 404 대상, 409 상태/버전/재처리 제한,
+        429 속도, 일시 장애
+      content:
+        application/json:
+          schema:
+            $ref: auth.openapi.yaml#/components/schemas/Error
