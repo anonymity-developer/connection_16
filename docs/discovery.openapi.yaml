@@ -1,0 +1,338 @@
+openapi: 3.1.0
+info:
+  title: TAG ME 동료 탐색과 프로필 방문 API
+  version: 0.5.1
+  description: 세션/현재 공개 자격 필수. 목록은 닉네임, 실명/반은 CSRF POST 상세만. GET 상세 없음. 현재 공개 범위를
+    모든 조회에서 필터하며 개인 차단/시상/운영 화면은 후속.
+servers:
+- url: /api/v1
+paths:
+  /discovery/people:
+    get:
+      summary: 현재 공개 동료의 닉네임 목록; 상세 없음
+      security: &id001
+      - session: []
+      responses: &id002
+        '200':
+          description: 성공
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/People'
+        default:
+          $ref: '#/components/responses/Error'
+      parameters: &id003
+      - name: cursor
+        in: query
+        schema:
+          type: integer
+          format: int64
+          minimum: 1
+      - name: limit
+        in: query
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 30
+          default: 20
+      - name: q
+        in: query
+        schema:
+          type: string
+          maxLength: 30
+      - name: interestId
+        in: query
+        schema:
+          type: integer
+          format: int64
+          minimum: 1
+      - name: typeCode
+        in: query
+        schema:
+          type: string
+          pattern: ^[A-Z]{1,4}$
+      - name: questionnaireVersion
+        in: query
+        schema:
+          type: string
+          pattern: ^[A-Za-z0-9._-]{1,64}$
+      description: typeCode/questionnaireVersion은 둘 다 주거나 둘 다 생략. 닉네임만 문자 그대로 검색.
+        현재 본인 공개 프로필/동의 필요.
+  /profiles:
+    get:
+      summary: 닉네임 목록 별칭; 상세 없음
+      security: *id001
+      responses: *id002
+      parameters: *id003
+      description: typeCode/questionnaireVersion은 둘 다 주거나 둘 다 생략. 닉네임만 문자 그대로 검색.
+        현재 본인 공개 프로필/동의 필요.
+  /discovery/recommendations:
+    get:
+      summary: 미방문/공통 관심사/동일 버전 유형 기준 최대 12명
+      security:
+      - session: []
+      responses:
+        '200':
+          description: 성공
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Person'
+                maxItems: 12
+        default:
+          $ref: '#/components/responses/Error'
+  /discovery/profiles/{id}/open:
+    post:
+      summary: 현재 공개 상세와 최초 방문; OPEN 기간에만, 사용자 정렬 잠금/자연 키 멱등
+      security:
+      - session: []
+      responses:
+        '200':
+          description: 성공
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Detail'
+        default:
+          $ref: '#/components/responses/Error'
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+          minimum: 1
+      - name: X-XSRF-TOKEN
+        in: header
+        required: true
+        schema:
+          type: string
+  /discovery/stats:
+    get:
+      summary: 현재 공개 가능한 전체 직접 상대 집계
+      security:
+      - session: []
+      responses:
+        '200':
+          description: 성공
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Stats'
+        default:
+          $ref: '#/components/responses/Error'
+  /discovery/graph:
+    get:
+      summary: 본인과 직접 연결된 공개 관계만
+      security:
+      - session: []
+      responses:
+        '200':
+          description: 성공
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Graph'
+        default:
+          $ref: '#/components/responses/Error'
+      parameters:
+      - name: limit
+        in: query
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 30
+          default: 20
+components:
+  securitySchemes:
+    session:
+      type: apiKey
+      in: cookie
+      name: TAGME_SESSION
+  schemas:
+    Interest:
+      type: object
+      additionalProperties: false
+      properties:
+        id:
+          type: integer
+          format: int64
+        name:
+          type: string
+      required:
+      - id
+      - name
+    Type:
+      type: object
+      additionalProperties: false
+      properties:
+        code:
+          type: string
+        title:
+          type: string
+        version:
+          type: string
+      required:
+      - code
+      - title
+      - version
+    Person:
+      type: object
+      additionalProperties: false
+      properties:
+        id:
+          type: integer
+          format: int64
+        nickname:
+          type: string
+        interests:
+          type: array
+          items:
+            $ref: '#/components/schemas/Interest'
+        type:
+          anyOf:
+          - $ref: '#/components/schemas/Type'
+          - type: 'null'
+        sharedInterests:
+          type: array
+          items:
+            type: string
+        sameType: &id004
+          type: boolean
+        visited: *id004
+        visitedMe: *id004
+        mutual: *id004
+      required:
+      - id
+      - nickname
+      - interests
+      - type
+      - sharedInterests
+      - sameType
+      - visited
+      - visitedMe
+      - mutual
+    People:
+      type: object
+      additionalProperties: false
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Person'
+        nextCursor:
+          type:
+          - integer
+          - 'null'
+          format: int64
+      required:
+      - items
+      - nextCursor
+    Detail:
+      type: object
+      additionalProperties: false
+      properties:
+        person:
+          $ref: '#/components/schemas/Person'
+        realName:
+          type: string
+        region:
+          type: string
+        classNo:
+          type: integer
+        bio:
+          type: string
+        githubUrl:
+          type:
+          - string
+          - 'null'
+        blogUrl:
+          type:
+          - string
+          - 'null'
+        newlyVisited: *id004
+      required:
+      - person
+      - realName
+      - region
+      - classNo
+      - bio
+      - githubUrl
+      - blogUrl
+      - newlyVisited
+    Stats:
+      type: object
+      additionalProperties: false
+      properties:
+        visitedCount:
+          type: integer
+          format: int64
+          minimum: 0
+        visitorCount:
+          type: integer
+          format: int64
+          minimum: 0
+        mutualCount:
+          type: integer
+          format: int64
+          minimum: 0
+      required:
+      - visitedCount
+      - visitorCount
+      - mutualCount
+    Self:
+      type: object
+      additionalProperties: false
+      properties:
+        id:
+          type: integer
+          format: int64
+        nickname:
+          type: string
+      required:
+      - id
+      - nickname
+    Edge:
+      type: object
+      additionalProperties: false
+      properties:
+        from:
+          type: integer
+          format: int64
+        to:
+          type: integer
+          format: int64
+      required:
+      - from
+      - to
+    Graph:
+      type: object
+      additionalProperties: false
+      properties:
+        self:
+          $ref: '#/components/schemas/Self'
+        nodes:
+          type: array
+          items:
+            $ref: '#/components/schemas/Person'
+        edges:
+          type: array
+          items:
+            $ref: '#/components/schemas/Edge'
+        truncated: *id004
+      required:
+      - self
+      - nodes
+      - edges
+      - truncated
+  responses:
+    Error:
+      description: 401 세션, 403 기간/CSRF, 404 대상 비공개/없음, 409 본인 공개 자격, 400 필터, 429 제한,
+        일시 장애
+      content:
+        application/json:
+          schema:
+            $ref: auth.openapi.yaml#/components/schemas/Error

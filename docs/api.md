@@ -4,7 +4,7 @@
 
 기본 경로는 `/api/v1`, JSON 응답, 서버 세션 쿠키, UTC ISO-8601 시각을 사용한다. 브라우저는 동일 출처로 요청하며 변경 요청은 CSRF 헤더가 필요하다. 기본 API는 아래 표에 있으며, 인증, 페이즈 3 참여와 페이즈 4-1 SYNC/FAST TAP API도 구현했다. 그 밖의 도메인은 개발 계획이다. 정확한 스키마는 [인증 OpenAPI](auth.openapi.yaml)와 [참여 OpenAPI](participation.openapi.yaml)를 따른다.
 
-사용자 동선은 [유저 플로우](user-flows.md), 저장 관계는 [전체 ERD](erd.md), 트랜잭션은 [구현 계획](implementation-plan.md)을 따른다. 아래 예시와 추가 경로는 후속 구현 계약이며 현재 호출 가능한 API라고 안내하지 않는다.
+사용자 동선은 [유저 플로우](user-flows.md), 저장 관계는 [전체 ERD](erd.md), 트랜잭션은 [구현 계획](implementation-plan.md)을 따른다. 각 절의 구현/예정 표시를 구분한다. 현재 실행 가능한 상세 DTO는 도메인 OpenAPI가 기준이며 예정 예시를 실제 API로 안내하지 않는다.
 
 | Method | 현재 구현된 경로 | 인증 | 설명 |
 | --- | --- | --- | --- |
@@ -44,7 +44,7 @@ Actuator의 `/actuator/health`, `/actuator/health/readiness`는 컨테이너/로
 
 가입/로그인/OTP 발송/분실 재설정은 필요한 POST 경로만 permitAll에 추가했다. PASSWORD_CHANGE 발송과 `/users/me/password`는 세션이 필요하다. permitAll도 CSRF와 rate limit을 적용한다. 일반 로그인은 아이디/비밀번호이며 OTP만으로 로그인하는 `/auth/otp/verify`는 제공하지 않는다. GET `/users/{id}`를 별도로 만들면 방문 기록을 우회하기 쉬우므로 **상세 정보는 아래 POST open 경로로 통일**한다.
 
-위 표 중 공개 프로필 목록 `/profiles`는 예정이며 그 외 경로는 구현했다. `onboardingRequired`는 필수 프로필/관심사/현재 정책 동의/공개 상태를 포함한다. 직접 입력한 이름과 반의 외부 검증을 뜻하지 않는다. 동의/기간/버전 규칙은 [참여 계약](participation.md)을 따른다.
+위 표의 경로는 구현했다. `/profiles`는 탐색의 닉네임 목록 별칭이며 공개 상세 GET이 아니다. `onboardingRequired`는 필수 프로필/관심사/현재 정책 동의/공개 상태를 포함한다. 직접 입력한 이름과 반의 외부 검증을 뜻하지 않는다. 동의/기간/버전 규칙은 [참여 계약](participation.md)을 따른다.
 
 `code`는 **숫자 6자리 문자열**이며 `^[0-9]{6}$`로 검증한다. 숫자 타입으로 변환하지 않아 앞자리 0을 유지한다. 영문/기호는 허용하지 않는다. 인증번호는 매 발급 시 안전하게 새로 생성하는 일회용 값이며 고정 공용 번호가 아니다. challenge ID는 인증 요청을 식별하는 별도 값으로, 사용자가 입력하는 인증번호와 구분한다.
 
@@ -141,36 +141,51 @@ GET `/event`, `/policies`, `/users/me/profile`, GET/POST `/tags/pending`, POST `
 
 위 표 중 공개 `/tap/rankings`만 후속이며 그 외 경로는 구현했다. `/tap/start`의 준비/플레이/유예는 5/10/5초다. finish는 attemptId, taps(최대 1000개 상대 ms), interruptions를 받고 count를 서버에서 계산한다. 실제 형식/초기 검토 기준/기한/재시도는 [결과 계약](results.md)과 [결과 OpenAPI](results.openapi.yaml)를 따른다. `tap_count`, 운 점수, 유형 코드는 클라이언트가 확정하지 않는다.
 
-## 6. 동료 탐색 — 예정
+## 6. 동료 탐색 — 페이즈 5-1 구현
 
 | Method | 경로 | 요청/결과 요점 |
 | --- | --- | --- |
-| GET | `/discovery/recommendations` | 공개 추천 목록과 추천 이유 |
-| GET | `/discovery/people` | 필터/검색/커서 기반 동료 탐색 |
-| POST | `/discovery/profiles/{id}/open` | 공개 상세 반환 + 최초 방문 저장; 재시도 멱등 |
-| GET | `/discovery/graph` | 내 발견 관계만, limit 상한 |
-| GET | `/discovery/stats` | 현재 노출 가능한 발견/상호 방문 집계 |
+| GET | `/discovery/recommendations` | 최대 12명; 미방문/공통 관심사/동일 버전 유형 순 |
+| GET | `/discovery/people`, `/profiles` | 닉네임만 검색, 관심사/유형·버전/커서; 기본 20/최대 30 |
+| POST | `/discovery/profiles/{id}/open` | body 없음, 세션 조회자와 CSRF; 현재 공개 상세 + 최초 방문 |
+| GET | `/discovery/graph` | self/nodes/edges/truncated; 내 직접 관계, 기본 20/최대 30 |
+| GET | `/discovery/stats` | visitedCount/visitorCount/mutualCount; 화면 limit과 독립된 전체 적격 집계 |
 
-상세 프로필 예시:
+모든 경로는 본인의 ACTIVE/완성된 공개 프로필/현재 두 동의를 확인한다. 미달이면 409 PROFILE_REQUIRED다. 대상도 같은 현재 공개 필터를 사용하며 존재하지 않거나 비공개면 404 PROFILE_NOT_FOUND다. 상세는 기존 방문/본인 재열기도 OPEN 기간에만 허용한다. 목록/관계/통계는 행사 전후에도 현재 자격으로 읽을 수 있다. GET 상세는 없다. 기간/필터/잠금/철회와 추천 경계는 [탐색 계약](discovery.md), 정확한 스키마는 [탐색 OpenAPI](discovery.openapi.yaml)를 따른다.
+
+상세 성공 응답 예시(설명용 데이터):
 
 ```json
 {
-  "profile": {
+  "person": {
     "id": 12,
     "nickname": "코딩하는 수달",
-    "realName": "참여자",
-    "region": "서울",
-    "classNo": 1,
-    "bio": "백엔드 이야기를 좋아해요.",
-    "githubUrl": null,
-    "blogUrl": null
+    "interests": [
+      {
+        "id": 1,
+        "name": "백엔드"
+      }
+    ],
+    "type": null,
+    "sharedInterests": [
+      "백엔드"
+    ],
+    "sameType": false,
+    "visited": true,
+    "visitedMe": false,
+    "mutual": false
   },
-  "firstVisit": true,
-  "mutual": false
+  "realName": "참여자",
+  "region": "서울",
+  "classNo": 1,
+  "bio": "백엔드 이야기를 좋아해요.",
+  "githubUrl": null,
+  "blogUrl": null,
+  "newlyVisited": true
 }
 ```
 
-익명 응원/댓글은 위 프로필로 연결하는 식별자를 반환하지 않는다. 사용자별 API에 no-store를 적용한다.
+익명 응원/댓글은 프로필 연결용 식별자를 반환하지 않으며 profileId=null이다. 승인된 비익명 응원/revealProfile=true 댓글은 현재 공개 가능한 작성자의 profileId만 제공한다. 브라우저는 해당 ID를 상세 POST 화면으로 연결한다. 모든 사용자별 응답은 no-store다. 개인 간 차단 기능은 아직 없다.
 
 ## 7. 운영자 — 예정
 
@@ -295,26 +310,45 @@ route는 서버가 정한 내부 경로이며 토큰에서 외부 URL을 읽어 
 
 종료 이벤트 구조도 예정안이다. 서버가 이벤트 수/순서/시각/크기/중단을 검증해 점수를 계산한다. 같은 종료 payload 재전송은 저장된 판정을 반환하고 다른 payload로 기존 결과를 덮어쓰려 하면 409다. 검토 보류와 최초 완료는 분리한다.
 
-### 방문 그래프
+### 방문 그래프 — 현재 페이즈 5-1 형식
 
 ```json
 {
+  "self": {
+    "id": 1,
+    "nickname": "ME"
+  },
   "nodes": [
-    { "id": 1, "nickname": "ME", "isMe": true },
-    { "id": 12, "nickname": "코딩하는 수달", "isMe": false },
-    { "id": 23, "nickname": "도전하는 감자", "isMe": false }
+    {
+      "id": 12,
+      "nickname": "코딩하는 수달",
+      "interests": [
+        {
+          "id": 1,
+          "name": "백엔드"
+        }
+      ],
+      "type": null,
+      "sharedInterests": [
+        "백엔드"
+      ],
+      "sameType": false,
+      "visited": true,
+      "visitedMe": false,
+      "mutual": false
+    }
   ],
   "edges": [
-    { "source": 1, "target": 12, "mutual": true },
-    { "source": 12, "target": 1, "mutual": true },
-    { "source": 1, "target": 23, "mutual": false }
+    {
+      "from": 1,
+      "to": 12
+    }
   ],
-  "stats": { "discovered": 2, "discoveredBy": 1, "mutual": 1 },
-  "hasMore": false
+  "truncated": false
 }
 ```
 
-내가 방문했거나 나를 방문한 공개 가능한 동료와 본인에 직접 연결된 방향 간선만 반환한다. 상호 관계는 UI에서 두 방향을 한 굵은 연결로 합쳐 표현할 수 있다. 동료들 사이의 별도 간선은 반환하지 않는다. stats는 제한된 화면 노드 수와 구분한 전체 적격 집계이며 비공개 필터를 동일하게 적용한다.
+내가 방문했거나 나를 방문한 현재 공개 동료만 nodes에 넣는다. 본인은 self로 분리하며 edges는 from/to 방향만 반환한다. 동료들 사이의 관계는 반환하지 않는다. 전체 집계는 별도 `/discovery/stats`의 `{visitedCount, visitorCount, mutualCount}`이며 제한된 nodes 수와 구분한다. UI는 그림 최대 8명/목록 최대 30명과 양방향 화살표를 사용한다.
 
 ### 오류
 

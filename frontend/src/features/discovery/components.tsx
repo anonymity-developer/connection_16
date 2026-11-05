@@ -5,7 +5,7 @@ export function DiscoveryNav({ selected }: { selected: 'recommended' | 'people' 
   return <nav className="discovery-tabs" aria-label="동료 탐색 메뉴"><Link href="/discovery" aria-current={selected === 'recommended' ? 'page' : undefined}>추천 동료</Link><Link href="/discovery?view=people" aria-current={selected === 'people' ? 'page' : undefined}>전체 동료</Link><Link href="/discovery/graph" aria-current={selected === 'graph' ? 'page' : undefined}>나의 발견</Link></nav>;
 }
 export function VisitStats({ stats }: { stats: Stats }) {
-  return <dl className="visit-stats"><div><dt>내가 열어본 프로필</dt><dd>{stats.visitedCount}<span>명</span></dd></div><div><dt>내 프로필을 열어본 동료</dt><dd>{stats.visitorCount}<span>명</span></dd></div><div><dt>서로 열어본 프로필</dt><dd>{stats.mutualCount}<span>명</span></dd></div></dl>;
+  return <dl className="visit-stats"><div><dt>내가 본 동료</dt><dd>{stats.visitedCount}<span>명</span></dd></div><div><dt>나를 본 동료</dt><dd>{stats.visitorCount}<span>명</span></dd></div><div><dt>서로 본 동료</dt><dd>{stats.mutualCount}<span>명</span></dd></div></dl>;
 }
 export function PersonRow({ person, recommendation = false }: { person: Person; recommendation?: boolean }) {
   const relation = person.mutual ? '서로 열어봤어요' : person.visitedMe ? '내 프로필을 열어봤어요' : person.visited ? '내가 열어봤어요' : '';

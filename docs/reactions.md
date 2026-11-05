@@ -7,7 +7,7 @@
 - 승인된 소원의 댓글 작성/공개 목록/본인 접수 내역과 승인된 응원 카드 하트 등록·취소·상태 조회를 구현한다.
 - 댓글은 불변 revision과 기존 검수 작업/관리자 판정에 연결한다. 검수 제공자 미설정 기본값은 계속 REVIEW_REQUIRED다. 실제 외부 업체 호출이나 운영 데이터 생성은 수행하지 않는다.
 - 댓글과 하트로 미션 글자/완료 순번/수상 결과를 추가 생성하지 않는다. 댓글 활동상과 하트 반응상의 정산·확정은 후속 구현이다.
-- 댓글 수정/삭제/신고, 프로필 상세 링크와 동료 탐색, 관리자 운영 화면·숨김 API는 이번 범위가 아니다. 거절 댓글을 고쳐 남기려면 새 댓글을 제출하며 이전 접수 내역은 유지한다.
+- 댓글 수정/삭제/신고, 관리자 운영 화면·숨김 API는 이번 범위가 아니다. 프로필 상세 링크와 동료 탐색은 [페이즈 5-1](discovery.md)에 연결했다. 거절 댓글을 고쳐 남기려면 새 댓글을 제출하며 이전 접수 내역은 유지한다.
 
 ## 접근과 기간
 
@@ -17,7 +17,7 @@
 
 ## 댓글 저장과 재시도
 
-POST `/wishes/{wishId}/comments`는 `{content, revealProfile}`과 Idempotency-Key를 받는다. content는 공백 제외 1~200 UTF-16 code unit이고 앞뒤 공백만 제거한다. 기본 UI는 revealProfile=false다. true인 승인 댓글에는 현재 공개 닉네임을 표시하고, false면 nickname=null이다. 현재 공개 DTO에는 true여도 작성자 ID/프로필 링크를 넣지 않는다. 실제 프로필 연결은 탐색 단계에서 별도 구현한다.
+POST `/wishes/{wishId}/comments`는 `{content, revealProfile}`과 Idempotency-Key를 받는다. content는 공백 제외 1~200 UTF-16 code unit이고 앞뒤 공백만 제거한다. 기본 UI는 revealProfile=false다. true인 승인 댓글에는 현재 공개 닉네임을 표시하고, false면 nickname=null이다. 페이즈 5-1 공개 DTO는 승인된 revealProfile=true이고 현재 작성자가 공개 가능한 경우에만 nickname/profileId를 제공한다. false면 둘 다 null이며 item/comment ID로 작성자를 추측하지 않는다. UI 링크는 제공된 profileId를 사용하고 상세 화면에서 CSRF POST open을 수행한다.
 
 키는 16~64자의 영문/숫자/`_`/`-`다. `(author_id,idempotency_key)` UNIQUE와 wish ID/본문/표시 설정 해시를 비교한다. 같은 키/같은 요청은 같은 댓글의 현재 상태, 다른 부모/내용/표시는 409다. 키를 새로 발급하면 별개의 댓글이다. 같은 소원에 여러 댓글을 남길 수 있으며 미션의 공식 소원 슬롯과 구분한다. 작성은 사용자당 30회/분으로 제한한다.
 

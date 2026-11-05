@@ -462,3 +462,5 @@ p { word-break: keep-all; overflow-wrap: anywhere; }
 .discovery-graph circle.graph-self { fill: var(--accent-soft); stroke: var(--accent); stroke-width: 1.5; }
 .discovery-graph figcaption { font-size: 13px; color: var(--muted); margin-top: 16px; }
 @media (max-width: 480px) { .visit-stats { gap: 12px; } .visit-stats dd { font-size: 26px; } .person-row { gap: 12px; } .public-profile { padding: 20px; } .discovery-graph { padding: 16px; } }
+
+@media (min-width: 1000px) { .discovery-relationships { display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1fr); gap: 32px; align-items: start; margin-top: 24px; } .discovery-relationships .discovery-graph { margin: 0; } .discovery-relationships .people-list { margin-top: 0; } }

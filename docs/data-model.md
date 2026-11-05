@@ -143,7 +143,7 @@ submission_receipts는 제출을 받는 같은 트랜잭션에서 생성하며 �
 
 ## 6. 쿼리 규칙
 
-프로필 방문 관계는 `(viewer_id, viewed_id)` 정방향 PK와 `(viewed_id, viewer_id)` 인덱스를 사용한다. 상호 방문은 반대 행의 존재 여부로 계산한다. 사용자/프로필을 join하여 ACTIVE 및 공개 상태를 검사한다.
+프로필 방문 관계는 `(viewer_id, viewed_id)` 정방향 PK와 `(viewed_id, viewer_id)` 인덱스를 사용한다. 상호 방문은 반대 행의 존재 여부로 계산한다. 페이즈 5-1에서 이 V1 테이블을 실제 사용하며 새 migration은 없다. 사용자/프로필/현재 두 동의/관심사를 join하여 ACTIVE·공개·필수 정보 완성을 모든 조회에서 검사한다. 최초 삽입 전에 조회자/대상 사용자 행을 ID 오름차순으로 잠그며 first_viewed_at을 갱신하지 않는다. 비공개로 전환해도 과거 원장은 유지하고 현재 집계/노드/간선에서 제외한다. stats와 제한된 graph의 차이, DTO는 [탐색 계약](discovery.md)을 따른다.
 
 댓글 활동상은 승인된 revision과 공개/유효한 소원을 대상으로 `COUNT(DISTINCT wish_id)`를 집계하며 자신의 소원은 제외한다. 문자열 status 하나만 보지 않고 현재 공개 포인터와 운영 숨김 상태를 함께 확인한다.
 
