@@ -21,6 +21,7 @@ function log(action, targetType, targetId, reason, before, after) { logs.unshift
 function resetTask() { task.review.approvedRevision = old; item.approvedRevision = old; task.review.job.status = 'REVIEW_REQUIRED'; task.review.job.fence++; task.review.revision.status = 'REVIEW_REQUIRED'; task.retryCount = 0; item.pendingRevision = task.review.revision; }
 function read(path, q) {
   if (path === '/auth/config') return { available: true, passwordMinLength: 15, passwordMaxLength: 64 };
+  if (path === '/discovery/graph') return { self: { id: 1, nickname: '테스트 운영자' }, nodes: [], edges: [], truncated: false };
   if (path === '/users/me') return signedIn ? { id: 1, username: 'test-operator', nickname: '테스트 운영자', onboardingRequired: false } : null;
   if (path === '/tags/pending') return { present: false };
   if (path === '/event') return { status: 'OPEN', opensAt: null, submitClosesAt: null, profilePreparationEnabled: false };

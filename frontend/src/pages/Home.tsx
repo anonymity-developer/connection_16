@@ -1,3 +1,4 @@
+import { HomeNetwork } from '../features/discovery/HomeNetwork';
 import { useParticipation } from '../features/participation/context';
 import { useAuth } from '../features/auth/context';
 import { Link } from '../app/navigation';
@@ -52,6 +53,7 @@ export function Home({ data }: { data: ScreenData }) {
     <section className="mission-section" aria-labelledby="mission-heading"><div className="section-heading"><h2 id="mission-heading">다섯 미션</h2><span>순서는 자유롭게</span></div>
       <div className="mission-list">{missions.map((mission) => <Link key={mission.code} href={`/missions/${mission.slug}`} className="mission-row"><span className={`mission-letter ${data.progress[mission.code] === 'COMPLETED' ? 'is-collected' : ''}`} aria-hidden="true">{mission.letter}</span><div className="mission-row-copy"><h3>{mission.name}<span>{mission.korean}</span></h3><p>{mission.description}</p></div><div className="mission-row-state">{data.preview || data.serverLoaded ? <StateBadge state={data.progress[mission.code]} /> : <span className="mission-link-label">미션 안내</span>}<Icon name="arrow" size={18} /></div></Link>)}</div>
     </section>
+    {!data.preview && auth.user && !auth.user.onboardingRequired && <HomeNetwork key={auth.user.id} />}
     <section className="home-help" aria-labelledby="how-heading"><div><h2 id="how-heading">참여 전에 알아두세요</h2><p>태그 찾기 → 미션 참여 → 글자 수집. 소원과 응원은 검수 승인 후 글자가 지급돼요.</p></div><Link className="text-link" href="/discovery">동료 찾기 안내<Icon name="arrow" size={16} /></Link></section>
   </div>;
 }

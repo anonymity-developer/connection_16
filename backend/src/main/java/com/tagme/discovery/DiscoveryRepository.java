@@ -77,7 +77,26 @@ public class DiscoveryRepository {
     public Graph graph(long actor,String nickname,int limit) {
         var args=args(actor);args.add(actor);args.add(actor);args.add(actor);args.add(limit+1);
         var rows=query(SELECT+" AND u.id<>? AND (EXISTS(SELECT 1 FROM profile_views v WHERE v.viewer_id=? AND v.viewed_id=u.id) OR EXISTS(SELECT 1 FROM profile_views v WHERE v.viewer_id=u.id AND v.viewed_id=?)) ORDER BY u.id DESC LIMIT ?",args);
-        var nodes=rows.stream().limit(limit).toList();List<Edge> edges=new ArrayList<>();for(var p:nodes){if(p.visited())edges.add(new Edge(actor,p.id()));if(p.visitedMe())edges.add(new Edge(p.id(),actor));}
+        var nodes=rows.stream().limit(limit).toList();
+        // Only the viewer's own likes are disclosed. Other likers have never consented to attribution.
+        Set<Long> liked=new HashSet<>();
+        if(!nodes.isEmpty()) {
+            var likeArgs=new ArrayList<Object>();likeArgs.add(actor);nodes.forEach(p->likeArgs.add(p.id()));
+            liked.addAll(db.queryForList("""
+                SELECT i.author_id FROM cheer_likes l
+                JOIN content_items i ON i.id=l.card_id
+                JOIN content_revisions r ON r.id=i.approved_revision_id
+                WHERE l.user_id=? AND i.kind='CHEER' AND i.visibility_status='VISIBLE'
+                AND r.moderation_status='APPROVED' AND r.anonymous=FALSE AND i.author_id IN (
+                """+String.join(",",Collections.nCopies(nodes.size(),"?"))+")",Long.class,likeArgs.toArray()));
+        }
+        List<Edge> edges=new ArrayList<>();
+        for(var p:nodes) {
+            int weight=RelationshipWeight.score(p.visited(),p.visitedMe(),liked.contains(p.id()));
+            String strength=RelationshipWeight.strength(weight);
+            if(p.visited())edges.add(new Edge(actor,p.id(),weight,strength));
+            if(p.visitedMe())edges.add(new Edge(p.id(),actor,weight,strength));
+        }
         return new Graph(new Self(actor,nickname),nodes,edges,rows.size()>limit);
     }
 }

@@ -554,3 +554,14 @@ p { word-break: keep-all; overflow-wrap: anywhere; }
 .profile-disclosure { font-size: 14px; line-height: 1.8; margin: 16px 0; }
 .profile-policy-links { display: flex; flex-wrap: wrap; gap: 8px 16px; }
 @media (max-width: 480px) { .profile-source { gap: 16px; } .profile-source dl { gap: 20px; } }
+
+/* Existing graph geometry, with 44px keyboard/touch targets and bounded weight levels. */
+.network-canvas { position: relative; max-width: 340px; margin: auto; }
+.network-node { position: absolute; transform: translate(-50%, -50%); min-width: 44px; min-height: 44px; display: flex; flex-direction: column; align-items: center; justify-content: center; color: var(--ink); text-decoration: none; }
+.network-node > span { display: grid; place-items: center; width: 28px; height: 28px; border: 1px solid var(--control); border-radius: 50%; background: var(--surface); font-size: 13px; }
+.network-node small { font-size: 13px; background: var(--surface); white-space: nowrap; }
+.network-node:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+.discovery-graph .network-light line { stroke: var(--muted); }
+.discovery-graph .network-medium line { stroke: var(--accent); opacity: .65; }
+.discovery-graph .network-strong line { stroke: var(--accent); }
+.home-network { margin-top: 32px; }

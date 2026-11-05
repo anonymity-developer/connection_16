@@ -40,7 +40,7 @@ try {
           if (q === '테스트') return reply(200, cursor ? { items: [person(3)], nextCursor: null } : { items: [person(4)], nextCursor: 4 });
           return reply(200, cursor ? { items: [person(2)], nextCursor: null } : { items: [person(4), person(3)], nextCursor: 3 });
         }
-        if (method === 'GET' && path === '/discovery/graph') { assert.equal(url.searchParams.get('limit'), '30'); const nodes = empty ? [] : rawPeople.filter(p => visited.has(p.id) || inbound.has(p.id)).map(p => person(p.id)); return reply(200, { self: { id: 1, nickname: '테스트 나' }, nodes, edges: nodes.flatMap(p => [...(p.visited ? [{ from: 1, to: p.id }] : []), ...(p.visitedMe ? [{ from: p.id, to: 1 }] : [])]), truncated: false }); }
+        if (method === 'GET' && path === '/discovery/graph') { assert.equal(url.searchParams.get('limit'), '30'); const nodes = empty ? [] : rawPeople.filter(p => visited.has(p.id) || inbound.has(p.id)).map(p => person(p.id)); return reply(200, { self: { id: 1, nickname: '테스트 나' }, nodes, edges: nodes.flatMap(p => [...(p.visited ? [{ from: 1, to: p.id, weight: p.mutual ? 6 : 1 }] : []), ...(p.visitedMe ? [{ from: p.id, to: 1, weight: p.mutual ? 6 : 1 }] : [])]), truncated: false }); }
         if (method === 'GET' && path === '/discovery/profiles/2/photo') { assert.equal(visited.has(2), true); return route.fulfill({ status: 200, contentType: 'image/png', body: Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aENcAAAAASUVORK5CYII=', 'base64') }); }
         const match = path.match(/^\/discovery\/profiles\/(\d+)\/open$/);
         if (match && method === 'POST') {
@@ -81,6 +81,12 @@ try {
   inbound.add(2); await visit('/discovery/graph'); await page.locator('.discovery-graph').waitFor(); assert.equal(await page.locator('.discovery-graph line').count(), 2); assert.equal(await page.getByText('서로 열어봤어요', { exact: true }).count(), 1);
   for (const width of [360, 390, 430, 768, 1440]) { await page.setViewportSize({ width, height: 900 }); assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth), false); await page.screenshot({ path: resolve(output, `discovery-graph-${width}.png`), fullPage: true }); }
   empty = true; await page.reload(); await page.getByText('아직 공개된 열람 관계가 없어요.', { exact: true }).waitFor(); assert.equal(await page.locator('.visit-stats dd').first().textContent(), '0명'); empty = false;
+  empty = false; await visit('/discovery/graph'); await page.locator('.network-node').first().waitFor();
+  assert.equal(await page.locator('.network-strong line').count(), 1);
+  assert.equal(await page.locator('.network-strong line').first().evaluate(el => getComputedStyle(el).strokeWidth), '4px');
+  const opensBeforeNode = opens; await page.locator('.network-node').first().click();
+  await page.locator('.public-profile').waitFor(); assert.equal(opens, opensBeforeNode + 1);
+  await visit('/'); await page.locator('.home-network .network-node').first().waitFor();
   record('direct relationship arrows and accessible rows use server data; empty graphs keep real zero counts');
   required = true; await visit('/discovery'); await page.getByRole('link', { name: '내 프로필과 참여 안내 확인하기', exact: true }).waitFor(); assert.equal(await page.locator('.person-row').count(), 0); assert.equal(await page.locator('.visit-stats').count(), 0); required = false;
   await visit('/missions/say-something'); await page.getByRole('link', { name: '테스트 공개의 프로필 보기', exact: true }).waitFor(); assert.equal(await page.locator('.content-feed-list a[href="/discovery/profiles/999"]').count(), 0); assert.equal(await page.locator('.content-feed-list a[href="/discovery/profiles/2"]').count(), 1);

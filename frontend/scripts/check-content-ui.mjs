@@ -21,6 +21,7 @@ try {
       const req = route.request(), path = new URL(req.url()).pathname.replace('/api/v1', ''), method = req.method();
       const reply = (status, value) => route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(value) });
       if (method === 'GET' && path === '/auth/config') return reply(200, { available: true, passwordMinLength: 15, passwordMaxLength: 64 });
+      if (method === 'GET' && path === '/discovery/graph') return reply(200, { self: { id: 1, nickname: '테스트' }, nodes: [], edges: [], truncated: false });
       if (method === 'GET' && path === '/users/me') return reply(200, { id: 1, username: 'test-participant', nickname: '테스트', onboardingRequired: false });
       if (method === 'GET' && path === '/tags/pending') return reply(200, { present: false });
       if (method === 'GET' && path === '/csrf') return reply(200, { headerName: 'X-XSRF-TOKEN', token: 'content-test-csrf' });
