@@ -54,6 +54,8 @@ jobs:
         run: npm run test:reactions-ui
       - name: Check discovery and profile visits in the browser
         run: npm run test:discovery-ui
+      - name: Check operations permissions and review workflow
+        run: npm run test:operations-ui
       - name: Inspect production app with Taste
         run: |
           npm run preview -- --port 4173 > /tmp/tagme-preview.log 2>&1 &
@@ -76,6 +78,7 @@ jobs:
           path: |
             output/playwright/
             .taste-skill/production/
+            .taste-skill/operations-render/
           include-hidden-files: true
 
   backend:

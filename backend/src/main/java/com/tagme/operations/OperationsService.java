@@ -38,6 +38,12 @@ public class OperationsService {
         access(actor);int size=size(limit);long start=cursor(after,0);String state=filter(status==null?"PENDING":status,List.of("PENDING","QUEUED","PROCESSING","REVIEW_REQUIRED","APPROVED","REJECTED","SUPERSEDED","ALL"));
         return tx.execute(s->{admin(actor);var ids=repository.taskIds(start,size+1,"ALL".equals(state)?null:state);var rows=ids.stream().limit(size).map(id->{var job=content.job(id,false);var item=content.item(job.itemId(),false);return new Task(new ReviewTask(job,content.revision(job.revisionId()),item.approvedId()==null?null:content.revision(item.approvedId())),item.kind(),item.visibility(),item.version(),repository.retryCount(id));}).toList();return new Page<>(rows,ids.size()>size?ids.get(size-1):null);});
     }
+    public Task task(AuthPrincipal actor,long id) {
+        return tx.execute(s->{admin(actor);var job=content.job(id,false);if(job==null)throw error(404,"JOB_NOT_FOUND","검수 작업을 찾을 수 없어요.");var item=content.item(job.itemId(),false);return new Task(new ReviewTask(job,content.revision(job.revisionId()),item.approvedId()==null?null:content.revision(item.approvedId())),item.kind(),item.visibility(),item.version(),repository.retryCount(id));});
+    }
+    public Content detail(AuthPrincipal actor,long id) {
+        return tx.execute(s->{admin(actor);var item=content.item(id,false);if(item==null)throw error(404,"CONTENT_NOT_FOUND","글을 찾을 수 없어요.");return snapshot(item);});
+    }
     private Content snapshot(Item item) {
         var comment=item.kind()==Kind.COMMENT?reactions.byItem(item.id()):null;
         return new Content(item.id(),item.kind(),item.authorId(),item.visibility(),item.version(),comment==null?null:comment.wishId(),item.approvedId()==null?null:content.revision(item.approvedId()),item.pendingId()==null?null:content.revision(item.pendingId()),content.latest(item.id()));
