@@ -89,3 +89,5 @@ CI는 프론트 lint/build, 백엔드 단위/통합 테스트와 두 Docker 이�
 프로필·동의·태그·서버 수집판 구현은 [참여 계약](docs/participation.md), 현재 요청/응답은 [참여 OpenAPI](docs/participation.openapi.yaml)를 따른다. 실제 행사 일정/동의 문구/태그는 별도로 설정해야 한다.
 
 SYNC/FAST TAP의 1회 제한과 운영 문항 설정, 중단/기한/잠정 점수는 [결과 계약](docs/results.md)과 [OpenAPI](docs/results.openapi.yaml)에 있습니다. 문항 초안은 운영에 자동 반영되지 않습니다.
+
+가입·프로필의 현재 기준은 [Mattermost 가져오기와 상세 공개 계약](docs/mattermost-profile.md)이다. 닉네임 필수·도메인/기술 스택/소개/링크 선택이며 참가자 비공개 기능은 없다. 신고와 외부 자동 검수는 후순위다.

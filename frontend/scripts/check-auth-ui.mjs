@@ -98,6 +98,7 @@ try {
   await page.screenshot({ path: resolve(output, 'auth-contract-account-390.png'), fullPage: true });
   await record('signup contract, busy submission, resend replacement, numeric code and password policy');
 
+  await page.getByRole('link', { name: '내 계정', exact: true }).click();
   await page.getByRole('link', { name: '비밀번호 변경', exact: true }).click();
   await page.getByRole('heading', { name: '비밀번호 변경', exact: true }).waitFor();
   assert.equal(await page.locator('input[name="username"]').count(), 0);

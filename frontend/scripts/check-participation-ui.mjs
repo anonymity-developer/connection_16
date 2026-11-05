@@ -73,6 +73,8 @@ try {
   }
   async function agree() { for (const box of await page.locator('input[name="policy"]').all()) await box.check(); }
   await visit('/me/profile'); await page.getByLabel('닉네임', { exact: true }).waitFor();
+  assert.equal(await page.locator('input[name="policy"]').count(), 1);
+  assert.equal(await page.locator('input[name="realName"],input[name="classNo"]').count(), 0);
   assert.equal(await page.locator('input[name="policy"]:checked').count(), 0);
   await fill(); await page.getByRole('button', { name: '프로필 저장하기', exact: true }).click(); assert.equal(saves, 0);
   await page.getByRole('button', { name: /내용 보기$/ }).first().click();

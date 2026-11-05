@@ -2,7 +2,7 @@
 
 ## 1. 적용 범위
 
-현재 실행 가능한 DDL은 `backend/src/main/resources/db/migration`의 V1/V2/V3/V4/V5/V6/V7/V8다. 소원/응원과 검수는 V6, 댓글/하트는 V7, 관리자 감사/재처리 한도는 V8이며 시상은 아래 **후속 설계**다. 해당 도메인의 규칙과 함께 마이그레이션을 추가한다.
+현재 실행 가능한 DDL은 `backend/src/main/resources/db/migration`의 V1/V2/V3/V4/V5/V6/V7/V8/V9다. 소원/응원과 검수는 V6, 댓글/하트는 V7, 관리자 감사/재처리 한도는 V8이며 시상은 아래 **후속 설계**다. 해당 도메인의 규칙과 함께 마이그레이션을 추가한다.
 
 이 문서의 ERD는 핵심 요약이다. 모든 도메인의 컬럼/관계/복합키와 nullable 규칙은 [전체 도메인 ERD](erd.md)를 함께 읽는다. 현재 SQL과 후속 설계의 경계를 유지하고, 후속 설계를 현재 DB에 적용된 것으로 간주하지 않는다.
 
@@ -32,6 +32,8 @@ erDiagram
         varchar real_name
         varchar region
         int class_no
+        datetime mattermost_profile_synced_at
+        bigint mattermost_picture_updated_at
         varchar role
         varchar status
     }
@@ -80,8 +82,8 @@ erDiagram
 | --- | --- | --- |
 | users | PK id, UNIQUE mattermost_id, role/status CHECK | 인증된 참여자; ADMIN은 서버 운영 절차로만 부여 |
 | user_credentials | PK/FK user_id, version > 0 CHECK | 해시와 갱신 시각, 세션 검증 버전 |
-| profiles | PK/FK user_id | 사용자 1명에 프로필 최대 1개, 공개 기본값 false |
-| interests | UNIQUE name | 관심사 사전 |
+| profiles | PK/FK user_id | 사용자 1명에 프로필 최대 1개. DB 기본값 false는 레거시이며 현재 저장은 항상 true |
+| interests | UNIQUE name, category DOMAIN/TECH_STACK CHECK | 도메인/기술 스택 관심사 사전 |
 | user_interests | PK(user_id, interest_id) | 관심사 중복 방지 |
 | missions | UNIQUE code, UNIQUE sort_order | 두 S를 구분하는 고정 미션 코드 |
 | tags | UNIQUE token_hash | 원문 토큰을 저장하지 않음 |
@@ -143,7 +145,7 @@ submission_receipts는 제출을 받는 같은 트랜잭션에서 생성하며 �
 
 ## 6. 쿼리 규칙
 
-프로필 방문 관계는 `(viewer_id, viewed_id)` 정방향 PK와 `(viewed_id, viewer_id)` 인덱스를 사용한다. 상호 방문은 반대 행의 존재 여부로 계산한다. 페이즈 5-1에서 이 V1 테이블을 실제 사용하며 새 migration은 없다. 사용자/프로필/현재 두 동의/관심사를 join하여 ACTIVE·공개·필수 정보 완성을 모든 조회에서 검사한다. 최초 삽입 전에 조회자/대상 사용자 행을 ID 오름차순으로 잠그며 first_viewed_at을 갱신하지 않는다. 비공개로 전환해도 과거 원장은 유지하고 현재 집계/노드/간선에서 제외한다. stats와 제한된 graph의 차이, DTO는 [탐색 계약](discovery.md)을 따른다.
+프로필 방문 관계는 `(viewer_id, viewed_id)` 정방향 PK와 `(viewed_id, viewer_id)` 인덱스를 사용한다. 상호 방문은 반대 행의 존재 여부로 계산한다. 페이즈 5-1에서 이 V1 테이블을 실제 사용하며 새 migration은 없다. 사용자/프로필/현재 두 안내 확인을 검사하여 ACTIVE·가져오기 완료·닉네임과 내부 공개 상태를 모든 조회에서 검사한다. 최초 삽입 전에 조회자/대상 사용자 행을 ID 오름차순으로 잠그며 first_viewed_at을 갱신하지 않는다. 자격을 잃어도 과거 원장은 유지하고 현재 집계/노드/간선에서 제외한다. stats와 제한된 graph의 차이, DTO는 [탐색 계약](discovery.md)을 따른다.
 
 댓글 활동상은 승인된 revision과 공개/유효한 소원을 대상으로 `COUNT(DISTINCT wish_id)`를 집계하며 자신의 소원은 제외한다. 문자열 status 하나만 보지 않고 현재 공개 포인터와 운영 숨김 상태를 함께 확인한다.
 
@@ -159,7 +161,7 @@ submission_receipts는 제출을 받는 같은 트랜잭션에서 생성하며 �
 
 ## V4 적용: 참여와 완료 근거
 
-현재 적용 DDL에 event_settings, consent_policies, current_consent_policies, user_consents, user_consent_events, submission_receipts, mission_completion_evidence를 추가했고 profiles.version을 추가했다. 날짜/정책 원문/태그는 비워 두며 관심사 카테고리만 시드한다. 이름/반은 사용자 직접 입력이고 외부 검증 정보가 아니다.
+현재 적용 DDL에 event_settings, consent_policies, current_consent_policies, user_consents, user_consent_events, submission_receipts, mission_completion_evidence를 추가했고 profiles.version을 추가했다. 날짜/정책 원문/태그는 비워 두며 관심사 카테고리만 시드한다. V9부터 이름/지역/반은 Mattermost에서 가져온다. 독립적인 법적 신원 검증을 의미하지 않는다.
 
 정책 원문은 `(policy_type,policy_version)`별 보존하고 현재 포인터와 동의 이력을 분리한다. 철회는 과거 완료를 삭제하지 않는다. receipts는 `(user_id,source_kind,source_id)` UNIQUE이며 PROFILE source_id는 **사용자별 profile.version**이다. evidence의 복합 FK는 receipt의 소유자/종류/source_id까지 묶는다. accepted_received_at은 태그/유효 수행 조건을 만족한 시각의 최댓값이다. 구체 계약은 [참여 구현](participation.md), 다이어그램은 [ERD](erd.md)를 따른다.
 
@@ -186,3 +188,9 @@ tap_slots.current_attempt_id와 user_id 복합 FK가 다른 사용자의 도전�
 admin_audit_logs는 id PK, actor_id → users FK, action, target_type/id, reason(1~300), before_json/after_json, created_at이다. (action,id), (target_type,target_id,id) 인덱스로 조회한다. 대상은 CONTENT 또는 MODERATION_JOB이며 두 테이블을 가리키므로 단일 FK로 주장하지 않는다. 서비스가 대상을 확인하고 같은 트랜잭션에서 상태/버전/포인터 메타데이터만 기록한다.
 
 moderation_jobs.manual_retry_count는 기본 0, CHECK 0~3이다. 자동 attempts와 별개로 수동 retry 시 fence와 함께 증가하고 attempts만 0으로 초기화한다. 같은 revision/job/원접수 근거를 유지한다. (status,id) 검수 커서 인덱스와 content_items(kind,visibility_status,id) 운영 목록 인덱스를 추가했다. 기존 V1~V7는 변경하지 않는다. [운영 계약](operations-admin.md)을 따른다.
+
+## V9 Mattermost 프로필과 관심사
+
+users에 mattermost_profile_synced_at nullable DATETIME(6), mattermost_picture_updated_at BIGINT NOT NULL DEFAULT 0 CHECK >=0을 추가한다. 가져온 이름/지역/반은 기존 real_name/region/class_no를 사용한다. 기존 계정을 임의로 동기화 완료 처리하지 않는다. 이미지 원본/직접 URL은 저장하지 않는다. interests.category VARCHAR(16) NOT NULL DEFAULT DOMAIN과 CHECK(DOMAIN/TECH_STACK), 기술 스택 카탈로그를 추가한다. 기존 도메인 ID는 보존한다.
+
+닉네임만 필수 입력이며 bio/링크 nullable, user_interests 0~10개다. 유효한 프로필 저장은 내부 is_public=true다. 레거시 비공개 행을 일괄 공개하지 않으며 동기화 기록과 현재 두 안내 확인까지 공개 필터에 포함한다. 소스 변경은 users 잠금 아래 profile.version도 증가시켜 stale 저장을 막는다. [상세 계약](mattermost-profile.md)을 따른다.
