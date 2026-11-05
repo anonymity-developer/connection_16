@@ -10,7 +10,7 @@ import static com.tagme.content.ContentModels.*;
 @Repository
 public class ReactionRepository {
     public record CommentLink(long id,long wishId,long itemId,long authorId,long wishAuthorId,String hash) { }
-    public record PublicComment(long id,String content,boolean revealProfile,String nickname) { }
+    public record PublicComment(long id,String content,boolean revealProfile,String nickname,Long profileId) { }
     public record OwnComment(long id,String content,boolean revealProfile,String status,String reason,java.time.Instant submittedAt,String requestKey) { }
     public record Comments(List<PublicComment> items,Long nextCursor) { }
     public record OwnComments(List<OwnComment> items,Long nextCursor) { }
@@ -36,7 +36,7 @@ public class ReactionRepository {
     }
     public Comments comments(long wish,long cursor) {
         var rows=db.query("""
-            SELECT c.id,r.content_text,r.anonymous,p.nickname FROM wish_comments c
+            SELECT c.id,c.author_id,r.content_text,r.anonymous,p.nickname FROM wish_comments c
             JOIN content_items i ON i.id=c.content_item_id JOIN content_revisions r ON r.id=i.approved_revision_id
             JOIN users u ON u.id=c.author_id JOIN profiles p ON p.user_id=u.id
             JOIN content_items w ON w.id=c.wish_id JOIN content_revisions wr ON wr.id=w.approved_revision_id
@@ -48,7 +48,7 @@ public class ReactionRepository {
             AND u.status='ACTIVE' AND p.is_public=TRUE AND
             2=(SELECT COUNT(*) FROM current_consent_policies cp JOIN user_consents uc ON uc.policy_type=cp.policy_type AND uc.policy_version=cp.policy_version AND uc.user_id=u.id AND uc.withdrawn_at IS NULL)
             ORDER BY c.id DESC LIMIT 21
-            """,(r,n)->new PublicComment(r.getLong("id"),r.getString("content_text"),!r.getBoolean("anonymous"),r.getBoolean("anonymous")?null:r.getString("nickname")),wish,cursor);
+            """,(r,n)->new PublicComment(r.getLong("id"),r.getString("content_text"),!r.getBoolean("anonymous"),r.getBoolean("anonymous")?null:r.getString("nickname"),r.getBoolean("anonymous")?null:r.getLong("author_id")),wish,cursor);
         var items=rows.stream().limit(20).toList();return new Comments(items,rows.size()>20?items.getLast().id():null);
     }
     public OwnComments own(long wish,long user,long cursor) {

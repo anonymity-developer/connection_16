@@ -159,3 +159,12 @@ V6는 기존 마이그레이션 뒤에 적용한다. 검수 worker는 기본 실
 V7를 V6 뒤에 적용한다. npm run test:reactions-ui는 API 대역으로 댓글/하트와 5개 화면 폭을 검사한다. 실제 MySQL/Redis의 ReactionIntegrationTest는 동시 요청·공개 철회/승인 잠금 경합·FK·마감/롤백·집계를 검사한다. 실제 검수 업체/운영 데이터/배포와 구분한다.
 
 CI의 Playwright/한글 폰트 설치는 Ubuntu HTTPS archive를 사용하고 APT idle timeout 30초/재시도 2회를 설정한다. 2026-11-05 Azure HTTP 미러의 다운로드 지연으로 작업이 취소된 로그를 근거로 바꿨다. 검사/폰트를 생략하거나 작업 시간 제한을 늘리지 않는다. 이 설정은 일회성 GitHub runner에만 적용한다.
+
+## 페이즈 5-1 탐색/방문 검사
+
+새 마이그레이션은 없다. 기존 V1 profile_views와 V4 현재 동의/행사 설정, V5 성향 결과를 사용한다. 운영 참여자나 방문을 시드하지 않는다. 정확한 실행 조건은 [탐색 계약](discovery.md)을 따른다.
+
+- `npm --prefix frontend run test:discovery-ui`: 명시적 API 대역으로 익명/동의 게이트, 닉네임 필터/뒤로가기/늦은 페이지 응답, CSRF 상세 POST 1회, 새로고침/재시도/공개 철회/위험 URL, 실제 방향 관계/0과 공개 글 링크를 검사한다. 360/390/430/768/1440px 목록·상세·그래프 캡처와 discovery-contract-checks.json을 frontend-ui-review에 남긴다.
+- `cd backend && ./gradlew test integrationTest bootJar`: 실제 MySQL/Redis에서 DiscoveryIntegrationTest의 동시 최초/반대 방문·최초 시각/철회 직렬화/롤백/현재 공개 필터/버전/상한/GET 우회/세션·CSRF를 검사한다. 기존 콘텐츠/댓글 테스트에는 승인된 익명 설정의 profileId 노출 조건도 포함한다.
+
+로컬에는 JRE만 있고 Docker가 없어 백엔드 실행을 대신했다고 기록하지 않는다. 실제 백엔드/컨테이너와 브라우저 검증은 PR #8 CI에서 확인했다. 현재 경로 인증 완료 전 상세가 중복 마운트되는 회귀는 POST 횟수=1과 최초 방문 문구를 함께 검사한다.

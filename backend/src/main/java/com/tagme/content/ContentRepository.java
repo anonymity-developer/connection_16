@@ -63,14 +63,14 @@ public class ContentRepository {
     public boolean inModerationWindow() { return Boolean.TRUE.equals(db.queryForObject("SELECT COUNT(*)=1 FROM event_settings WHERE id=1 AND UTC_TIMESTAMP(6)>=opens_at AND UTC_TIMESTAMP(6)<=moderation_closes_at",Boolean.class)); }
     public Feed feed(Kind kind,long cursor) {
         var rows=db.query("""
-            SELECT i.id,r.content_text,r.template_id,r.style,r.anonymous,p.nickname,i.luck_score,i.landing_zone
+            SELECT i.id,i.author_id,r.content_text,r.template_id,r.style,r.anonymous,p.nickname,i.luck_score,i.landing_zone
             FROM content_items i JOIN content_revisions r ON r.id=i.approved_revision_id
             JOIN users u ON u.id=i.author_id JOIN profiles p ON p.user_id=u.id
             WHERE i.kind=? AND i.id<? AND i.visibility_status='VISIBLE' AND r.moderation_status='APPROVED'
               AND u.status='ACTIVE' AND p.is_public=TRUE
               AND 2=(SELECT COUNT(*) FROM current_consent_policies cp JOIN user_consents uc ON uc.policy_type=cp.policy_type AND uc.policy_version=cp.policy_version AND uc.user_id=u.id AND uc.withdrawn_at IS NULL)
             ORDER BY i.id DESC LIMIT 21
-            """,(r,n)->new PublicContent(r.getLong("id"),r.getString("content_text"),r.getString("template_id"),r.getString("style"),r.getBoolean("anonymous"),r.getBoolean("anonymous")?null:r.getString("nickname"),r.getObject("luck_score",Integer.class),r.getObject("landing_zone",Integer.class)),kind.name(),cursor);
+            """,(r,n)->new PublicContent(r.getLong("id"),r.getString("content_text"),r.getString("template_id"),r.getString("style"),r.getBoolean("anonymous"),r.getBoolean("anonymous")?null:r.getString("nickname"),r.getObject("luck_score",Integer.class),r.getObject("landing_zone",Integer.class),r.getBoolean("anonymous")?null:r.getLong("author_id")),kind.name(),cursor);
         boolean more=rows.size()>20;var items=rows.stream().limit(20).toList();return new Feed(items,more?items.getLast().id():null);
     }
     public void markInProgress(long user,String mission) { db.update("UPDATE mission_progress p JOIN missions m ON m.id=p.mission_id SET p.status='IN_PROGRESS' WHERE p.user_id=? AND m.code=? AND p.status='UNLOCKED'",user,mission); }

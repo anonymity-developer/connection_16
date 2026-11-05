@@ -196,11 +196,17 @@ components:
           type:
           - string
           - 'null'
+        profileId:
+          type:
+          - integer
+          - 'null'
+          format: int64
       required:
       - id
       - content
       - revealProfile
       - nickname
+      - profileId
     OwnComment:
       type: object
       additionalProperties: false

@@ -117,6 +117,12 @@ class ContentIntegrationTest {
         assertThat(db.queryForObject("SELECT COUNT(*) FROM event_completions",Integer.class)).isEqualTo(1);
         assertThat(db.queryForObject("SELECT next_value FROM event_completion_sequence",Long.class)).isEqualTo(2);
     }
+    @Test void profileLinksSwitchOnlyWhenTheAnonymityRevisionIsApproved() {
+        submit(Kind.CHEER,"link-cheer-key-0001","테스트",null);moderation.processOne();assertThat(service.feed(Kind.CHEER,null).items().getFirst().profileId()).isNull();
+        var own=service.own(actor.userId(),Kind.CHEER);service.submit(actor,Kind.CHEER,"link-cheer-key-0002",new ContentController.Submit("공개 테스트","NOTE","INK",false,own.version()),true);
+        assertThat(service.feed(Kind.CHEER,null).items().getFirst().profileId()).isNull();moderation.processOne();assertThat(service.feed(Kind.CHEER,null).items().getFirst().profileId()).isEqualTo(actor.userId());
+        var updated=service.own(actor.userId(),Kind.CHEER);service.submit(actor,Kind.CHEER,"link-cheer-key-0003",new ContentController.Submit("익명 테스트","PLAIN","ROSE",true,updated.version()),true);moderation.processOne();assertThat(service.feed(Kind.CHEER,null).items().getFirst().profileId()).isNull();
+    }
     ResponseEntity<Map> raw(HttpMethod method,String path,Object body,String csrf,String key){var h=new HttpHeaders();h.setContentType(MediaType.APPLICATION_JSON);if(!cookies.isEmpty())h.add(HttpHeaders.COOKIE,String.join("; ",cookies.entrySet().stream().map(e->e.getKey()+"="+e.getValue()).toList()));if(csrf!=null)h.add("X-XSRF-TOKEN",csrf);if(key!=null)h.add("Idempotency-Key",key);var r=http.exchange("/api/v1"+path,method,new HttpEntity<>(body,h),Map.class);for(String c:r.getHeaders().getOrEmpty(HttpHeaders.SET_COOKIE)){var p=c.split(";",2)[0].split("=",2);if(p.length==2)cookies.put(p[0],p[1]);}return r;}
     ResponseEntity<Map> send(String path,Object body){var c=raw(HttpMethod.GET,"/csrf",null,null,null);return raw(HttpMethod.POST,path,body,(String)c.getBody().get("token"),"http-test-key-0001");}
     @Test void httpAcceptedResponseContainsPrivateStateAndNeverCompletesEarly(){

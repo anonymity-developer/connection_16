@@ -1,3 +1,4 @@
+import { Link } from '../../app/navigation';
 import { useEffect, useRef, useState } from 'react';
 import { Button } from '../../components/ui';
 import { Icon } from '../../components/Icon';
@@ -75,7 +76,7 @@ export function ContentMission({ kind }: { kind: ContentKind }) {
     </section>
     <section className="content-feed" aria-labelledby="content-feed-heading"><div className="content-section-heading"><h2 id="content-feed-heading">{wish ? '호수에 모인 소원' : '서로에게 건네는 응원'}</h2><Button variant="quiet" disabled={feedBusy} onClick={() => loadFeed()}>목록 새로고침</Button></div>
       {feed && !feed.items.length && <p className="content-empty">아직 공개된 {wish ? '소원이' : '응원이'} 없어요. 승인된 글이 이곳에 모여요.</p>}
-      <ul className="content-feed-list">{feed?.items.map(item => <li key={item.id}><article className={`content-card tone-${item.style.toLowerCase()} template-${item.templateId.toLowerCase()}`}><p className="content-body">{item.content}</p><span className="content-byline">{item.anonymous ? '익명' : item.nickname || '동료'}</span>{wish ? <WishComments id={item.id} /> : <HeartControl id={item.id} initial={hearts[item.id] || null} loading={heartLoading} />}</article></li>)}</ul>
+      <ul className="content-feed-list">{feed?.items.map(item => <li key={item.id}><article className={`content-card tone-${item.style.toLowerCase()} template-${item.templateId.toLowerCase()}`}><p className="content-body">{item.content}</p><span className="content-byline">{item.anonymous ? '익명' : item.profileId ? <Link href={`/discovery/profiles/${item.profileId}`}>{item.nickname || '동료'}의 프로필 보기</Link> : item.nickname || '동료'}</span>{wish ? <WishComments id={item.id} /> : <HeartControl id={item.id} initial={hearts[item.id] || null} loading={heartLoading} />}</article></li>)}</ul>
       {heartError && <p role="alert" className="form-notice is-error">{heartError}</p>}
       {feedError && <p role="alert" className="form-notice is-error">{feedError}</p>}{feedBusy && <p role="status">공개된 글을 불러오고 있어요.</p>}
       {feed?.nextCursor && <Button variant="secondary" disabled={feedBusy} onClick={() => loadFeed(feed.nextCursor!)}>이전 글 더 보기</Button>}
