@@ -88,6 +88,7 @@ public class AuthService {
                 var locked = accounts.byId(account.id()).orElseThrow(AuthException::loginFailed);
                 if (!active(locked) || !Objects.equals(locked.version(), account.version())) throw AuthException.loginFailed();
                 accounts.updateUsername(account.id(), identity.get().username());
+                accounts.syncProfile(account.id(),identity.get().profile());
                 accounts.recordLogin(account.id());
                 return accounts.byId(account.id()).orElseThrow(AuthException::loginFailed);
             });
@@ -109,6 +110,7 @@ public class AuthService {
                     if (!active(locked) || locked.hash() != null || !locked.mattermostId().equals(verified.identity().id())) throw AuthException.conflict();
                     accounts.updateUsername(userId, verified.identity().username());
                 }
+                accounts.syncProfile(userId,verified.identity().profile());
                 accounts.insertCredential(userId, hash);
                 accounts.recordLogin(userId);
                 return accounts.byId(userId).orElseThrow(AuthException::invalid);
@@ -129,6 +131,7 @@ public class AuthService {
                 if (!active(locked) || locked.hash() == null || !locked.mattermostId().equals(verified.identity().id())
                         || version(locked) != verified.challenge().version()) throw AuthException.invalid();
                 accounts.updateUsername(userId, verified.identity().username());
+                accounts.syncProfile(userId,verified.identity().profile());
                 accounts.changePassword(userId, hash);
                 return accounts.byId(userId).orElseThrow(AuthException::invalid);
             });

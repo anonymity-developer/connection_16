@@ -50,4 +50,16 @@ class MattermostClientTest {
         server.expect(requestTo("http://localhost/api/v4/users/username/alice")).andRespond(withUnauthorizedRequest());
         assertThatThrownBy(() -> client.byUsername("alice")).isInstanceOf(AuthException.class).satisfies(error -> assertThat(((AuthException)error).status()).isEqualTo(503));
     }
+    @Test void importsStructuredNameAndPhotoVersionOnlyAfterChannelMembership() {
+        server.expect(requestTo("http://localhost/api/v4/users/username/alice")).andRespond(withSuccess("{\"id\":\""+USER+"\",\"username\":\"alice\",\"delete_at\":0,\"first_name\":\"테스트[구미_3반]\",\"last_name\":\"\",\"last_picture_update\":123}",MediaType.APPLICATION_JSON));
+        server.expect(requestTo("http://localhost/api/v4/channels/"+CHANNEL+"/members/"+USER)).andRespond(withSuccess("{\"user_id\":\""+USER+"\",\"channel_id\":\""+CHANNEL+"\"}",MediaType.APPLICATION_JSON));
+        assertThat(client.byUsername("alice").orElseThrow().profile()).isEqualTo(new MattermostProfile("테스트","구미",3,123));server.verify();
+    }
+    @Test void photoUsesServerTokenAndRejectsHtmlSvgAndOversizedBodies() {
+        byte[] png={(byte)137,80,78,71,13,10,26,10,0};
+        server.expect(requestTo("http://localhost/api/v4/users/"+USER+"/image")).andExpect(header("Authorization","Bearer test-only-token")).andRespond(withSuccess(png,MediaType.IMAGE_PNG));
+        server.expect(requestTo("http://localhost/api/v4/users/"+USER+"/image")).andRespond(withSuccess("<svg/>",MediaType.valueOf("image/svg+xml")));
+        server.expect(requestTo("http://localhost/api/v4/users/"+USER+"/image")).andRespond(withSuccess(new byte[1024*1024+1],MediaType.IMAGE_PNG));
+        assertThat(client.photo(USER)).isEqualTo(png);assertThatThrownBy(()->client.photo(USER)).isInstanceOf(AuthException.class);assertThatThrownBy(()->client.photo(USER)).isInstanceOf(AuthException.class);server.verify();
+    }
 }

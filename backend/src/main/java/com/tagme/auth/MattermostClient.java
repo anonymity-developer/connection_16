@@ -15,9 +15,11 @@ import org.springframework.web.client.RestClientResponseException;
 
 @Component
 public class MattermostClient {
-    public record Identity(String id, String username) { }
+    public record Identity(String id, String username, MattermostProfile profile) {
+        @Override public String toString() { return "Identity[redacted]"; }
+    }
     @JsonIgnoreProperties(ignoreUnknown = true)
-    record User(String id, String username, @JsonProperty("delete_at") Long deleteAt, @JsonProperty("is_bot") boolean bot) { }
+    record User(String id, String username, @JsonProperty("delete_at") Long deleteAt, @JsonProperty("is_bot") boolean bot, @JsonProperty("first_name") String firstName, @JsonProperty("last_name") String lastName, String nickname, @JsonProperty("last_picture_update") Long pictureUpdatedAt) { }
     @JsonIgnoreProperties(ignoreUnknown = true)
     record Member(@JsonProperty("user_id") String userId, @JsonProperty("channel_id") String channelId) { }
     @JsonIgnoreProperties(ignoreUnknown = true)
@@ -49,7 +51,7 @@ public class MattermostClient {
         var member = get(Member.class, "channels", properties.channelId(), "members", user.id());
         if (member == null) return Optional.empty();
         if (!user.id().equals(member.userId()) || !properties.channelId().equals(member.channelId())) throw AuthException.unavailable();
-        return Optional.of(new Identity(user.id(), user.username()));
+        return Optional.of(new Identity(user.id(), user.username(),MattermostProfile.parse(user.firstName(),user.lastName(),user.nickname(),user.pictureUpdatedAt()==null?0:user.pictureUpdatedAt())));
     }
     private <T> T get(Class<T> type, String... segments) {
         try { return http.get().uri(builder -> builder.pathSegment(segments).build()).retrieve().body(type); }
@@ -57,6 +59,17 @@ public class MattermostClient {
             if (exception.getStatusCode().value() == 404) return null;
             throw AuthException.unavailable();
         } catch (RestClientException exception) { throw AuthException.unavailable(); }
+    }
+    public byte[] photo(String externalId) {
+        if(externalId==null||!externalId.matches("[a-z0-9]{26}"))throw AuthException.unavailable();
+        try { return http.get().uri(b->b.pathSegment("users",externalId,"image").build()).exchange((request,response)->{
+            if(response.getStatusCode().value()==404)return null;
+            if(!response.getStatusCode().is2xxSuccessful()||!org.springframework.http.MediaType.IMAGE_PNG.isCompatibleWith(response.getHeaders().getContentType()))throw AuthException.unavailable();
+            byte[] bytes=response.getBody().readNBytes(1024*1024+1);
+            byte[] signature={(byte)137,80,78,71,13,10,26,10};
+            if(bytes.length>1024*1024||bytes.length<8||!java.util.Arrays.equals(signature,java.util.Arrays.copyOf(bytes,8)))throw AuthException.unavailable();
+            return bytes;
+        }); } catch(RestClientException failure){throw AuthException.unavailable();}
     }
     public void sendCode(Identity target, OtpStore.Purpose purpose, String code) {
         try {

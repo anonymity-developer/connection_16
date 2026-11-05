@@ -86,17 +86,18 @@ class ParticipationIntegrationTest {
             db.update("INSERT INTO current_consent_policies VALUES (?, 'test-v1')",type.name());
         }
         alice=accounts.insertUser("a".repeat(26),"alice"); accounts.insertCredential(alice,passwords.encode(PASSWORD)); principal=accounts.byId(alice).orElseThrow().principal();
-        when(mattermost.byUsername("alice")).thenReturn(Optional.of(new MattermostClient.Identity("a".repeat(26),"alice")));
+        accounts.syncProfile(alice,new MattermostProfile("테스트이름","서울",13,0));
+        when(mattermost.byUsername("alice")).thenReturn(Optional.of(new MattermostClient.Identity("a".repeat(26),"alice",new MattermostProfile("테스트이름","서울",13,0))));
         token=Base64.getUrlEncoder().withoutPadding().encodeToString(new byte[32]);
         db.update("INSERT INTO tags(mission_id,token_hash) VALUES (1,?)",ParticipationService.tokenHash(token));
     }
     List<Long> interestIds() { return List.of(repository.interests().getFirst().id()); }
     ParticipationController.ProfileRequest request(boolean visible,long version) {
-        return new ParticipationController.ProfileRequest("테스트별명","테스트이름",13,"테스트 소개","https://github.com/example",null,visible,interestIds(),
+        return new ParticipationController.ProfileRequest("테스트별명","테스트 소개","https://github.com/example",null,interestIds(),
                 Arrays.stream(PolicyType.values()).map(t -> new ParticipationController.Acceptance(t,"test-v1")).toList(),version);
     }
     Map<String,Object> payload(boolean visible,long version) {
-        var p=new HashMap<String,Object>(); p.put("nickname","테스트별명");p.put("realName","테스트이름");p.put("classNo",13);p.put("bio","테스트 소개");p.put("isPublic",visible);p.put("expectedVersion",version);p.put("interestIds",interestIds());
+        var p=new HashMap<String,Object>(); p.put("nickname","테스트별명");p.put("bio","테스트 소개");p.put("expectedVersion",version);p.put("interestIds",interestIds());
         p.put("acceptPolicies",Arrays.stream(PolicyType.values()).map(t -> Map.of("type",t.name(),"version","test-v1")).toList());return p;
     }
     ResponseEntity<Map> raw(HttpMethod method,String path,Object body,String csrf) {
@@ -153,9 +154,10 @@ class ParticipationIntegrationTest {
         assertThat(accounts.byId(alice).orElseThrow().onboardingRequired()).isTrue();
         assertThatThrownBy(() -> service.save(principal,request(true,1))).isInstanceOf(AuthException.class);
         db.update("UPDATE event_settings SET opens_at=UTC_TIMESTAMP(6)-INTERVAL 3 HOUR,submit_closes_at=UTC_TIMESTAMP(6)-INTERVAL 2 HOUR,moderation_closes_at=UTC_TIMESTAMP(6)-INTERVAL 1 HOUR");
-        service.consent(principal,PolicyType.PROFILE_PUBLICATION,new ParticipationController.ConsentRequest("test-v1",false));
-        assertThat(repository.profile(alice).isPublic()).isFalse();assertThat(repository.mission(alice,MissionCode.SHOW_ME).state()).isEqualTo("COMPLETED");
-        assertThat(db.queryForObject("SELECT COUNT(*) FROM user_consent_events WHERE action='WITHDRAWN'",Integer.class)).isEqualTo(1);
+        login();var disabled=send(HttpMethod.PUT,"/users/me/consents/PROFILE_PUBLICATION",Map.of("version","test-v1","agreed",false));
+        assertThat(disabled.getStatusCode().value()).isEqualTo(404);
+        assertThat(repository.profile(alice).isPublic()).isTrue();assertThat(repository.mission(alice,MissionCode.SHOW_ME).state()).isEqualTo("COMPLETED");
+        assertThat(db.queryForObject("SELECT COUNT(*) FROM user_consent_events WHERE action='WITHDRAWN'",Integer.class)).isZero();
     }
     @Test void profileVersionAndUrlValidationNeverSilentlyOverwriteOrAllowScriptLinks() {
         login();assertThat(send(HttpMethod.PUT,"/users/me/profile",payload(false,0)).getStatusCode().value()).isEqualTo(200);
@@ -245,5 +247,12 @@ class ParticipationIntegrationTest {
         db.update("UPDATE users SET status='SUSPENDED' WHERE id=?",alice);
         assertThatThrownBy(() -> service.save(principal,request(true,0))).isInstanceOf(AuthException.class);
         assertThat(db.queryForObject("SELECT COUNT(*) FROM mission_progress",Integer.class)).isZero();assertThat(repository.profile(alice)).isNull();
+    }
+    @Test void importedIdentityCannotBeOverwrittenAndOnlyNicknameIsRequired() {
+        login();var body=payload(true,0);body.put("realName","위조 이름");assertThat(send(HttpMethod.PUT,"/users/me/profile",body).getStatusCode().value()).isEqualTo(400);
+        body=payload(true,0);body.put("isPublic",false);assertThat(send(HttpMethod.PUT,"/users/me/profile",body).getStatusCode().value()).isEqualTo(400);
+        var minimal=new ParticipationController.ProfileRequest("닉네임만",null,null,null,List.of(),Arrays.stream(PolicyType.values()).map(t->new ParticipationController.Acceptance(t,"test-v1")).toList(),0);
+        assertThat(service.save(principal,minimal).participationReady()).isTrue();assertThat(repository.profile(alice).realName()).isEqualTo("테스트이름");assertThat(repository.profile(alice).isPublic()).isTrue();
+        assertThat(repository.interests()).anyMatch(x->"DOMAIN".equals(x.category())).anyMatch(x->"TECH_STACK".equals(x.category()));
     }
 }

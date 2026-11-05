@@ -37,7 +37,7 @@ public class DiscoveryService {
             participation.requireOpen(false);
             var person=repository.person(actor.userId(),id);if(person==null)throw error(404,"PROFILE_NOT_FOUND","공개된 프로필을 찾을 수 없어요.");
             boolean created=repository.visit(actor.userId(),id);var fields=repository.fields(id);person=repository.person(actor.userId(),id);
-            return new Detail(person,fields.realName(),fields.region(),fields.classNo(),fields.bio(),safeUrl(fields.githubUrl()),safeUrl(fields.blogUrl()),created);
+            return new Detail(person,fields.realName(),fields.region(),fields.classNo(),fields.bio(),safeUrl(fields.githubUrl()),safeUrl(fields.blogUrl()),fields.photoUrl(),created);
         });
     }
     static String safeUrl(String text) {

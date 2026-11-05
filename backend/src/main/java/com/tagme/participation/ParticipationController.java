@@ -21,10 +21,9 @@ public class ParticipationController {
     }
     public record Acceptance(@NotNull PolicyType type,@NotBlank @Pattern(regexp="[A-Za-z0-9._-]{1,64}") String version) { }
     public record ConsentRequest(@NotBlank @Pattern(regexp="[A-Za-z0-9._-]{1,64}") String version,@NotNull Boolean agreed) { }
-    public record ProfileRequest(@NotBlank @Size(max=30) String nickname,@NotBlank @Size(max=100) String realName,
-                                 @NotNull @Min(1) @Max(9999) Integer classNo,@NotBlank @Size(max=200) String bio,
-                                 @Size(max=2048) String githubUrl,@Size(max=2048) String blogUrl,@NotNull Boolean isPublic,
-                                 @NotEmpty @Size(max=5) List<@NotNull @Positive Long> interestIds,
+    public record ProfileRequest(@NotBlank @Size(max=30) String nickname,@Size(max=200) String bio,
+                                 @Size(max=2048) String githubUrl,@Size(max=2048) String blogUrl,
+                                 @NotNull @Size(max=10) List<@NotNull @Positive Long> interestIds,
                                  @NotNull @Size(max=2) List<@Valid Acceptance> acceptPolicies,@Min(0) long expectedVersion) {
         @Override public String toString() { return "ProfileRequest[redacted]"; }
     }
@@ -36,11 +35,9 @@ public class ParticipationController {
     public ParticipationController(ParticipationService service) { this.service = service; }
     @GetMapping("/event") public Event event() { return service.event(); }
     @GetMapping("/policies") public Policies policies(Authentication auth) { return service.policies(principal(auth).userId()); }
-    @GetMapping("/interests") public List<Interest> interests() { return service.interests(); }
+    @GetMapping("/interests") public List<CatalogInterest> interests() { return service.interests(); }
     @GetMapping("/users/me/profile") public ProfileState profile(Authentication auth) { return service.profile(principal(auth).userId()); }
     @PutMapping("/users/me/profile") public ProfileState save(Authentication auth,@Valid @RequestBody ProfileRequest body) { return service.save(principal(auth),body); }
-    @PutMapping("/users/me/consents/{type}") @ResponseStatus(HttpStatus.NO_CONTENT)
-    public void consent(Authentication auth,@PathVariable PolicyType type,@Valid @RequestBody ConsentRequest body) { service.consent(principal(auth),type,body); }
     @GetMapping({"/missions","/missions/collection"}) public Collection collection(Authentication auth) { return service.collection(principal(auth).userId()); }
     @GetMapping("/missions/completion") public Completion completion(Authentication auth) { return service.collection(principal(auth).userId()).completion(); }
     @PostMapping("/tags/resolve") public TagResult resolve(Authentication auth,@Valid @RequestBody TagRequest body) { return service.resolve(principal(auth),ParticipationService.tokenHash(body.token())); }

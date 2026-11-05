@@ -61,14 +61,14 @@ class AuthIntegrationTest {
 
     @BeforeEach void cleanDisposableContainers() {
         // These are dedicated, ephemeral Testcontainers, never operator data.
-        jdbc.update("DELETE FROM user_credentials"); jdbc.update("DELETE FROM users");
+        jdbc.update("DELETE FROM profiles"); jdbc.update("DELETE FROM user_credentials"); jdbc.update("DELETE FROM users");
         try (var connection = redis.getConnectionFactory().getConnection()) { connection.serverCommands().flushDb(); }
         reset(mattermost, crypto, accounts, sessions); sent.clear();
         when(mattermost.byUsername(anyString())).thenReturn(Optional.empty());
-        when(mattermost.byUsername("alice")).thenReturn(Optional.of(new MattermostClient.Identity(ALICE, "alice")));
-        when(mattermost.byUsername("bob")).thenReturn(Optional.of(new MattermostClient.Identity(BOB, "bob")));
-        when(mattermost.byId(ALICE)).thenReturn(Optional.of(new MattermostClient.Identity(ALICE, "alice")));
-        when(mattermost.byId(BOB)).thenReturn(Optional.of(new MattermostClient.Identity(BOB, "bob")));
+        when(mattermost.byUsername("alice")).thenReturn(Optional.of(new MattermostClient.Identity(ALICE,"alice",new MattermostProfile("테스트이름","서울",13,0))));
+        when(mattermost.byUsername("bob")).thenReturn(Optional.of(new MattermostClient.Identity(BOB,"bob",new MattermostProfile("테스트이름","서울",13,0))));
+        when(mattermost.byId(ALICE)).thenReturn(Optional.of(new MattermostClient.Identity(ALICE,"alice",new MattermostProfile("테스트이름","서울",13,0))));
+        when(mattermost.byId(BOB)).thenReturn(Optional.of(new MattermostClient.Identity(BOB,"bob",new MattermostProfile("테스트이름","서울",13,0))));
         doAnswer(invocation -> { sent.add(new Sent(((MattermostClient.Identity)invocation.getArgument(0)).id(), invocation.getArgument(1), invocation.getArgument(2))); return null; })
                 .when(mattermost).sendCode(any(), any(), anyString());
     }
@@ -163,9 +163,9 @@ class AuthIntegrationTest {
     }
     @Test void renamedUserKeepsExternalIdentityAndReusedUsernameCannotInheritPassword() {
         signup("alice");
-        when(mattermost.byUsername("new-alice")).thenReturn(Optional.of(new MattermostClient.Identity(ALICE, "new-alice")));
+        when(mattermost.byUsername("new-alice")).thenReturn(Optional.of(new MattermostClient.Identity(ALICE,"new-alice",new MattermostProfile("테스트이름","서울",13,0))));
         assertThat(new Browser().login("new-alice", PASSWORD).getStatusCode().value()).isEqualTo(200);
-        when(mattermost.byUsername("alice")).thenReturn(Optional.of(new MattermostClient.Identity(BOB, "alice")));
+        when(mattermost.byUsername("alice")).thenReturn(Optional.of(new MattermostClient.Identity(BOB,"alice",new MattermostProfile("테스트이름","서울",13,0))));
         assertThat(new Browser().login("alice", PASSWORD).getStatusCode().value()).isEqualTo(401);
         assertThat(accounts.byExternalId(ALICE).orElseThrow().username()).isEqualTo("new-alice");
     }
@@ -252,5 +252,22 @@ class AuthIntegrationTest {
         when(mattermost.byUsername("alice")).thenThrow(AuthException.unavailable());
         assertThat(browser.login("alice", PASSWORD).getStatusCode().value()).isEqualTo(503);
         assertThat(browser.get("/users/me").getStatusCode().value()).isEqualTo(401);
+    }
+    @Test void signupImportsMattermostMetadataAndLoginRefreshesItWithoutEditingTagMeFields() {
+        var browser=signup("alice");var account=accounts.byExternalId(ALICE).orElseThrow();
+        assertThat(accounts.profileIdentity(account.id()).realName()).isEqualTo("테스트이름");assertThat(accounts.profileIdentity(account.id()).ready()).isTrue();
+        jdbc.update("INSERT INTO profiles(user_id,nickname,bio,is_public) VALUES (?,'내 닉네임','내 소개',TRUE)",account.id());
+        long before=jdbc.queryForObject("SELECT version FROM profiles WHERE user_id=?",Long.class,account.id());
+        when(mattermost.byUsername("alice")).thenReturn(Optional.of(new MattermostClient.Identity(ALICE,"alice",new MattermostProfile("바뀐 이름","대전",7,123))));
+        assertThat(browser.login("alice",PASSWORD).getStatusCode().value()).isEqualTo(200);
+        assertThat(accounts.profileIdentity(account.id()).region()).isEqualTo("대전");assertThat(accounts.profileIdentity(account.id()).pictureVersion()).isEqualTo(123);
+        assertThat(jdbc.queryForObject("SELECT nickname FROM profiles WHERE user_id=?",String.class,account.id())).isEqualTo("내 닉네임");assertThat(jdbc.queryForObject("SELECT version FROM profiles WHERE user_id=?",Long.class,account.id())).isEqualTo(before+1);
+        jdbc.update("DELETE FROM profiles WHERE user_id=?",account.id());
+    }
+    @Test void missingImportedNameNeverCreatesAnAccountWithInventedIdentity() {
+        var browser=new Browser();String challenge=browser.otp("alice",OtpStore.Purpose.SIGN_UP);
+        when(mattermost.byId(ALICE)).thenReturn(Optional.of(new MattermostClient.Identity(ALICE,"alice",null)));
+        var result=browser.send(HttpMethod.POST,"/auth/signup",Map.of("challengeId",challenge,"code",sent.getLast().code(),"password",PASSWORD));
+        assertThat(result.getStatusCode().value()).isEqualTo(409);assertThat(result.getBody().get("code")).isEqualTo("MATTERMOST_PROFILE_INVALID");assertThat(accounts.byExternalId(ALICE)).isEmpty();
     }
 }
