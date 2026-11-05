@@ -32,12 +32,12 @@ class DiscoveryIntegrationTest {
     @Container static final MySQLContainer<?> MYSQL=new MySQLContainer<>("mysql:8.4");
     @Container static final GenericContainer<?> REDIS=new GenericContainer<>(DockerImageName.parse("redis:7.4-alpine")).withExposedPorts(6379);
     @DynamicPropertySource static void properties(DynamicPropertyRegistry r){r.add("spring.datasource.url",MYSQL::getJdbcUrl);r.add("spring.datasource.username",MYSQL::getUsername);r.add("spring.datasource.password",MYSQL::getPassword);r.add("spring.data.redis.host",REDIS::getHost);r.add("spring.data.redis.port",()->REDIS.getMappedPort(6379));r.add("tagme.auth.enabled",()->true);r.add("tagme.auth.token",()->"test-only-token");r.add("tagme.auth.channel-id",()->"c".repeat(26));r.add("tagme.auth.hmac-key",()->Base64.getEncoder().encodeToString(new byte[32]));}
-    @Autowired JdbcTemplate db;@Autowired AuthRepository accounts;@Autowired PasswordEncoder passwords;@Autowired DiscoveryService service;@Autowired ParticipationRepository participation;@Autowired ObjectMapper json;@Autowired TestRestTemplate http;@Autowired PlatformTransactionManager manager;
+    @Autowired JdbcTemplate db;@MockitoSpyBean AuthRepository accounts;@Autowired PasswordEncoder passwords;@Autowired DiscoveryService service;@Autowired ParticipationRepository participation;@Autowired ObjectMapper json;@Autowired TestRestTemplate http;@Autowired PlatformTransactionManager manager;
     @Autowired org.springframework.data.redis.core.StringRedisTemplate redis;
     @MockitoSpyBean DiscoveryRepository repository;@MockitoBean MattermostClient mattermost;
     AuthPrincipal actor,bob,charlie;String hash;long interest;final Map<String,String> cookies=new HashMap<>();static final String PASSWORD="a long test password";
     @BeforeEach void setup(){
-        reset(repository,mattermost);cookies.clear();
+        reset(repository,mattermost,accounts);cookies.clear();
         for(String t:List.of("profile_views","current_sync_questionnaire","sync_results","sync_questionnaires","user_consent_events","user_consents","user_interests","profiles","user_credentials","users","current_consent_policies","consent_policies","event_settings"))db.update("DELETE FROM "+t);
         try(var c=redis.getConnectionFactory().getConnection()){c.serverCommands().flushDb();}
         db.update("INSERT INTO event_settings(id,opens_at,submit_closes_at,moderation_closes_at) VALUES (1,UTC_TIMESTAMP(6)-INTERVAL 1 HOUR,UTC_TIMESTAMP(6)+INTERVAL 1 HOUR,UTC_TIMESTAMP(6)+INTERVAL 2 HOUR)");
@@ -71,12 +71,17 @@ class DiscoveryIntegrationTest {
     }
     @Test void failedDetailTransactionRollsBackTheVisit(){doAnswer(i->{i.callRealMethod();throw new org.springframework.dao.DataAccessResourceFailureException("test rollback");}).when(repository).visit(anyLong(),anyLong());assertThatThrownBy(()->service.open(actor,bob.userId())).isInstanceOf(org.springframework.dao.DataAccessException.class);assertThat(db.queryForObject("SELECT COUNT(*) FROM profile_views",Integer.class)).isZero();}
     @Test void hideDuringOpenWaitsOnTheSameUserLockAndWins()throws Exception{
-        var locked=new CountDownLatch(1);var release=new CountDownLatch(1);
+        var locked=new CountDownLatch(1);var release=new CountDownLatch(1);var attempting=new CountDownLatch(1);var calls=new java.util.concurrent.atomic.AtomicInteger();
+        doAnswer(i->{if(calls.incrementAndGet()==2)attempting.countDown();return i.callRealMethod();}).when(accounts).lockUser(bob.userId());
         try(var pool=Executors.newFixedThreadPool(2)){
             var hide=pool.submit(()->new TransactionTemplate(manager).executeWithoutResult(s->{accounts.lockUser(bob.userId());db.update("UPDATE profiles SET is_public=FALSE WHERE user_id=?",bob.userId());locked.countDown();try{assertThat(release.await(15,TimeUnit.SECONDS)).isTrue();}catch(InterruptedException e){throw new RuntimeException(e);}}));
-            assertThat(locked.await(15,TimeUnit.SECONDS)).isTrue();var open=pool.submit(()->{assertThatThrownBy(()->service.open(actor,bob.userId())).isInstanceOf(AuthException.class);});release.countDown();hide.get(30,TimeUnit.SECONDS);open.get(30,TimeUnit.SECONDS);
+            assertThat(locked.await(15,TimeUnit.SECONDS)).isTrue();var open=pool.submit(()->{assertThatThrownBy(()->service.open(actor,bob.userId())).isInstanceOf(AuthException.class);});assertThat(attempting.await(15,TimeUnit.SECONDS)).isTrue();release.countDown();hide.get(30,TimeUnit.SECONDS);open.get(30,TimeUnit.SECONDS);
         }finally{release.countDown();}
         assertThat(db.queryForObject("SELECT COUNT(*) FROM profile_views",Integer.class)).isZero();
+    }
+    @Test void concurrentReciprocalOpensLockUsersInOneOrder()throws Exception{
+        try(var pool=Executors.newFixedThreadPool(2)){var a=pool.submit(()->service.open(actor,bob.userId()));var b=pool.submit(()->service.open(bob,actor.userId()));a.get(30,TimeUnit.SECONDS);b.get(30,TimeUnit.SECONDS);}
+        assertThat(db.queryForObject("SELECT COUNT(*) FROM profile_views",Integer.class)).isEqualTo(2);assertThat(service.stats(actor).mutualCount()).isEqualTo(1);assertThat(service.stats(bob).mutualCount()).isEqualTo(1);
     }
     @Test void eventClosureAllowsReadSurfacesButNoNewDetailVisits(){db.update("UPDATE event_settings SET submit_closes_at=UTC_TIMESTAMP(6)-INTERVAL 1 SECOND");assertThat(people().items()).hasSize(2);assertThat(service.stats(actor).visitedCount()).isZero();assertThatThrownBy(()->service.open(actor,bob.userId())).isInstanceOf(AuthException.class);assertThat(db.queryForObject("SELECT COUNT(*) FROM profile_views",Integer.class)).isZero();}
     @Test void legacyUnsafeLinksAreNeverDisclosedInDetails(){db.update("UPDATE profiles SET github_url='javascript:alert(1)',blog_url='https://name:secret@example.com' WHERE user_id=?",bob.userId());var d=service.open(actor,bob.userId());assertThat(d.githubUrl()).isNull();assertThat(d.blogUrl()).isNull();}
