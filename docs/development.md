@@ -168,3 +168,13 @@ CI의 Playwright/한글 폰트 설치는 Ubuntu HTTPS archive를 사용하고 AP
 - `cd backend && ./gradlew test integrationTest bootJar`: 실제 MySQL/Redis에서 DiscoveryIntegrationTest의 동시 최초/반대 방문·최초 시각/철회 직렬화/롤백/현재 공개 필터/버전/상한/GET 우회/세션·CSRF를 검사한다. 기존 콘텐츠/댓글 테스트에는 승인된 익명 설정의 profileId 노출 조건도 포함한다.
 
 로컬에는 JRE만 있고 Docker가 없어 백엔드 실행을 대신했다고 기록하지 않는다. 실제 백엔드/컨테이너와 브라우저 검증은 PR #8 CI에서 확인했다. 현재 경로 인증 완료 전 상세가 중복 마운트되는 회귀는 POST 횟수=1과 최초 방문 문구를 함께 검사한다.
+
+## 페이즈 5-2 관리자 운영 검증
+
+V8을 V7 뒤에 적용한다. 기존 migration은 변경하지 않으며 운영 계정/역할/실제 원문은 시드하지 않는다. admin_audit_logs와 manual_retry_count·운영 조회 인덱스가 추가된다. [운영 계약](operations-admin.md)과 [OpenAPI](operations.openapi.yaml)가 현재 기준이다.
+
+- `npm --prefix frontend run test:operations-ui`: 테스트 전용 API 대역으로 ADMIN 게이트, 검수본 비교/HTML 안전 표시, 사유·busy/충돌·응답 유실 복구, 재처리 한도/공개 버전/감사/역할 회수와 늦은 응답을 검사한다. 목록·상세·콘텐츠·감사 5개 폭 캡처와 operations-contract-checks.json을 남긴다.
+- 같은 임시 loopback preview의 읽기 전용 대역으로 운영 화면의 렌더 검사도 실행한다. 앱 코드나 운영 Vite 설정에 우회/가짜 운영자 상태를 넣지 않는다. 결과는 .taste-skill/operations-render와 CI frontend-ui-review에 남긴다.
+- `cd backend && ./gradlew test integrationTest bootJar`: 실제 MySQL/Redis의 OperationsIntegrationTest에서 역할/인가/CSRF, 현재 버전·fence, 동시 변경, 재처리 제한/원접수, 숨김/worker·댓글, 감사 롤백/실제 판정을 검사한다.
+
+현재 로컬에는 javac/Docker와 Playwright 브라우저 바이너리가 없어 해당 실행을 CI에서 확인한다. 로컬 lint/단위/빌드 성공을 실제 DB/브라우저 성공으로 기록하지 않는다. CI는 기존 검사/폰트를 유지하고 운영 브라우저 검사만 추가한다.

@@ -79,7 +79,7 @@ public class OperationsService {
             var mission=participation.mission(item.authorId(),item.kind()==Kind.COMMENT?MissionCode.MAKE_A_WISH:item.kind().mission());
             var account=accounts.byId(item.authorId()).orElseThrow(AuthException::invalid);
             var parent=item.kind()==Kind.COMMENT?reactions.byItem(item.id()):null;
-            if(!"ACTIVE".equals(account.status())||!participation.eligible(item.authorId())||!mission.active()||"LOCKED".equals(mission.state())||(parent!=null&&!reactions.visible(parent.wishId(),Kind.WISH)))throw error(409,"PARTICIPATION_UNAVAILABLE","작성자의 현재 참여 조건을 확인해 주세요.");
+            if(!"ACTIVE".equals(account.status())||!participation.eligible(item.authorId())||!mission.active()||"LOCKED".equals(mission.state())||(item.kind()==Kind.COMMENT&&(parent==null||!reactions.visible(parent.wishId(),Kind.WISH))))throw error(409,"PARTICIPATION_UNAVAILABLE","작성자의 현재 참여 조건을 확인해 주세요.");
             int count=repository.retryCount(id);if(count>=3)throw error(409,"RETRY_LIMIT","수동 재처리는 최대 3회예요. 원문을 확인하고 판정해 주세요.");
             var before=AdminAuditRepository.state(item,job);before.put("retryCount",count);repository.retry(job);var after=AdminAuditRepository.state(content.item(item.id(),false),content.job(id,false));after.put("retryCount",count+1);audit.record(actor.userId(),"MODERATION_RETRY","MODERATION_JOB",id,reason,before,after);
         });

@@ -67,6 +67,7 @@ class OperationsIntegrationTest {
         code(()->operations.access(new AuthPrincipal(actor.userId(),actor.version(),"ADMIN")),"ADMIN_REQUIRED");
         code(()->operations.visibility(actor,999999,1,"HIDDEN","검토"),"ADMIN_REQUIRED");
         code(()->moderation.review(actor,999999,new ReviewRequest(0,"APPROVED","검토")),"ADMIN_REQUIRED");
+        code(()->operations.task(actor,999999),"ADMIN_REQUIRED");code(()->operations.detail(actor,999999),"ADMIN_REQUIRED");
         assertThat(operations.access(admin).admin()).isTrue();db.update("UPDATE users SET role='USER' WHERE id=?",admin.userId());code(()->operations.tasks(admin,null,null,null),"ADMIN_REQUIRED");
     }
     @Test void taskAndContentCursorsKeepPendingAndApprovedBodiesSeparate()throws Exception {

@@ -1,6 +1,6 @@
 # 전체 도메인 ERD와 관계 규칙
 
-이 문서는 읽기 편하게 도메인별로 나눈 전체 설계다. **1~3절의 기본 도식은 V1에 존재하는 테이블**이며, **1.1절 로그인 확장은 V3다. 8절의 접수/완료 근거와 9절의 동의/행사 설정 일부는 V4, 성향/게임은 V5, 콘텐츠/검수는 V6, 댓글/하트는 마지막 V7 절에 구현했다. 시상/신고와 나머지 활동은 후속 계획**이다. 후속 컬럼/타입은 migration 작성 시 검증하며, 존재하지 않는 FK나 테이블을 이미 적용한 것처럼 사용하지 않는다. 전체 테이블 사전과 인덱스 요약은 [데이터 모델](data-model.md)에 있다.
+이 문서는 읽기 편하게 도메인별로 나눈 전체 설계다. **1~3절의 기본 도식은 V1에 존재하는 테이블**이며, **1.1절 로그인 확장은 V3다. 8절의 접수/완료 근거와 9절의 동의/행사 설정 일부는 V4, 성향/게임은 V5, 콘텐츠/검수는 V6, 댓글/하트는 V7, 관리자 감사/재처리 한도는 V8 절에 구현했다. 시상/신고와 나머지 활동은 후속 계획**이다. 후속 컬럼/타입은 migration 작성 시 검증하며, 존재하지 않는 FK나 테이블을 이미 적용한 것처럼 사용하지 않는다. 전체 테이블 사전과 인덱스 요약은 [데이터 모델](data-model.md)에 있다.
 
 단일 행사 기준이며 다중 행사를 지원하려면 event_id와 UNIQUE 범위를 다시 설계해야 한다. 아래 대문자 엔티티는 실제 snake_case 테이블을 가리킨다. PK/FK/UK는 기본키/외래키/유일 제약이며 복합키는 설명에서 다시 명시한다.
 
@@ -397,7 +397,7 @@ erDiagram
 
 `UNIQUE(award_run_id,award_type,rank)`로 한 정산의 동일 수상 자리를 중복 배정하지 않는다. 재정산은 새 run으로 만들고 발표 이후 정정은 별도 이력을 남긴다. 초기 자동화는 후보 snapshot 생성이며 관리자 최종 확정과 구분한다. 경품 지급 연락처를 별도 수집한다면 목적/보관 기간을 정한 뒤 추가 설계하며 현재 ERD에 이미 있다고 가정하지 않는다.
 
-## 9. 신고, 동의/설정(V4)과 신고/감사(후속)
+## 9. 동의/설정(V4), 관리자 감사(V8)와 신고/활동(후속)
 
 ```mermaid
 erDiagram
@@ -450,7 +450,7 @@ erDiagram
     }
 ```
 
-resolved_by는 처리한 관리자이며 미처리 신고에서는 NULL이다. 감사 로그 actor_id는 조치 당시 운영 주체를 가리키며 자동화 주체의 표현은 migration 단계에서 정한다. before/after에는 비밀번호/토큰/불필요한 개인정보를 넣지 않는다. activity_events.user_id는 nullable이며 수집 목적/보관 기간을 확정한 이벤트만 넣는다.
+resolved_by는 처리한 관리자이며 미처리 신고에서는 NULL이다. V8 감사 로그 actor_id는 조치한 ADMIN 사용자의 실제 FK다. 자동 판정은 moderation_reviews에 남고 관리자 감사로 위장하지 않는다. content_reports와 activity_events는 아직 후속이다. before/after에는 비밀번호/토큰/불필요한 개인정보를 넣지 않는다. activity_events.user_id는 nullable이며 수집 목적/보관 기간을 확정한 이벤트만 넣는다.
 
 | 테이블 | 컬럼 |
 | --- | --- |
@@ -535,3 +535,16 @@ erDiagram
 ```
 
 kind 상수 CHECK와 (id,kind) 복합 FK가 소원/카드/댓글의 혼용을 막는다. (comment_item,author) FK도 확인한다. content_items의 WISH/CHEER 슬롯은 generated slot_kind의 UNIQUE로 그대로 유지하고 COMMENT일 때만 NULL로 다중 작성을 허용한다. 본문/판정은 앞의 기존 revision/job/review 모델을 재사용한다.
+
+## V8 실제 관리자 감사·재처리 구조
+
+| 관계/테이블 | 실제 DDL |
+| --- | --- |
+| users 1 → N admin_audit_logs | actor_id NOT NULL FK. 관리자 조치의 수행 계정 |
+| admin_audit_logs | id PK, action VARCHAR(32), target_type VARCHAR(24), target_id BIGINT, reason VARCHAR(300), before_json/after_json JSON, created_at DATETIME(6) |
+| 감사 제약 | action은 MODERATION_DECISION/MODERATION_RETRY/CONTENT_VISIBILITY, 대상 종류 CONTENT/MODERATION_JOB, 대상 양수, 사유 공백 제외 1~300자 |
+| 감사 인덱스 | (action,id), (target_type,target_id,id) |
+| moderation_jobs | manual_retry_count INT DEFAULT 0, CHECK 0~3. (status,id) 인덱스 |
+| content_items | (kind,visibility_status,id) 운영 조회 인덱스 |
+
+감사의 target_type/target_id는 다형 대상 메타데이터이므로 특정 테이블 FK로 그리지 않는다. revision 원문·접수 근거·승인/대기 포인터와 완료 기록은 기존 V6/V7/V4를 유지한다. V8은 신고/시상/회원 제재 테이블이나 참가자 데이터를 만들지 않는다. 조치/감사 원자성과 보관 한계는 [운영 계약](operations-admin.md)을 따른다.

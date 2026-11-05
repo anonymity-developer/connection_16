@@ -65,20 +65,18 @@ API 경로의 복잡성을 접근 통제 수단으로 삼지 않는다. 토큰�
 
 ```text
 backend/src/main/java/com/tagme/
-  common/config, common/web    현재 구현: 보안, CSRF, 연결 확인
-  auth/                       다음 단계: 비밀번호 로그인, 목적별 DM OTP, Mattermost, 세션
-  user/                       프로필, 관심사, 공개 정책
-  mission/                    태그 해금, 완료, 전체 수집
-  wish/, cheer/               콘텐츠와 반응
-  tap/, sync/                 공식 게임 및 성향 계산
-  discovery/                  추천과 프로필 방문
-  moderation/                 검수 작업, 버전, 관리자 판정
-  admin/                      시상, 이벤트 설정, 감사 기록
+  common/config, common/web    보안, CSRF, 연결 확인
+  auth/                       Mattermost username/비밀번호, DM OTP, 세션
+  participation/              프로필/동의, 태그 해금, 공통 완료/수집판
+  results/                    SYNC 성향, 공식 FAST TAP
+  content/                    소원/응원/댓글/하트, revision/worker/판정
+  discovery/                  닉네임 목록/추천, POST 상세/최초 방문/직접 관계
+  operations/                 현재 ADMIN, 검수/콘텐츠 목록, 재처리/공개 관리, 감사
 ```
 
 미구현 패키지를 빈 파일로 채우지 않는다. 각 기능을 시작할 때 controller → application/service → repository/entity 순으로 책임을 나누고, 다른 도메인에 직접 HTTP controller를 호출하지 않는다. 완료 처리는 `MissionCompletionService`로 모은다.
 
-프론트는 초기 `App`과 API client만 있다. 기능 개발 시 `pages`, `features/{auth,profile,collection,wish,cheer,tap,sync,discovery}`, `components`, `api`, `styles`로 확장한다. 라우팅/서버 상태 라이브러리는 해당 단계에서 추가하고 lockfile로 버전을 관리한다.
+프론트는 App 라우팅, pages, features/{auth,participation,results,content,discovery,operations}, components와 styles로 구성한다. 라우팅/서버 상태 라이브러리는 해당 단계에서 추가하고 lockfile로 버전을 관리한다.
 
 ## 6. 배포와 확장
 
@@ -304,3 +302,9 @@ POST 상세는 필요한 사용자 ID를 오름차순으로 잠근 뒤 세션/�
 프론트는 현재 경로의 인증 확인이 끝난 뒤 상세 컴포넌트를 한 번 마운트한다. 경로 변경 직전 인증 ready 값을 재사용해 상세 POST가 두 번 발생하는 문제를 브라우저 검사로 발견해 checkedLocation으로 수정했다. 검색/페이지 응답은 세대 번호로 오래된 요청을 버리고, 오류·비공개 복원 시 기존 상세를 비운다. 응답은 no-store이고 개인 상세를 영구 저장소에 쓰지 않는다.
 
 관계 API는 본인과 직접 상대만 반환한다. stats는 현재 공개 가능한 전체 상대, graph는 기본 20/최대 30명으로 구분한다. 현재 계정 제재 필터와 별개로 개인 간 차단은 아직 없다. 실제 DTO와 종료 후 상세 제한은 [탐색 계약](discovery.md)을 따른다.
+
+## 관리자 운영의 데이터 경계 — 페이즈 5-2
+
+OperationsController/Service는 현재 DB ADMIN을 확인하고 OperationsRepository/ContentRepository로 관리자 목록·상세를 읽는다. ModerationService는 기존 판정/완료 경로를 유지하며 수동 판정을 AdminAuditRepository에 같은 트랜잭션으로 기록한다. 감사 실패는 판정/포인터/글자 지급까지 롤백한다.
+
+공개 상태 조치는 관리자/작성자/댓글 원글 작성자 ID를 정렬 잠금한 뒤 콘텐츠와 job을 처리한다. 숨김은 대기 fence 무효화, 복구는 공개 허용이며 자동 승인이나 재접수가 아니다. retry는 같은 현재 수정본에 대해 최대 3회이고 외부 호출을 실행하지 않는다. 참가자 신고/회원 제재/게임 검토/시상은 별도 구현이다. [운영 계약](operations-admin.md)에 API/실패 복구와 기간을 정리했다.
