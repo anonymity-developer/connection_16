@@ -58,6 +58,11 @@ management:
 
 # Disabled until an operator provides the real integration credentials.
 tagme:
+  moderation:
+    provider: ${TAGME_MODERATION_PROVIDER:NONE}
+    gms-base-url: ${TAGME_GMS_BASE_URL:}
+    gms-key: ${GMS_KEY:}
+    openai-key: ${OPENAI_API_KEY:}
   auth:
     enabled: ${AUTH_ENABLED:false}
     base-url: ${MATTERMOST_BASE_URL:https://meeting.ssafy.com}
