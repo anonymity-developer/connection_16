@@ -116,3 +116,4 @@
 - [서버 1차 CI 41938027415](https://github.com/anonymity-developer/connection_16/actions/runs/41938027415)에서 Frontend/Backend/Docker 모두 성공했다. 이후 묶음 조회/본인 requestKey 복구와 UI 검증을 추가했다. 최종 커밋 검사/캡처는 PR checks와 frontend-ui-review 아티팩트가 기준이다.
 - 외부 제공자는 기본 미설정으로 운영자 확인이 필요하다. 실제 외부 호출/운영 DB/배포/실기기 검증은 미수행이다. 동료 탐색/프로필 링크/그래프·관리자 운영·시상은 후속 단계다.
 - 화면 연결 CI에서 Frontend/Backend/Docker 모두 성공했다. 단위 12개와 기존 29개/댓글·하트 7개 브라우저 그룹, 정적/운영 렌더 검사를 통과했다. 최종 보완으로 댓글 증가 후에도 기존 내 슬롯/종류별 목록을 빠르게 조회할 인덱스를 유지한다. 마지막 커밋 검사는 PR checks가 기준이다.
+- 마지막 CI 41939646500은 Backend/Docker가 성공했지만 Frontend의 Azure HTTP Ubuntu 미러가 폰트 21.1MB 다운로드에 5분35초(62.9kB/s)를 사용한 뒤 한글 폰트 다운로드에서 10분 작업 제한으로 취소됐다. 기능/브라우저 검사 실패가 아니다. CI에만 Ubuntu HTTPS archive와 네트워크 timeout/재시도를 설정하며 브라우저·한글 폰트·검사 항목은 그대로 유지한다. 후속 커밋의 CI로 다시 확인한다.
