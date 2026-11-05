@@ -87,7 +87,7 @@ export function Auth({ mode, preview }: { mode: AuthMode; preview: boolean }) {
         const user = mode === 'login' ? await authApi.login(values.username.trim(), values.password)
           : await authApi.signup(challenge!.challengeId, values.code, values.password);
         auth.acceptUser(user); setValues({ username: '', password: '', confirmation: '', code: '' });
-        navigate(user.onboardingRequired ? '/me' : auth.takeReturnPath());
+        navigate(user.onboardingRequired ? mode === 'signup' ? '/me/profile' : '/me' : auth.takeReturnPath());
       } else {
         await authApi.password(mode, challenge!.challengeId, values.code, values.password);
         auth.acceptUser(null); setValues({ username: '', password: '', confirmation: '', code: '' });

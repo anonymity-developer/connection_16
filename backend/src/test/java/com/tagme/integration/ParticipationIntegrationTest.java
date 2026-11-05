@@ -197,6 +197,7 @@ class ParticipationIntegrationTest {
     }
     @Test void finalCompletionForDifferentUsersSerializesOnlyTheGlobalSequence() throws Exception {
         long bob=accounts.insertUser("b".repeat(26),"bob");accounts.insertCredential(bob,accounts.byId(alice).orElseThrow().hash());
+        accounts.syncProfile(bob,new MattermostProfile("테스트이름","서울",13,0));
         Map<Long,Receipt> last=new HashMap<>();
         for(long userId:List.of(alice,bob)) {
             var actor=accounts.byId(userId).orElseThrow().principal();service.save(actor,request(true,0));service.resolve(actor,ParticipationService.tokenHash(token));

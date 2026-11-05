@@ -15,11 +15,11 @@ try {
   const page = await browser.newPage({ viewport: { width: 390, height: 900 } });
   const checks = [], pageErrors = [], routeErrors = [];
   page.on('pageerror', error => pageErrors.push(error.message));
-  let signedIn = true, pending = false, unlocked = false, completed = false, ready = true, closed = false, collectionFailure = false, profileConflict = false;
+  let signedIn = true, pending = false, unlocked = false, completed = false, ready = true, closed = false, collectionFailure = false, profileConflict = false, sourceReady = true, photoFails = false;
   let profile = null, saves = 0, resolves = 0, agreements = false, heldSave = null, releaseSave;
   const token = 'A'.repeat(43);
-  const policies = () => ['PARTICIPATION', 'PROFILE_PUBLICATION'].map((type, index) => ({ type, version: 'test-v1', title: index ? '프로필 공개 안내 (테스트)' : '참여 안내 (테스트)', body: '브라우저 검사 전용 동의 문구입니다. 실제 운영 정책이 아닙니다.\n공개 범위와 철회를 확인하는 테스트입니다.', agreed: agreements }));
-  const state = () => ({ profile, consents: { ready, policies: ready ? policies() : [] }, profileComplete: !!profile, participationReady: !!profile?.isPublic && agreements });
+  const policies = () => ['PARTICIPATION', 'PROFILE_PUBLICATION'].map((type, index) => ({ type, version: 'test-v1', title: index ? '프로필 공개 안내 (테스트)' : '참여 안내 (테스트)', body: '브라우저 검사 전용 동의 문구입니다. 실제 운영 정책이 아닙니다.\n닉네임을 누르면 전체 정보가 공개되는 테스트입니다.', agreed: agreements }));
+  const state = () => ({ identity: { realName: '테스트이름', region: '서울', classNo: 13, photoUrl: '/api/v1/users/me/photo?v=7', ready: sourceReady }, profile, consents: { ready, policies: ready ? policies() : [] }, profileComplete: !!profile, participationReady: !!profile && agreements });
   const user = () => ({ id: 1, username: 'contract-test', nickname: profile?.nickname ?? null, onboardingRequired: !state().participationReady });
   await page.route('**/api/v1/**', async route => {
     try {
@@ -30,7 +30,8 @@ try {
       if (method === 'GET' && path === '/tags/pending') return reply(200, { present: pending });
       if (method === 'GET' && path === '/csrf') return reply(200, { headerName: 'X-XSRF-TOKEN', token: 'contract-csrf' });
       if (method === 'GET' && path === '/event') return reply(200, { status: closed ? 'CLOSED' : 'OPEN', opensAt: null, submitClosesAt: null, profilePreparationEnabled: false });
-      if (method === 'GET' && path === '/interests') return reply(200, [{ id: 1, name: '백엔드' }, { id: 2, name: 'AI' }, { id: 3, name: '클라우드' }]);
+      if (method === 'GET' && path === '/interests') return reply(200, [{ id: 1, name: '백엔드', category: 'DOMAIN' }, { id: 2, name: 'AI', category: 'DOMAIN' }, { id: 3, name: '클라우드', category: 'DOMAIN' }, { id: 4, name: 'React', category: 'TECH_STACK' }]);
+      if (method === 'GET' && path === '/users/me/photo') return photoFails ? reply(503, { code: 'UNAVAILABLE', message: '사진을 불러오지 못했어요.' }) : route.fulfill({ status: 200, contentType: 'image/png', body: Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aENcAAAAASUVORK5CYII=', 'base64') });
       if (method === 'GET' && path === '/users/me/profile') return reply(200, state());
       if (method === 'GET' && path === '/missions/collection') {
         if (collectionFailure) return reply(503, { code: 'UNAVAILABLE', message: '참여 기록을 불러오지 못했어요.' });
@@ -51,29 +52,30 @@ try {
       if (path === '/users/me/profile' && method === 'PUT') {
         saves++; if (heldSave) await heldSave;
         if (profileConflict) return reply(409, { code: 'PROFILE_CHANGED', message: '프로필이 변경됐어요. 새로 불러온 뒤 다시 저장해 주세요.' });
+        for (const field of ['realName','region','classNo','isPublic','imageUrl']) assert.equal(field in body, false);
         assert.equal('userId' in body, false); assert.equal('completed' in body, false);
         assert.equal(body.expectedVersion, profile?.version ?? 0);
         assert.deepEqual(body.acceptPolicies.map(p => p.type).sort(), agreements ? [] : ['PARTICIPATION', 'PROFILE_PUBLICATION']);
-        agreements = true; profile = { ...body, region: '서울', version: (profile?.version ?? 0) + 1 };
-        if (unlocked && profile.isPublic) completed = true;
+        agreements = true; profile = { ...body, version: (profile?.version ?? 0) + 1 };
+        if (unlocked && profile) completed = true;
         return reply(200, state());
       }
-      if (path.startsWith('/users/me/consents/')) { assert.deepEqual(body, { version: 'test-v1', agreed: false }); agreements = false; profile.isPublic = false; profile.version++; return reply(204); }
+
       throw new Error(`Unexpected contract request ${method} ${path}`);
     } catch (error) { routeErrors.push(error.message); await route.fulfill({ status: 500, contentType: 'application/json', body: JSON.stringify({ message: '계약 검사 오류' }) }); }
   });
   const visit = path => page.goto(`http://127.0.0.1:4373${path}`);
   const record = name => { checks.push(name); console.log(`PASS ${name}`); };
   async function fill() {
-    await page.getByLabel('닉네임', { exact: true }).fill('테스트별명'); await page.getByLabel('이름', { exact: true }).fill('테스트이름');
-    await page.getByLabel('서울캠퍼스 반', { exact: true }).fill('13'); await page.getByLabel('한 줄 소개', { exact: true }).fill('함께 배우고 만드는 걸 좋아해요.');
-    await page.getByRole('checkbox', { name: '백엔드', exact: true }).check();
+    await page.getByLabel('닉네임', { exact: true }).fill('테스트별명');
+    await page.getByLabel('한 줄 소개 (선택)', { exact: true }).fill('함께 배우고 만드는 걸 좋아해요.');
+    await page.getByRole('checkbox', { name: '백엔드', exact: true }).check(); await page.getByRole('checkbox', { name: 'React', exact: true }).check();
   }
   async function agree() { for (const box of await page.locator('input[name="policy"]').all()) await box.check(); }
   await visit('/me/profile'); await page.getByLabel('닉네임', { exact: true }).waitFor();
   assert.equal(await page.locator('input[name="policy"]:checked').count(), 0);
   await fill(); await page.getByRole('button', { name: '프로필 저장하기', exact: true }).click(); assert.equal(saves, 0);
-  await page.getByRole('button', { name: '내용 보기', exact: true }).first().click();
+  await page.getByRole('button', { name: /내용 보기$/ }).first().click();
   await page.getByRole('dialog').waitFor(); assert.ok((await page.getByRole('dialog').innerText()).includes('실제 운영 정책이 아닙니다.'));
   await page.keyboard.press('Escape'); await agree();
   for (const width of [360, 390, 430, 768, 1440]) {
@@ -92,7 +94,8 @@ try {
   assert.equal(saves, 1); assert.equal(completed, false);
   await visit('/'); await page.getByRole('progressbar', { name: '나의 글자 수집' }).waitFor();
   assert.equal(await page.getByRole('progressbar').getAttribute('aria-valuenow'), '0');
-  record('profile requires explicit current consent, busy save, five widths and no letter before the tag');
+  assert.equal(await page.locator('input[name="realName"],input[name="classNo"]').count(), 0);
+  record('profile imports readonly identity, groups domain and stack interests, requires one acknowledgement and awards no letter before the tag');
 
   await visit(`/t/${token}`); await page.getByRole('button', { name: '태그로 미션 열기', exact: true }).click(); await page.waitForURL('**/missions/show-me');
   await page.getByRole('heading', { name: '연결의 한 조각을 모았어요', exact: true }).waitFor();
@@ -123,10 +126,12 @@ try {
   await page.getByRole('button', { name: '프로필 저장하기', exact: true }).waitFor();
   closed = true; await page.reload(); await page.getByRole('button', { name: '프로필 저장하기', exact: true }).waitFor();
   assert.equal(await page.getByRole('button', { name: '프로필 저장하기', exact: true }).isEnabled(), false);
-  await page.getByRole('button', { name: '공개 동의 철회하고 비공개로 전환', exact: true }).click();
-  await page.waitForFunction(() => !document.querySelector('.profile-form')?.getAttribute('aria-busy') || document.querySelector('.profile-form')?.getAttribute('aria-busy') === 'false');
-  assert.equal(profile.isPublic, false); assert.equal(completed, true);
-  record('stale profile save requires reload and privacy withdrawal remains available after closure without losing a letter');
+  assert.equal(await page.getByRole('button', { name: /비공개/ }).count(), 0);assert.equal(await page.getByRole('checkbox', { name: /내 프로필을 참여자에게 공개하기/ }).count(), 0);assert.equal(completed, true);
+  record('stale profile saves require reload and closure never restores a removed private-profile control');
+  closed = false; profile = null; agreements = false; unlocked = false; completed = false; photoFails = true;
+  await visit('/me/profile'); await page.getByLabel('닉네임', { exact: true }).fill('닉네임만'); await agree(); await page.getByRole('button', { name: '프로필 저장하기', exact: true }).click(); await page.waitForURL('**/me'); assert.deepEqual(profile.interestIds, []);assert.equal(profile.bio, null);assert.equal(state().participationReady, true);
+  sourceReady = false; await visit('/me/profile'); await page.getByRole('heading', { name: 'Mattermost 정보를 다시 확인해 주세요', exact: true }).waitFor();assert.equal(await page.locator('input[name="nickname"]').count(), 0);sourceReady = true;
+  record('nickname-only onboarding accepts empty optional fields and unavailable photos; missing source identity requires login rather than manual names');
 
   pending = false; await visit('/t/resume'); await page.getByRole('button', { name: '태그로 미션 열기', exact: true }).click();
   await page.getByRole('alert').waitFor(); assert.ok((await page.getByRole('alert').innerText()).includes('만료'));
