@@ -3,6 +3,10 @@ import { Button } from '../../components/ui';
 import { Icon } from '../../components/Icon';
 import { useParticipation } from '../participation/context';
 import { ApiError } from '../auth/api';
+import { HeartControl } from './HeartControl';
+import { WishComments } from './WishComments';
+import { reactionsApi } from './reactions-api';
+import type { LikeState } from './reactions-api';
 import { contentApi } from './api';
 import type { ContentInput, ContentKind, Feed, OwnSlot, Revision } from './api';
 
@@ -14,12 +18,15 @@ export function ContentMission({ kind }: { kind: ContentKind }) {
   const [input, setInput] = useState<ContentInput>(empty); const [editing, setEditing] = useState(false);
   const [loading, setLoading] = useState(true); const [busy, setBusy] = useState(false); const [feedBusy, setFeedBusy] = useState(false);
   const [error, setError] = useState(''); const [feedError, setFeedError] = useState(''); const [uncertain, setUncertain] = useState(false); const [conflict, setConflict] = useState(false);
+  const [hearts, setHearts] = useState<Record<number, LikeState>>({}); const [heartLoading, setHeartLoading] = useState(false); const [heartError, setHeartError] = useState('');
   const active = useRef(true); const textarea = useRef<HTMLTextAreaElement>(null);
   const pending = useRef<{ key: string; input: ContentInput; editing: boolean } | null>(null);
   useEffect(() => { active.current = true; void load(); return () => { active.current = false; }; }, [kind]);
   async function loadFeed(cursor?: number) {
     setFeedBusy(true); setFeedError('');
-    try { const next = await contentApi.feed(kind, cursor); if (active.current) setFeed(previous => cursor && previous ? { items: [...previous.items, ...next.items.filter(item => !previous.items.some(old => old.id === item.id))], nextCursor: next.nextCursor } : next); }
+    try { const next = await contentApi.feed(kind, cursor); if (!active.current) return; setFeed(previous => cursor && previous ? { items: [...previous.items, ...next.items.filter(item => !previous.items.some(old => old.id === item.id))], nextCursor: next.nextCursor } : next);
+      if (kind === 'cheers' && next.items.length) { setHeartLoading(true); setHeartError(''); try { const states = await reactionsApi.hearts(next.items.map(item => item.id)); if (active.current) setHearts(previous => cursor ? { ...previous, ...states } : states); } catch (failure) { if (active.current) { if (!cursor) setHearts({}); setHeartError(failure instanceof Error ? failure.message : '하트 상태를 확인하지 못했어요.'); } } finally { if (active.current) setHeartLoading(false); } }
+    }
     catch (failure) { if (active.current) setFeedError(failure instanceof Error ? failure.message : '공개된 글을 불러오지 못했어요.'); }
     finally { if (active.current) setFeedBusy(false); }
   }
@@ -68,7 +75,8 @@ export function ContentMission({ kind }: { kind: ContentKind }) {
     </section>
     <section className="content-feed" aria-labelledby="content-feed-heading"><div className="content-section-heading"><h2 id="content-feed-heading">{wish ? '호수에 모인 소원' : '서로에게 건네는 응원'}</h2><Button variant="quiet" disabled={feedBusy} onClick={() => loadFeed()}>목록 새로고침</Button></div>
       {feed && !feed.items.length && <p className="content-empty">아직 공개된 {wish ? '소원이' : '응원이'} 없어요. 승인된 글이 이곳에 모여요.</p>}
-      <ul className="content-feed-list">{feed?.items.map(item => <li key={item.id}><article className={`content-card tone-${item.style.toLowerCase()} template-${item.templateId.toLowerCase()}`}><p className="content-body">{item.content}</p><span className="content-byline">{item.anonymous ? '익명' : item.nickname || '동료'}</span></article></li>)}</ul>
+      <ul className="content-feed-list">{feed?.items.map(item => <li key={item.id}><article className={`content-card tone-${item.style.toLowerCase()} template-${item.templateId.toLowerCase()}`}><p className="content-body">{item.content}</p><span className="content-byline">{item.anonymous ? '익명' : item.nickname || '동료'}</span>{wish ? <WishComments id={item.id} /> : <HeartControl id={item.id} initial={hearts[item.id] || null} loading={heartLoading} />}</article></li>)}</ul>
+      {heartError && <p role="alert" className="form-notice is-error">{heartError}</p>}
       {feedError && <p role="alert" className="form-notice is-error">{feedError}</p>}{feedBusy && <p role="status">공개된 글을 불러오고 있어요.</p>}
       {feed?.nextCursor && <Button variant="secondary" disabled={feedBusy} onClick={() => loadFeed(feed.nextCursor!)}>이전 글 더 보기</Button>}
     </section>

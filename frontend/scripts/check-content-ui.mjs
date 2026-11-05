@@ -28,6 +28,7 @@ try {
       if (method === 'GET' && path === '/missions/collection') return reply(200, { missions: codes.map((code, index) => ({ id: index + 1, code, state: locked || !['MAKE_A_WISH', 'SAY_SOMETHING'].includes(code) ? 'LOCKED' : slots[code === 'MAKE_A_WISH' ? 'wishes' : 'cheers'].missionCompleted ? 'COMPLETED' : slots[code === 'MAKE_A_WISH' ? 'wishes' : 'cheers'].id ? 'IN_PROGRESS' : 'UNLOCKED', active: true })), completedCount: Number(slots.wishes.missionCompleted) + Number(slots.cheers.missionCompleted), completion: { complete: false, completionOrder: null, completedAt: null, awardConfirmed: false } });
       const kind = path.startsWith('/wishes') ? 'wishes' : path.startsWith('/cheers') ? 'cheers' : null;
       if (!kind) throw new Error(`Unexpected ${method} ${path}`);
+      if (method === 'GET' && path === '/cheers/likes') return reply(200, { 10: { liked: false, count: 0, canLike: true } });
       if (method === 'GET' && path.endsWith('/me')) return reply(200, slots[kind]);
       if (method === 'GET') return failFeed ? reply(503, { code: 'FEED_UNAVAILABLE', message: '목록을 확인하지 못했어요.' }) : reply(200, feeds[kind]);
       assert.equal(req.headers()['x-xsrf-token'], 'content-test-csrf'); const key = req.headers()['idempotency-key']; assert.match(key, /^[A-Za-z0-9_-]{16,64}$/);

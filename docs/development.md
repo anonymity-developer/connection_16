@@ -153,3 +153,9 @@ MySQL/Redis 통합 검사는 Docker가 필요하고 H2로 대체/생략하지 �
 ## 페이즈 4-2 콘텐츠
 
 V6는 기존 마이그레이션 뒤에 적용한다. 검수 worker는 기본 실행되며 제공자가 미설정이면 REVIEW_REQUIRED로 보낸다. 설정/운 범위/관리자 판정의 실제 계약은 [콘텐츠 계약](content.md)과 [OpenAPI](content.openapi.yaml)를 따른다. 테스트는 processOne을 직접 호출하고 스케줄 worker를 꺼서 클래스별 컨테이너 종료 뒤 캐시된 컨텍스트가 재접속하지 않도록 한다. 운영의 worker 활성 기본값을 바꾸지는 않는다.
+
+## 페이즈 4-3 데이터와 브라우저 검사
+
+V7를 V6 뒤에 적용한다. npm run test:reactions-ui는 API 대역으로 댓글/하트와 5개 화면 폭을 검사한다. 실제 MySQL/Redis의 ReactionIntegrationTest는 동시 요청·공개 철회/승인 잠금 경합·FK·마감/롤백·집계를 검사한다. 실제 검수 업체/운영 데이터/배포와 구분한다.
+
+CI의 Playwright/한글 폰트 설치는 Ubuntu HTTPS archive를 사용하고 APT idle timeout 30초/재시도 2회를 설정한다. 2026-11-05 Azure HTTP 미러의 다운로드 지연으로 작업이 취소된 로그를 근거로 바꿨다. 검사/폰트를 생략하거나 작업 시간 제한을 늘리지 않는다. 이 설정은 일회성 GitHub runner에만 적용한다.

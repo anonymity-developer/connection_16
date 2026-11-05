@@ -398,3 +398,18 @@ p { word-break: keep-all; overflow-wrap: anywhere; }
 .content-feed-list { list-style: none; display: grid; gap: 16px; padding: 0; margin: 16px 0; }
 .content-empty { color: var(--muted); font-size: 14px; padding: 24px 0; border-block: 1px solid var(--border); }
 @media (max-width: 480px) { .content-own, .content-card { padding: 20px; } .content-section-heading { align-items: flex-start; } }
+
+.heart-control { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 16px; border-top: 1px solid var(--border); margin-top: 16px; padding-top: 12px; }
+.heart-control > p { flex-basis: 100%; }
+.heart-control button[aria-pressed='true'] { color: var(--accent); }
+.heart-control button[aria-pressed='true'] svg { fill: var(--accent-soft); }
+.heart-count { font-size: 14px; font-variant-numeric: tabular-nums; color: var(--muted); }
+.wish-comments { margin-top: 12px; border-top: 1px solid var(--border); padding-top: 8px; }
+.comment-thread { margin-top: 12px; padding-top: 16px; border-top: 1px solid var(--border); }
+.comment-thread h3 { font-size: 15px; }
+.comment-list { list-style: none; padding: 0; margin: 12px 0 20px; }
+.comment-list li { padding: 16px 0; border-bottom: 1px solid var(--border); }
+.comment-list .content-body { margin: 6px 0 8px; font-size: 15px; }
+.own-comments { margin-top: 24px; }
+.comment-form { display: grid; gap: 12px; border-top: 1px solid var(--border); padding-top: 20px; margin-top: 20px; }
+.comment-form textarea { width: 100%; min-height: 112px; resize: vertical; border: 1px solid var(--control); border-radius: var(--control-radius); background: var(--surface); color: var(--ink); padding: 12px; font-size: 16px; line-height: 1.5; }

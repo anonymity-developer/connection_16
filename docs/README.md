@@ -25,7 +25,7 @@ Codex로 구현을 이어갈 때는 먼저 [현재 페이즈](progress.md)와 [�
 
 성향/공식 게임은 [결과 계약](results.md)과 [결과 OpenAPI](results.openapi.yaml)를 따른다.
 
-소원/응원과 검수는 [콘텐츠 계약](content.md)과 [콘텐츠 OpenAPI](content.openapi.yaml)를 따른다.
+소원/응원과 검수는 [콘텐츠 계약](content.md)과 [콘텐츠 OpenAPI](content.openapi.yaml)를 따른다. 댓글/하트는 [반응 계약](reactions.md)과 [반응 OpenAPI](reactions.openapi.yaml)를 따른다.
 
 기획 변경은 overview와 해당 도메인 문서에 함께 반영한다. 화면 분기는 user-flows/UI, 저장 방식은 data-model/ERD, 요청 계약은 API, 처리 순서는 implementation-plan을 함께 확인한다.
 

@@ -2,7 +2,7 @@
 
 ## 1. 적용 범위
 
-현재 실행 가능한 DDL은 `backend/src/main/resources/db/migration`의 V1/V2/V3/V4/V5/V6다. 소원/응원과 검수는 V6에 구현하며 댓글/하트/시상은 아래 **후속 설계**다. 해당 도메인의 규칙과 함께 마이그레이션을 추가한다.
+현재 실행 가능한 DDL은 `backend/src/main/resources/db/migration`의 V1/V2/V3/V4/V5/V6/V7다. 소원/응원과 검수는 V6, 댓글/하트는 V7이며 시상은 아래 **후속 설계**다. 해당 도메인의 규칙과 함께 마이그레이션을 추가한다.
 
 이 문서의 ERD는 핵심 요약이다. 모든 도메인의 컬럼/관계/복합키와 nullable 규칙은 [전체 도메인 ERD](erd.md)를 함께 읽는다. 현재 SQL과 후속 설계의 경계를 유지하고, 후속 설계를 현재 DB에 적용된 것으로 간주하지 않는다.
 
@@ -105,11 +105,11 @@ username은 정식 소문자 값, 최대 64자와 utf8mb4_0900_bin UNIQUE다. �
 
 ## 4. V6 소원/응원과 검수
 
-실제 실행 DDL은 V6이며 [콘텐츠 계약](content.md)을 따른다. 별도 wishes/cheer_cards 테이블 대신 content_items에 kind별 1회 슬롯과 운 결과를 저장한다. 댓글과 하트는 아직 만들지 않는다.
+실제 실행 DDL은 V6이며 [콘텐츠 계약](content.md)을 따른다. 별도 wishes/cheer_cards 테이블 대신 content_items에 kind별 1회 슬롯과 운 결과를 저장한다. 댓글과 하트는 아래 V7 구조로 추가했다.
 
 | 테이블 | 실제 제약/역할 |
 | --- | --- |
-| content_items | id PK, author_id FK, kind WISH/CHEER, visibility_status, approved_revision_id/pending_revision_id, luck_score/landing_zone nullable, version; UNIQUE(author_id,kind) |
+| content_items | id PK, author_id FK, kind WISH/CHEER, visibility_status, approved_revision_id/pending_revision_id, luck_score/landing_zone nullable, version; V7부터 UNIQUE(author_id,slot_kind) |
 | content_revisions | id PK, item_id FK, revision_no, content_text, template_id, style, anonymous, submitted_at, moderation_status/reason_code, idempotency_key/payload_hash; UNIQUE(item_id,revision_no), UNIQUE(item_id,idempotency_key), UNIQUE(id,item_id) |
 | moderation_jobs | id PK, revision_id UNIQUE FK, status, attempts/fence, next_run_at/lease_until, provider/policy_version/last_error_code |
 | moderation_reviews | id PK, job_id FK, fence, reviewer_id nullable FK, decision/reason/created_at; UNIQUE(job_id,fence) |
@@ -117,7 +117,7 @@ username은 정식 소문자 값, 최대 64자와 utf8mb4_0900_bin UNIQUE다. �
 
 원본 생성 후 revision을 추가하고 approved/pending 복합 FK `(revision_id,item_id)`를 연결한다. FK는 같은 슬롯의 revision만 가리키게 한다. 본문/스타일/익명 여부는 revision 불변 값이며 검수 상태만 갱신한다. 현재 자동 작업은 revision당 1개이고 lease/fence/attempts로 재시도한다. 판정 이력은 fence별 여러 행이다. job/revision 생성과 원접수 receipt 저장은 같은 트랜잭션이다.
 
-승인본과 대기본을 구분하고, 익명 JSON은 작성자/프로필/revision/접수 식별자를 반환하지 않는다. 댓글의 reveal_profile과 하트 복합키는 후속 기능과 함께 별도 마이그레이션을 추가한다.
+승인본과 대기본을 구분하고, 익명 JSON은 작성자/프로필/revision/접수 식별자를 반환하지 않는다. 댓글의 표시 설정과 하트 복합키는 V7에서 추가했다.
 
 ## 5. V5 게임/결과와 후속 시상
 
@@ -168,3 +168,15 @@ submission_receipts는 제출을 받는 같은 트랜잭션에서 생성하며 �
 sync_questionnaires는 버전별 검토한 JSON을 보존하고 current_sync_questionnaire가 현재 버전을 가리킨다. 운영 문항은 시드하지 않는다. sync_results의 PK는 사용자이며 같은 정규화 답변 hash만 재시도한다. type/score는 서버가 계산한다.
 
 tap_slots.current_attempt_id와 user_id 복합 FK가 다른 사용자의 도전을 가리키는 것을 막는다. 시작 key는 사용자 범위로 유일하고 준비 중 취소만 슬롯을 복구한다. events/최초 상태/payload_hash/receipt/글자를 한 트랜잭션에 쓴다. status의 COUNTDOWN은 저장된 진행 상태이며 PLAYING/AWAITING_SUBMISSION/기한 만료 표시는 시각으로 계산한다. 입력 원본과 결과의 외부 공개/관리자 재도전은 후속이다. 자세한 상태 전이는 [결과 계약](results.md)을 따른다.
+
+## V7 댓글과 하트
+
+| 실제 테이블/변경 | 제약과 관계 |
+| --- | --- |
+| content_items 확장 | kind=COMMENT 추가, slot_kind generated column과 UNIQUE(author_id,slot_kind)로 WISH/CHEER의 1회는 유지하고 COMMENT만 다중 허용. UNIQUE(id,kind) 및 INDEX(kind,id) 추가. 내 슬롯은 slot_kind 인덱스로 조회 |
+| wish_comments | id PK, wish_id, content_item_id UNIQUE, author_id, idempotency_key/payload_hash. UNIQUE(author_id,key), wish/id 및 author/wish/id 인덱스 |
+| 부모/작성자 FK | wish_id는 WISH, content_item_id는 COMMENT의 (id,kind) 복합 FK. item/author 복합 FK도 검사 |
+| cheer_likes | (card_id,user_id) PK, created_at, CHEER 종류 복합 FK, 사용자 FK |
+| submission_receipts | COMMENT_REVISION 허용. 본문/revision/job/bridge와 같은 트랜잭션에 접수 저장 |
+
+댓글 revealProfile은 revision.anonymous의 반대 값으로 저장한다. 본인 전용 내역에만 requestKey/접수 시각을 주고 공개 댓글에는 ID/본문/표시 설정/허용된 닉네임만 반환한다. 댓글/하트는 최초 미션 완료 근거를 추가하거나 바꾸지 않는다. 상세 공개 조건과 승인 경합은 [반응 계약](reactions.md)을 따른다.

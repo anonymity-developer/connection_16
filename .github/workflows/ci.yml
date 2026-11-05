@@ -34,6 +34,10 @@ jobs:
       - run: npm run build
       - name: Install browser and Korean fonts
         run: |
+          # The runner's Azure HTTP mirror throttled font packages and exhausted the job timeout.
+          # Keep the same browser/fonts and checks, using Ubuntu's HTTPS archive with bounded retries.
+          printf '%s\n' 'https://archive.ubuntu.com/ubuntu/' | sudo tee /etc/apt/apt-mirrors.txt > /dev/null
+          printf '%s\n' 'Acquire::Retries "2";' 'Acquire::http::Timeout "30";' 'Acquire::https::Timeout "30";' | sudo tee /etc/apt/apt.conf.d/80tagme-ci-network > /dev/null
           npx playwright install --with-deps chromium
           sudo apt-get install --yes fonts-noto-cjk
       - name: Check production layouts and development-only interactions
@@ -46,6 +50,8 @@ jobs:
         run: npm run test:results-ui
       - name: Check moderated content in the browser
         run: npm run test:content-ui
+      - name: Check comments and hearts in the browser
+        run: npm run test:reactions-ui
       - name: Inspect production app with Taste
         run: |
           npm run preview -- --port 4173 > /tmp/tagme-preview.log 2>&1 &

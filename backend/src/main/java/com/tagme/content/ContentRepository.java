@@ -16,7 +16,7 @@ public class ContentRepository {
     private Instant instant(ResultSet r,String name) throws SQLException { Timestamp t=r.getTimestamp(name);return t==null?null:t.toInstant(); }
     private Item mapItem(ResultSet r,int n) throws SQLException { return new Item(r.getLong("id"),r.getLong("author_id"),Kind.valueOf(r.getString("kind")),r.getString("visibility_status"),r.getObject("approved_revision_id",Long.class),r.getObject("pending_revision_id",Long.class),r.getObject("luck_score",Integer.class),r.getObject("landing_zone",Integer.class),r.getLong("version")); }
     private Revision mapRevision(ResultSet r,int n) throws SQLException { return new Revision(r.getLong("id"),r.getLong("item_id"),r.getInt("revision_no"),r.getString("content_text"),r.getString("template_id"),r.getString("style"),r.getBoolean("anonymous"),instant(r,"submitted_at"),r.getString("moderation_status"),r.getString("reason_code"),r.getString("payload_hash")); }
-    public Item own(long user,Kind kind) { return db.query("SELECT * FROM content_items WHERE author_id=? AND kind=?",this::mapItem,user,kind.name()).stream().findFirst().orElse(null); }
+    public Item own(long user,Kind kind) { return db.query("SELECT * FROM content_items WHERE author_id=? AND slot_kind=?",this::mapItem,user,kind.name()).stream().findFirst().orElse(null); }
     public Item item(long id,boolean lock) { return db.query("SELECT * FROM content_items WHERE id=?"+(lock?" FOR UPDATE":""),this::mapItem,id).stream().findFirst().orElse(null); }
     public Revision revision(long id) { return db.query("SELECT * FROM content_revisions WHERE id=?",this::mapRevision,id).stream().findFirst().orElse(null); }
     public Revision latest(long id) { return db.query("SELECT * FROM content_revisions WHERE item_id=? ORDER BY revision_no DESC LIMIT 1",this::mapRevision,id).stream().findFirst().orElse(null); }
@@ -55,7 +55,7 @@ public class ContentRepository {
         if("APPROVED".equals(decision))db.update("UPDATE content_items SET approved_revision_id=?,pending_revision_id=NULL,version=version+1,updated_at=UTC_TIMESTAMP(6) WHERE id=?",j.revisionId(),j.itemId());
         else if("REJECTED".equals(decision)) {
             db.update("UPDATE content_items SET pending_revision_id=NULL,version=version+1,updated_at=UTC_TIMESTAMP(6) WHERE id=?",j.itemId());
-            db.update("UPDATE mission_progress p JOIN missions m ON m.id=p.mission_id JOIN content_items i ON i.author_id=p.user_id SET p.status='UNLOCKED' WHERE i.id=? AND m.code=IF(i.kind='WISH','MAKE_A_WISH','SAY_SOMETHING') AND p.status='IN_PROGRESS'",j.itemId());
+            db.update("UPDATE mission_progress p JOIN missions m ON m.id=p.mission_id JOIN content_items i ON i.author_id=p.user_id SET p.status='UNLOCKED' WHERE i.id=? AND i.kind IN ('WISH','CHEER') AND m.code=IF(i.kind='WISH','MAKE_A_WISH','SAY_SOMETHING') AND p.status='IN_PROGRESS'",j.itemId());
         }
     }
     public Job fenceManual(Job j) { db.update("UPDATE moderation_jobs SET fence=fence+1 WHERE id=?",j.id());return job(j.id(),false); }

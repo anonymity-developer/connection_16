@@ -6,9 +6,9 @@ import com.tagme.participation.ParticipationModels.MissionCode;
 
 public final class ContentModels {
     private ContentModels() { }
-    public enum Kind { WISH, CHEER;
-        public MissionCode mission() { return this == WISH ? MissionCode.MAKE_A_WISH : MissionCode.SAY_SOMETHING; }
-        public String source() { return this == WISH ? "WISH_REVISION" : "CHEER_REVISION"; }
+    public enum Kind { WISH, CHEER, COMMENT;
+        public MissionCode mission() { return switch(this) { case WISH -> MissionCode.MAKE_A_WISH; case CHEER -> MissionCode.SAY_SOMETHING; case COMMENT -> throw new IllegalStateException("Comments do not award a mission"); }; }
+        public String source() { return switch(this) { case WISH -> "WISH_REVISION"; case CHEER -> "CHEER_REVISION"; case COMMENT -> "COMMENT_REVISION"; }; }
     }
     public record Item(long id,long authorId,Kind kind,String visibility,Long approvedId,Long pendingId,Integer luckScore,Integer landingZone,long version) { }
     public record Revision(long id,long itemId,int number,String content,String templateId,String style,boolean anonymous,Instant submittedAt,String status,String reason,@com.fasterxml.jackson.annotation.JsonIgnore String hash) { }
