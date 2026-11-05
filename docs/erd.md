@@ -1,6 +1,6 @@
 # 전체 도메인 ERD와 관계 규칙
 
-이 문서는 읽기 편하게 도메인별로 나눈 전체 설계다. **1~3절의 기본 도식은 V1에 존재하는 테이블**이며, **1.1절 로그인 확장은 V3다. 8절의 접수/완료 근거와 9절의 동의/행사 설정 일부는 V4에 구현했고, 콘텐츠/게임/시상/신고/활동은 후속 계획**이다. 후속 컬럼/타입은 migration 작성 시 검증하며, 존재하지 않는 FK나 테이블을 이미 적용한 것처럼 사용하지 않는다. 전체 테이블 사전과 인덱스 요약은 [데이터 모델](data-model.md)에 있다.
+이 문서는 읽기 편하게 도메인별로 나눈 전체 설계다. **1~3절의 기본 도식은 V1에 존재하는 테이블**이며, **1.1절 로그인 확장은 V3다. 8절의 접수/완료 근거와 9절의 동의/행사 설정 일부는 V4, 성향/게임은 V5, 콘텐츠/검수는 V6, 댓글/하트는 마지막 V7 절에 구현했다. 시상/신고와 나머지 활동은 후속 계획**이다. 후속 컬럼/타입은 migration 작성 시 검증하며, 존재하지 않는 FK나 테이블을 이미 적용한 것처럼 사용하지 않는다. 전체 테이블 사전과 인덱스 요약은 [데이터 모델](data-model.md)에 있다.
 
 단일 행사 기준이며 다중 행사를 지원하려면 event_id와 UNIQUE 범위를 다시 설계해야 한다. 아래 대문자 엔티티는 실제 snake_case 테이블을 가리킨다. PK/FK/UK는 기본키/외래키/유일 제약이며 복합키는 설명에서 다시 명시한다.
 
@@ -504,3 +504,34 @@ erDiagram
 user_consents의 `(user_id,policy_type,policy_version)`은 UNIQUE이며 재동의/철회 사건은 append-only events에 남긴다. event_settings는 기존 계획 컬럼에 profile_preparation_enabled를 추가했고 기본 false다. profiles.version은 낙관적 충돌 검사와 PROFILE 접수 식별에 사용한다. 실제 제약은 수정하지 않은 V1~V3와 추가 V4 DDL이 기준이다.
 
 V5의 실제 이벤트 행은 event_type/relative_time_ms이며 attempt에 payload_hash/review_reason을 둔다. 플레이 중 상태는 타임스탬프로 계산하며, 검토/순위/관리자 재도전은 후속이다. [결과 구현](results.md)이 현재 규칙이다.
+
+## V7 실제 댓글/하트 관계
+
+아래는 실행된 V7 구조다. 앞의 별도 wishes/cheer_cards 확장 도식은 초기 후속 설계였으며 현재는 통합 content_items의 종류별 ID를 사용한다.
+
+```mermaid
+erDiagram
+    USERS ||--o{ CONTENT_ITEMS : authors
+    CONTENT_ITEMS ||--o{ WISH_COMMENTS : parent_wish
+    CONTENT_ITEMS ||--o| WISH_COMMENTS : comment_item
+    CONTENT_ITEMS ||--o{ CHEER_LIKES : card
+    USERS ||--o{ CHEER_LIKES : reacts
+    WISH_COMMENTS {
+        bigint id PK
+        bigint wish_id FK
+        varchar wish_kind
+        bigint content_item_id FK,UK
+        varchar item_kind
+        bigint author_id FK
+        varchar idempotency_key
+        char payload_hash
+    }
+    CHEER_LIKES {
+        bigint card_id PK,FK
+        bigint user_id PK,FK
+        varchar card_kind
+        datetime created_at
+    }
+```
+
+kind 상수 CHECK와 (id,kind) 복합 FK가 소원/카드/댓글의 혼용을 막는다. (comment_item,author) FK도 확인한다. content_items의 WISH/CHEER 슬롯은 generated slot_kind의 UNIQUE로 그대로 유지하고 COMMENT일 때만 NULL로 다중 작성을 허용한다. 본문/판정은 앞의 기존 revision/job/review 모델을 재사용한다.

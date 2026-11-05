@@ -4,7 +4,8 @@ ALTER TABLE content_items DROP CHECK ck_content_kind,
     ADD COLUMN slot_kind VARCHAR(10) GENERATED ALWAYS AS (CASE WHEN kind IN ('WISH','CHEER') THEN kind ELSE NULL END) STORED,
     ADD CONSTRAINT ck_content_kind CHECK(kind IN ('WISH','CHEER','COMMENT')),
     ADD UNIQUE KEY uk_content_slot(author_id,slot_kind),
-    ADD UNIQUE KEY uk_content_id_kind(id,kind);
+    ADD UNIQUE KEY uk_content_id_kind(id,kind),
+    ADD INDEX ix_content_kind_id(kind,id);
 CREATE TABLE wish_comments (
     id BIGINT NOT NULL AUTO_INCREMENT PRIMARY KEY,
     wish_id BIGINT NOT NULL,

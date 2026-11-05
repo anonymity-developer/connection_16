@@ -110,14 +110,16 @@ GET `/event`, `/policies`, `/users/me/profile`, GET/POST `/tags/pending`, POST `
 | GET | `/wishes/{id}` | 후속: 승인된 상세 정보 |
 | GET | `/wishes/me` | 내 슬롯/승인본/대기본 상태 |
 | PUT | `/wishes/me` | 수정안 → 202 재검수; 운 점수 유지 |
-| POST | `/wishes/{id}/comments` | 후속: content, revealProfile → 202 검수 대기 |
-| GET | `/wishes/{id}/comments` | 후속: 승인 댓글만 공개 조회 |
+| POST | `/wishes/{id}/comments` | content, revealProfile → 202 검수 대기 |
+| GET | `/wishes/{id}/comments` | 승인 댓글만 공개 조회 |
 | POST | `/cheers` | content, templateId, style, anonymous → 202 |
 | GET | `/cheers` | 승인된 카드 목록 |
 | GET | `/cheers/me` | 내 카드와 검수 상태 |
 | PUT | `/cheers/me` | 수정안 → 202 재검수 |
-| PUT | `/cheers/{id}/like` | 후속: 최초 하트, 기존 하트는 그대로 → 현재 상태 |
-| DELETE | `/cheers/{id}/like` | 후속: 없으면 그대로 → 204 |
+| PUT | `/cheers/{id}/like` | 최초 하트, 기존 하트는 그대로 → 현재 상태 |
+| DELETE | `/cheers/{id}/like` | 없으면 그대로 → 204 |
+
+댓글/하트의 실제 범위·인가·현재 공개 필터·요청 키 복구는 [반응 계약](reactions.md)과 [OpenAPI](reactions.openapi.yaml)를 따른다. GET `/wishes/{id}/comments/me`는 본인 비공개 상태, GET `/cheers/{id}/like`는 낱개 상태, GET `/cheers/likes?ids=...`는 최대 20개 상태 묶음 조회다. 댓글 승인과 하트 등록은 추가 글자 지급이 아니다.
 
 최초 작성 재시도는 Idempotency-Key를 사용한다. 같은 key/payload는 같은 리소스를 반환하고 같은 key/다른 payload는 409다. 사용자 슬롯 UNIQUE가 키 변경으로 인한 중복 생성도 막는다. 공개 목록에는 pending/거절 revision이 포함되지 않는다.
 

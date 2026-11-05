@@ -71,9 +71,9 @@ class ReactionIntegrationTest {
     ResponseEntity<Map> send(String path,Object body){var c=raw(HttpMethod.GET,"/csrf",null,null,null);return raw(HttpMethod.POST,path,body,(String)c.getBody().get("token"),"http-test-key-0001");}
     @Test void pendingCommentOnlyAppearsToItsAuthorAndApprovalNeverGrantsALetter()throws Exception{
         long wish=parent(Kind.WISH);var c=comment(wish,"comment-first-key01","테스트 댓글",false);
-        assertThat(c.status()).isEqualTo("QUEUED");assertThat(reactions.comments(wish,null).items()).isEmpty();assertThat(reactions.own(actor.userId(),wish,null).items().getFirst().id()).isEqualTo(c.id());
+        assertThat(c.status()).isEqualTo("QUEUED");assertThat(reactions.own(actor.userId(),wish,null).items().getFirst().requestKey()).isEqualTo("comment-first-key01");assertThat(reactions.comments(wish,null).items()).isEmpty();assertThat(reactions.own(actor.userId(),wish,null).items().getFirst().id()).isEqualTo(c.id());
         moderation.processOne();var publicComment=reactions.comments(wish,null).items().getFirst();assertThat(publicComment.content()).isEqualTo("테스트 댓글");assertThat(publicComment.nickname()).isNull();
-        assertThat(json.writeValueAsString(publicComment)).doesNotContain("authorId","userId","itemId","revisionId","submittedAt","hash");
+        assertThat(json.writeValueAsString(publicComment)).doesNotContain("authorId","userId","itemId","revisionId","submittedAt","hash","requestKey");
         assertThat(db.queryForObject("SELECT COUNT(*) FROM mission_completion_evidence WHERE user_id=?",Integer.class,actor.userId())).isZero();assertThat(participation.mission(actor.userId(),com.tagme.participation.ParticipationModels.MissionCode.MAKE_A_WISH).state()).isEqualTo("UNLOCKED");
         assertThat(db.queryForObject("SELECT COUNT(*) FROM submission_receipts WHERE user_id=? AND source_kind='COMMENT_REVISION'",Integer.class,actor.userId())).isEqualTo(1);
     }
