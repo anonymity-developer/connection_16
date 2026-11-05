@@ -18,7 +18,7 @@ function Body({ title, revision }: { title: string; revision: Revision | null })
 export function OperationsPage() {
   const [allowed, setAllowed] = useState(false), [checking, setChecking] = useState(true), [error, setError] = useState('');
   useEffect(() => { let active = true; operationsApi.access().then(result => { if (active) { setAllowed(result.admin); setChecking(false); } }).catch(failure => { if (active) { setError(failure instanceof Error ? failure.message : '운영 권한을 확인하지 못했어요.'); setChecking(false); } }); return () => { active = false; }; }, []);
-  return <div className="page ops-page"><div className="ops-title"><div><p className="context-label">TAG ME 운영</p><h1>콘텐츠 운영</h1><p>원문을 확인하고, 사유가 남는 조치를 진행해요.</p></div><Link href="/me" className="text-link">내 계정</Link></div>{checking && <p role="status">현재 운영 권한을 확인하고 있어요.</p>}{error && <div className="ops-message"><p role="alert">{error}</p><Link href="/" className="button button--secondary">미션으로 돌아가기</Link></div>}{allowed && <Workspace onDenied={message => { setAllowed(false); setError(message); }} />}</div>;
+  return <div className="page ops-page"><div className="ops-title"><div><p className="context-label">TAG ME 운영</p><h1>콘텐츠 운영</h1><p>원문을 확인하고, 사유가 남는 조치를 진행해요.</p></div><Link href="/" className="text-link">참여 화면</Link></div>{checking && <p role="status">현재 운영 권한을 확인하고 있어요.</p>}{error && <div className="ops-message"><p role="alert">{error}</p><Link href="/" className="button button--secondary">미션으로 돌아가기</Link></div>}{allowed && <Workspace onDenied={message => { setAllowed(false); setError(message); }} />}</div>;
 }
 
 type Command = { kind: 'APPROVED' | 'REJECTED' | 'RETRY' | 'VISIBLE' | 'HIDDEN'; id: number; version: number; name: string };
