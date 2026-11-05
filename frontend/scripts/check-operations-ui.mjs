@@ -18,7 +18,7 @@ const third = { ...second, review: { ...second.review, job: { ...second.review.j
 let item = { id: 11, kind: 'WISH', authorId: 7, visibility: 'VISIBLE', version: 4, parentWishId: null, approvedRevision: old, pendingRevision: task.review.revision, latestRevision: task.review.revision };
 const logs = [];
 function log(action, targetType, targetId, reason, before, after) { logs.unshift({ id: logs.length + 1, actorId: 1, action, targetType, targetId, reason, before, after, createdAt: '2026-11-05T04:00:00Z' }); }
-function resetTask() { task.review.job.status = 'REVIEW_REQUIRED'; task.review.job.fence++; task.review.revision.status = 'REVIEW_REQUIRED'; task.retryCount = 0; item.pendingRevision = task.review.revision; }
+function resetTask() { task.review.approvedRevision = old; item.approvedRevision = old; task.review.job.status = 'REVIEW_REQUIRED'; task.review.job.fence++; task.review.revision.status = 'REVIEW_REQUIRED'; task.retryCount = 0; item.pendingRevision = task.review.revision; }
 function read(path, q) {
   if (path === '/auth/config') return { available: true, passwordMinLength: 15, passwordMaxLength: 64 };
   if (path === '/users/me') return signedIn ? { id: 1, username: 'test-operator', nickname: '테스트 운영자', onboardingRequired: false } : null;
