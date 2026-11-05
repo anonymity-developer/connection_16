@@ -1,9 +1,8 @@
 openapi: 3.1.0
 info:
   title: TAG ME 동료 탐색과 프로필 방문 API
-  version: 0.5.1
-  description: 세션/현재 공개 자격 필수. 목록은 닉네임, 실명/반은 CSRF POST 상세만. GET 상세 없음. 현재 공개 범위를
-    모든 조회에서 필터하며 개인 차단/시상/운영 화면은 후속.
+  version: 0.5.3
+  description: 목록은 닉네임/관심사/유형. 가져온 이름·지역·반·사진과 선택 입력 정보는 OPEN 기간 상세에서만 제공. 비공개 설정 없음. 계정/현재 정책/가져오기 조건 필수.
 servers:
 - url: /api/v1
 paths:
@@ -56,16 +55,14 @@ paths:
         schema:
           type: string
           pattern: ^[A-Za-z0-9._-]{1,64}$
-      description: typeCode/questionnaireVersion은 둘 다 주거나 둘 다 생략. 닉네임만 문자 그대로 검색.
-        현재 본인 공개 프로필/동의 필요.
+      description: typeCode/questionnaireVersion은 둘 다 주거나 둘 다 생략. 닉네임만 문자 그대로 검색. 현재 본인 공개 프로필/동의 필요.
   /profiles:
     get:
       summary: 닉네임 목록 별칭; 상세 없음
       security: *id001
       responses: *id002
       parameters: *id003
-      description: typeCode/questionnaireVersion은 둘 다 주거나 둘 다 생략. 닉네임만 문자 그대로 검색.
-        현재 본인 공개 프로필/동의 필요.
+      description: typeCode/questionnaireVersion은 둘 다 주거나 둘 다 생략. 닉네임만 문자 그대로 검색. 현재 본인 공개 프로필/동의 필요.
   /discovery/recommendations:
     get:
       summary: 미방문/공통 관심사/동일 버전 유형 기준 최대 12명
@@ -146,6 +143,31 @@ paths:
           minimum: 1
           maximum: 30
           default: 20
+  /discovery/profiles/{id}/photo:
+    get:
+      summary: 열어 본 참여자의 Mattermost 사진
+      description: OPEN, 본인·대상 현재 자격과 기존 상세 방문 필요. 사진 GET은 방문을 생성하지 않는다. 외부 통신 후 자격 재검사. 사진 없음/미방문 404, 외부 오류 503,
+        분당 60회.
+      security:
+      - session: []
+      responses:
+        '200':
+          description: no-store/nosniff PNG, 최대 1MiB
+          content:
+            image/png:
+              schema:
+                type: string
+                format: binary
+        default:
+          $ref: '#/components/responses/Error'
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+          minimum: 1
 components:
   securitySchemes:
     session:
@@ -244,7 +266,9 @@ components:
         classNo:
           type: integer
         bio:
-          type: string
+          type:
+          - string
+          - 'null'
         githubUrl:
           type:
           - string
@@ -254,6 +278,11 @@ components:
           - string
           - 'null'
         newlyVisited: *id004
+        photoUrl:
+          type:
+          - string
+          - 'null'
+          description: 같은 origin /api/v1/discovery/profiles/{id}/photo?v=숫자, 사진이 없으면 null
       required:
       - person
       - realName
@@ -263,6 +292,7 @@ components:
       - githubUrl
       - blogUrl
       - newlyVisited
+      - photoUrl
     Stats:
       type: object
       additionalProperties: false
@@ -330,8 +360,7 @@ components:
       - truncated
   responses:
     Error:
-      description: 401 세션, 403 기간/CSRF, 404 대상 비공개/없음, 409 본인 공개 자격, 400 필터, 429 제한,
-        일시 장애
+      description: 401 세션, 403 기간/CSRF, 404 대상 비공개/없음, 409 본인 공개 자격, 400 필터, 429 제한, 일시 장애
       content:
         application/json:
           schema:

@@ -32,6 +32,8 @@ try {
     if (method === 'GET' && path === '/tags/pending') return reply(200, { present: false });
     if (method === 'GET' && path === '/event') return reply(200, { status: 'NOT_CONFIGURED', opensAt: null, submitClosesAt: null, profilePreparationEnabled: false });
     if (method === 'GET' && path === '/missions/collection') return reply(200, { missions: ['SHOW_ME', 'SYNC_ME', 'MAKE_A_WISH', 'FAST_TAP', 'SAY_SOMETHING'].map((code, index) => ({ id: index + 1, code, state: 'LOCKED', active: true })), completedCount: 0, completion: { complete: false, completedAt: null, completionOrder: null, awardConfirmed: false } });
+    if (method === 'GET' && path === '/interests') return reply(200, [{ id: 1, name: '백엔드', category: 'DOMAIN' }, { id: 2, name: 'React', category: 'TECH_STACK' }]);
+    if (method === 'GET' && path === '/users/me/profile') return reply(200, { identity: { realName: '테스트 이름', region: '서울', classNo: 13, photoUrl: null, ready: true }, profile: null, consents: { ready: true, policies: ['PARTICIPATION','PROFILE_PUBLICATION'].map(type => ({ type, version: 'test-v1', title: '테스트 안내', body: '브라우저 계약 전용 안내', agreed: false })) }, profileComplete: false, participationReady: false });
     if (method === 'GET' && path === '/csrf') return reply(200, { headerName: 'X-XSRF-TOKEN', token: 'test-csrf-token' });
     assert.equal(request.headers()['x-xsrf-token'], 'test-csrf-token', 'every mutation includes CSRF');
     const body = request.postDataJSON();
@@ -88,7 +90,7 @@ try {
   }
   await page.setViewportSize({ width: 390, height: 900 });
   await page.getByRole('button', { name: '가입하기', exact: true }).click();
-  await page.getByRole('heading', { name: '계정 연결을 마쳤어요', exact: true }).waitFor();
+  await page.getByRole('heading', { name: '나의 프로필', exact: true }).waitFor();
   assert.equal(lastSignup.code, '012345');
   assert.equal(lastSignup.password, password);
   assert.equal(lastSignup.challengeId, 'b'.repeat(43), 'resend replaces the challenge ID');
@@ -96,6 +98,7 @@ try {
   await page.screenshot({ path: resolve(output, 'auth-contract-account-390.png'), fullPage: true });
   await record('signup contract, busy submission, resend replacement, numeric code and password policy');
 
+  await page.getByRole('banner').getByRole('link', { name: '내 계정', exact: true }).click();
   await page.getByRole('link', { name: '비밀번호 변경', exact: true }).click();
   await page.getByRole('heading', { name: '비밀번호 변경', exact: true }).waitFor();
   assert.equal(await page.locator('input[name="username"]').count(), 0);

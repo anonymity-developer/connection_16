@@ -1,12 +1,12 @@
 # 프로필, 동의, 태그와 수집판 구현
 
-페이즈 3은 인증된 사용자가 자신의 프로필과 동의를 저장하고, 현장 태그로 미션을 해금하며, 서버가 검증한 SHOW ME 완료를 수집판에 반영하는 범위다. 성향/소원/탭/응원의 실제 수행과 공개 동료 탐색은 다음 페이즈다. 관리자 설정 화면/배포는 아직 없다.
+페이즈 3은 인증된 사용자가 자신의 프로필과 동의를 저장하고, 현장 태그로 미션을 해금하며, 서버가 검증한 SHOW ME 완료를 수집판에 반영하는 범위다. 성향/소원/탭/응원과 공개 동료 탐색은 후속 페이즈에서 구현했다. 관리자 설정 화면/배포는 아직 없다.
 
 ## 시작 전 운영 설정
 
 V4는 행사 설정, 버전별 동의, 접수 근거와 동의 이력 테이블을 추가한다. 관심사 카테고리만 시드하며 행사 일정, 동의 원문, 참가자와 태그는 넣지 않는다. `event_settings` 행 또는 두 종류의 현재 정책이 없으면 참여 쓰기를 거절한다. 실제 Mattermost 연동의 확인 여부는 [인증](auth.md)과 별개다.
 
-`event_settings.id=1`의 opens_at/submit_closes_at/moderation_closes_at은 UTC DATETIME(6)다. 시작 < 신규 제출 마감 <= 검수 마감을 만족해야 한다. `profile_preparation_enabled=false`가 기본값이며, true로 명시한 경우에만 시작 전 프로필 저장을 허용한다. 태그 해금과 공식 완료는 항상 행사 진행 중에만 가능하다. 종료 후에도 자신의 기록 조회와 공개 동의 철회는 가능하다.
+`event_settings.id=1`의 opens_at/submit_closes_at/moderation_closes_at은 UTC DATETIME(6)다. 시작 < 신규 제출 마감 <= 검수 마감을 만족해야 한다. `profile_preparation_enabled=false`가 기본값이며, true로 명시한 경우에만 시작 전 프로필 저장을 허용한다. 태그 해금과 공식 완료는 항상 행사 진행 중에만 가능하다. 종료 후에도 자신의 기록 조회는 가능하다. 참가자 비공개/철회 API는 제공하지 않는다.
 
 운영자는 확정된 문구를 `consent_policies`의 `(policy_type,policy_version)`별 새 행으로 추가하고 `current_consent_policies`에서 현재 버전을 가리킨다. policy_type은 PARTICIPATION/PROFILE_PUBLICATION이다. 기존 원문을 덮어쓰지 않는다. 문구에는 수집/공개 항목, 목적, 보관 기간, 철회/문의 방법을 실제 정책으로 명시해야 하며 이 저장소는 임의의 약관을 확정하지 않는다. 같은 트랜잭션에서 두 현재 포인터를 바꾸고, 운영 DB 권한과 변경 기록은 별도로 관리한다.
 
@@ -25,19 +25,17 @@ COMMIT;
 
 현재 포인터가 이미 있으면 승인된 변경에서만 해당 행을 갱신한다. `settings_version`도 실제 변경 때 증가시킨다. 서비스는 사용자 잠금 후 설정/현재 정책에 공유 잠금을 걸어 쓰기 중 교체를 직렬화한다. 운영 변경 트랜잭션에서는 사용자 행을 함께 잠그지 않는다.
 
-## 내 프로필과 동의
+## 내 프로필과 참여 안내
 
-`GET /users/me/profile`은 본인에게만 상세 입력값, 관심사 ID, 현재 정책의 원문/버전/동의 여부와 준비 상태를 반환한다. 닉네임은 최대 30자, 실명 100자, 소개 200자, 반은 1~9999의 정수다. 지역은 서버에서 서울로 고정한다. 관심사는 실제 카탈로그 ID 1~5개이며 중복을 거절한다. 링크는 선택이고 HTTPS만 허용한다. GitHub 링크는 github.com만 허용하며 URL의 사용자정보/fragment/비표준 포트/제어 문자를 거절한다. 외부 URL을 서버가 조회하지 않는다.
+[가져오기와 공개 계약](mattermost-profile.md)이 현재 기준이다. `GET /users/me/profile`은 가져온 읽기 전용 identity와 수정 가능한 profile, 현재 두 정책/준비 상태를 반환한다. identity는 프로필을 아직 작성하지 않아도 반환하며 ready=false면 재로그인이 필요하다.
 
-실명과 반은 **참가자의 직접 입력값**이다. Mattermost 계정 소유와 채널 참여 확인이 학적 정보까지 검증한 것은 아니다. 외부 인증으로 검증한 실명/반으로 표시하지 않으며 운영상의 별도 확인 절차는 미구현이다.
+닉네임만 필수(최대 30자)다. 한 줄 소개는 선택(최대 200자), 도메인/기술 스택 관심사는 카탈로그 ID 0~10개이며 중복을 거절한다. GitHub/블로그는 선택, HTTPS만 허용한다. GitHub는 github.com만 허용하며 사용자정보/fragment/비표준 포트/제어 문자를 거절한다. 링크를 서버가 조회하지 않는다. 길이는 Jakarta Size의 UTF-16 단위다. 가져온 이름/지역/반/사진과 isPublic을 저장 본문에 받지 않는다.
 
-저장은 expectedVersion을 받아 같은 사용자의 다른 탭에서 변경한 값을 조용히 덮어쓰지 않는다. 신규는 0, 기존은 조회한 profile.version을 보낸다. 이전 버전은 409 PROFILE_CHANGED이며 새로 불러와야 한다. 저장/동의 이력/관심사/접수 근거/해당 글자 지급은 한 트랜잭션이다. 실패하면 함께 롤백한다.
+저장은 expectedVersion을 받아 다른 탭의 변경을 조용히 덮어쓰지 않는다. 신규는 0, 기존은 profile.version이다. 이전 버전은 409 PROFILE_CHANGED다. 저장/안내 확인 이력/관심사/접수/해당 글자 지급은 한 트랜잭션이다. 이름·사진 소스가 바뀌어도 기존 닉네임/소개/관심사/링크는 보존하며 기존 버전을 올린다.
 
-PARTICIPATION의 현재 버전 동의가 있어야 프로필을 저장한다. 공개를 선택하면 PROFILE_PUBLICATION의 현재 버전도 필요하다. `acceptPolicies`는 사용자가 명시적으로 체크한 새 동의만 포함하며 기존 동의는 서버에서 확인한다. 모르는/오래된 버전은 409 POLICY_CHANGED로 거절한다. 새로운 정책은 기존 동의를 자동 승계하지 않는다.
+화면에는 참여·상세 공개 안내를 한 번 체크하는 동작만 있다. 현재 PARTICIPATION/PROFILE_PUBLICATION 두 기록을 내부적으로 확인한다. acceptPolicies에는 새로 확인한 현재 버전만 보낸다. 오래된 버전은 409 POLICY_CHANGED이며 자동 승계하지 않는다. 별도 공개 선택/비공개/철회 화면과 PUT consents 경로는 제거했다. 레거시 is_public 컬럼은 내부 호환용이며 유효한 프로필 저장은 항상 공개다. 예전 비공개/미완성 계정을 일괄 공개하지 않는다.
 
-`PUT /users/me/consents/{type}`에 agreed=false를 보내면 해당 종류의 활성 동의를 모든 버전에 걸쳐 철회하고 프로필을 비공개로 바꾼다. version은 화면에서 확인한 문구 버전이며 철회 시 최신 포인터 일치를 요구하지 않는다. 마감/정책 교체/행사 미설정에도 철회를 막지 않는다. 재동의는 현재 문구에만 가능하고 자동 재공개/글자 지급은 하지 않는다. 동의/철회는 user_consent_events에 누적하고 현재 상태는 user_consents에 둔다. 반복 철회로 공개 상태나 이력을 중복 변경하지 않는다.
-
-비공개 전환은 과거 완료/접수 근거를 지우지 않는다. 최종 시상 자격과 개인정보 삭제/보관 정책은 별도 운영 범위다. 공개 프로필 목록/상세/추천/그래프 API는 이번 페이즈에 제공하지 않으며 후속 구현에서도 is_public과 현재 동의/계정 상태를 함께 검사해야 한다.
+목록에는 닉네임/관심사/성향만, 열린 상세에는 가져온 이름·지역·반·사진과 작성한 소개·링크를 제공한다. 본인 사진 GET과 방문 후 상대 사진 GET은 세션/현재 상태를 검사하고 서버가 Mattermost 이미지를 중계한다. [탐색 계약](discovery.md)과 사진 전달 계약을 따른다.
 
 ## 태그와 로그인 복귀
 
@@ -59,7 +57,7 @@ PARTICIPATION의 현재 버전 동의가 있어야 프로필을 저장한다. �
 
 MissionCompletionService는 클라이언트용 범용 완료 API가 아니다. 사용자 행 잠금 → 계정/행사 → 미션 활성/해금 → 서버 receipt 소유 → 해당 미션의 CompletionRule 검증 → 최초 evidence/progress → 다섯 code 판정 → 필요할 때만 전역 sequence 잠금 순서다. 비밀번호 버전과 ACTIVE 상태는 실제 쓰기 트랜잭션 안에서도 확인한다.
 
-현재 운영에 등록한 CompletionRule은 SHOW_ME뿐이다. 다음 페이즈의 네 미션은 유효 결과/승인 근거를 확인하는 별도 rule을 구현해야 한다. 테스트의 가상 미래 rule은 테스트 구성에만 있으며 운영 API/바이너리 경로로 우회할 수 없다.
+운영 CompletionRule은 다섯 미션별 서버 근거를 확인한다. 후속 페이즈에서 성향/공식 게임/승인 콘텐츠 근거를 연결했다. 테스트의 가상 미래 rule은 테스트 구성에만 있으며 운영 API/바이너리 경로로 우회할 수 없다.
 
 submission_receipts는 프로필 버전 또는 최초 해금별 서버 접수 시각을 보존한다. evidence의 accepted_received_at은 수행/해금 조건을 모두 만족한 접수 시각의 최댓값이다. 락 대기 때문에 요청 순서와 처리 순서가 달라도 이전 미해금 행위를 유효 완료 시각으로 앞당기지 않는다. profile.version은 사용자별 값이므로 PROFILE source_id도 사용자 범위로 유일하다.
 
@@ -75,7 +73,7 @@ submission_receipts는 프로필 버전 또는 최초 해금별 서버 접수 �
 | GET | /policies | 현재 두 정책 원문/버전/본인 동의 여부 |
 | GET | /interests | 실제 관심사 카탈로그 |
 | GET / PUT | /users/me/profile | 본인 입력/동의 상태 또는 버전 확인 후 저장 |
-| PUT | /users/me/consents/{type} | 동의 또는 철회, 204 |
+| GET | /users/me/photo | 본인 Mattermost 사진, no-store |
 | GET | /missions, /missions/collection | 5개 미션 상태/시각, 완료 개수/전체 완료 |
 | GET | /missions/completion | 전체 완료 상태/운영상 순번/시상 미확정 |
 | POST | /tags/pending | 익명 태그 의도 저장, 202 |
@@ -93,4 +91,4 @@ node scripts/create-tag-bundle.mjs --origin https://YOUR_DOMAIN --out /PRIVATE/N
 
 Git 저장소 밖의 새 디렉터리에 권한 0700으로 저장하며 기존 디렉터리를 덮어쓰지 않는다. hash만 포함한 tags.sql과 물리 NFC/QR 제작용 private-tag-urls.json(0600)을 만든다. stdout에는 원문을 출력하지 않는다. 도구는 날짜/동의/DB 연결을 만들지 않는다. 운영자가 SQL을 검토하고 백업 후 별도로 적용한다. 재발급 시 기존 태그 비활성화는 별도의 승인된 DB 작업이며 기존 해금 이력은 지우지 않는다.
 
-자동 검증은 Testcontainers MySQL/Redis의 태그/프로필 순서, 동시 해금/완료/다중 사용자 순번, 롤백, 동의 교체/철회, CSRF와 오래된 세션을 포함한다. 브라우저 검사는 명시적 API 대역으로 수행하며 실제 참가자/정책/행사 태그를 만들지 않는다. 실제 Mattermost 권한/DM, NFC/QR 실기기, 정책 확정과 행사 용량은 여전히 운영 전 확인 대상이다.
+자동 검증은 Testcontainers MySQL/Redis의 태그/프로필 순서, 동시 해금/완료/다중 사용자 순번, 롤백, 정책 교체/레거시 비노출, CSRF와 오래된 세션을 포함한다. 브라우저 검사는 명시적 API 대역으로 수행하며 실제 참가자/정책/행사 태그를 만들지 않는다. 실제 Mattermost 권한/DM, NFC/QR 실기기, 정책 확정과 행사 용량은 여전히 운영 전 확인 대상이다.

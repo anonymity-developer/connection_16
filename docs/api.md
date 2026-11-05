@@ -38,13 +38,13 @@ Actuator의 `/actuator/health`, `/actuator/health/readiness`는 컨테이너/로
 | POST | `/auth/password/reset` | challengeId, code, newPassword → 본인 DM 인증 후 기존 비밀번호 재설정/모든 이전 세션 무효화 |
 | POST | `/auth/logout` | 세션 무효화 → 204 |
 | GET | `/users/me` | 내 계정/프로필/필요한 동의 상태 |
-| PUT | `/users/me/profile` | nickname, realName, classNo, bio, interestIds, githubUrl?, blogUrl?, isPublic, acceptPolicies, expectedVersion |
+| PUT | `/users/me/profile` | nickname, bio?, interestIds(0~10), githubUrl?, blogUrl?, acceptPolicies, expectedVersion |
 | GET | `/profiles` | 공개 목록; cursor, limit, interestId, typeCode 필터 |
 | GET | `/interests` | 관심사 ID/이름 목록 |
 
 가입/로그인/OTP 발송/분실 재설정은 필요한 POST 경로만 permitAll에 추가했다. PASSWORD_CHANGE 발송과 `/users/me/password`는 세션이 필요하다. permitAll도 CSRF와 rate limit을 적용한다. 일반 로그인은 아이디/비밀번호이며 OTP만으로 로그인하는 `/auth/otp/verify`는 제공하지 않는다. GET `/users/{id}`를 별도로 만들면 방문 기록을 우회하기 쉬우므로 **상세 정보는 아래 POST open 경로로 통일**한다.
 
-위 표의 경로는 구현했다. `/profiles`는 탐색의 닉네임 목록 별칭이며 공개 상세 GET이 아니다. `onboardingRequired`는 필수 프로필/관심사/현재 정책 동의/공개 상태를 포함한다. 직접 입력한 이름과 반의 외부 검증을 뜻하지 않는다. 동의/기간/버전 규칙은 [참여 계약](participation.md)을 따른다.
+위 표의 경로는 구현했다. `/profiles`는 탐색의 닉네임 목록 별칭이며 공개 상세 GET이 아니다. `onboardingRequired`는 Mattermost 가져오기 완료/닉네임/현재 두 안내 확인을 포함한다. 소개/관심사/링크는 선택이며 비공개 설정과 직접 이름/반 입력은 제거했다. [가입 계약](mattermost-profile.md)을 따른다. 동의/기간/버전 규칙은 [참여 계약](participation.md)을 따른다.
 
 `code`는 **숫자 6자리 문자열**이며 `^[0-9]{6}$`로 검증한다. 숫자 타입으로 변환하지 않아 앞자리 0을 유지한다. 영문/기호는 허용하지 않는다. 인증번호는 매 발급 시 안전하게 새로 생성하는 일회용 값이며 고정 공용 번호가 아니다. challenge ID는 인증 요청을 식별하는 별도 값으로, 사용자가 입력하는 인증번호와 구분한다.
 
@@ -90,7 +90,7 @@ challenge의 purpose는 SIGN_UP/PASSWORD_CHANGE/PASSWORD_RESET이며 계정/작�
 
 클라이언트에 직접 미션을 완료하는 범용 POST API를 제공하지 않는다. 각 기능의 서버 검증 결과가 내부 완료 서비스를 호출한다.
 
-GET `/event`, `/policies`, `/users/me/profile`, GET/POST `/tags/pending`, POST `/tags/resume`, PUT `/users/me/consents/{type}`도 구현했다. 정책 미설정은 참여 쓰기를 차단하며, 실제 원문/일정/태그는 시드하지 않는다. 상세 응답은 [참여 OpenAPI](participation.openapi.yaml)가 기준이다.
+GET `/event`, `/policies`, `/users/me/profile`, GET/POST `/tags/pending`, POST `/tags/resume`, GET `/users/me/photo`도 구현했다. 참가자 동의 철회/비공개 API는 제거했다. 정책 미설정은 참여 쓰기를 차단하며, 실제 원문/일정/태그는 시드하지 않는다. 상세 응답은 [참여 OpenAPI](participation.openapi.yaml)가 기준이다.
 
 ### 태그 진입 및 해금 계약
 
@@ -151,7 +151,7 @@ GET `/event`, `/policies`, `/users/me/profile`, GET/POST `/tags/pending`, POST `
 | GET | `/discovery/graph` | self/nodes/edges/truncated; 내 직접 관계, 기본 20/최대 30 |
 | GET | `/discovery/stats` | visitedCount/visitorCount/mutualCount; 화면 limit과 독립된 전체 적격 집계 |
 
-모든 경로는 본인의 ACTIVE/완성된 공개 프로필/현재 두 동의를 확인한다. 미달이면 409 PROFILE_REQUIRED다. 대상도 같은 현재 공개 필터를 사용하며 존재하지 않거나 비공개면 404 PROFILE_NOT_FOUND다. 상세는 기존 방문/본인 재열기도 OPEN 기간에만 허용한다. 목록/관계/통계는 행사 전후에도 현재 자격으로 읽을 수 있다. GET 상세는 없다. 기간/필터/잠금/철회와 추천 경계는 [탐색 계약](discovery.md), 정확한 스키마는 [탐색 OpenAPI](discovery.openapi.yaml)를 따른다.
+모든 경로는 본인의 ACTIVE/완성된 공개 프로필/현재 두 동의를 확인한다. 미달이면 409 PROFILE_REQUIRED다. 대상도 같은 현재 공개 필터를 사용하며 존재하지 않거나 비공개면 404 PROFILE_NOT_FOUND다. 상세는 기존 방문/본인 재열기도 OPEN 기간에만 허용한다. 목록/관계/통계는 행사 전후에도 현재 자격으로 읽을 수 있다. GET 상세는 없다. 기간/필터/잠금과 추천 경계는 [탐색 계약](discovery.md), 정확한 스키마는 [탐색 OpenAPI](discovery.openapi.yaml)를 따른다.
 
 상세 성공 응답 예시(설명용 데이터):
 
@@ -378,7 +378,16 @@ route는 서버가 정한 내부 경로이며 토큰에서 외부 URL을 읽어 
 | GET | `/event` | 공개 행사명/진행 상태/일정/공지 버전; 운영자·개인 데이터 제외 |
 | POST | `/content/{id}/reports` | 로그인 사용자의 reason 기반 신고 접수; 과다/중복 제한 |
 | GET | `/users/me/consents` | 본인의 목적/버전/동의/철회 상태 |
-| PUT | `/users/me/consents/{policyType}` | 버전과 동의/철회; 공개 설정/참여 자격 영향을 함께 처리 |
+| — | `/users/me/consents/{policyType}` | 제거됨. 프로필 저장에서 현재 두 안내를 한 번 확인 |
 | POST | `/users/me/withdrawal` | 확인 후 탈퇴 절차; 즉시 공개 중단과 보관 정책 적용 |
 
 현재 permitAll은 이 추가 예정 경로를 허용하지 않는다. 동의 철회/탈퇴의 실제 삭제 범위와 보존 기간은 배포 전 운영 정책으로 확정한다. 신고를 콘텐츠 자동 삭제로 처리하거나, 탈퇴를 모든 감사/시상 데이터의 무조건 cascade 삭제로 구현하지 않는다. 공개 결과 발표 API와 경품 발송은 운영 정책/개인정보 범위를 확정한 후 별도 계약으로 추가한다.
+
+## Mattermost 사진 API (V9)
+
+| Method | 경로 | 조건 |
+| --- | --- | --- |
+| GET | `/users/me/photo` | 본인 세션·가져오기·사진 버전 |
+| GET | `/discovery/profiles/{id}/photo` | OPEN·본인/대상 현재 자격·기존 상세 방문 |
+
+둘 다 no-store PNG이며 외부 ID/URL/토큰을 노출하지 않는다. 사진 GET은 방문을 만들지 않는다. 입력/오류/사진 제한은 [가입 계약](mattermost-profile.md), 스키마는 참여/탐색 OpenAPI를 따른다.

@@ -79,6 +79,7 @@ jobs:
             output/playwright/
             .taste-skill/production/
             .taste-skill/operations-render/
+            .taste-skill/profile-render/
           include-hidden-files: true
 
   backend:

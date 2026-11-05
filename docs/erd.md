@@ -1,6 +1,6 @@
 # 전체 도메인 ERD와 관계 규칙
 
-이 문서는 읽기 편하게 도메인별로 나눈 전체 설계다. **1~3절의 기본 도식은 V1에 존재하는 테이블**이며, **1.1절 로그인 확장은 V3다. 8절의 접수/완료 근거와 9절의 동의/행사 설정 일부는 V4, 성향/게임은 V5, 콘텐츠/검수는 V6, 댓글/하트는 V7, 관리자 감사/재처리 한도는 V8 절에 구현했다. 시상/신고와 나머지 활동은 후속 계획**이다. 후속 컬럼/타입은 migration 작성 시 검증하며, 존재하지 않는 FK나 테이블을 이미 적용한 것처럼 사용하지 않는다. 전체 테이블 사전과 인덱스 요약은 [데이터 모델](data-model.md)에 있다.
+이 문서는 읽기 편하게 도메인별로 나눈 전체 설계다. **1~3절의 기본 도식은 V1 테이블이며 1절의 소스 컬럼/관심사 분류는 V9 확장**이며, **1.1절 로그인 확장은 V3다. 8절의 접수/완료 근거와 9절의 동의/행사 설정 일부는 V4, 성향/게임은 V5, 콘텐츠/검수는 V6, 댓글/하트는 V7, 관리자 감사/재처리 한도는 V8 절에 구현했다. 시상/신고와 나머지 활동은 후속 계획**이다. 후속 컬럼/타입은 migration 작성 시 검증하며, 존재하지 않는 FK나 테이블을 이미 적용한 것처럼 사용하지 않는다. 전체 테이블 사전과 인덱스 요약은 [데이터 모델](data-model.md)에 있다.
 
 단일 행사 기준이며 다중 행사를 지원하려면 event_id와 UNIQUE 범위를 다시 설계해야 한다. 아래 대문자 엔티티는 실제 snake_case 테이블을 가리킨다. PK/FK/UK는 기본키/외래키/유일 제약이며 복합키는 설명에서 다시 명시한다.
 
@@ -17,6 +17,8 @@ erDiagram
         varchar real_name
         varchar region
         int class_no
+        datetime mattermost_profile_synced_at
+        bigint mattermost_picture_updated_at
         varchar role
         varchar status
         datetime created_at
@@ -36,6 +38,7 @@ erDiagram
     INTERESTS {
         bigint id PK
         varchar name UK
+        varchar category
     }
     USER_INTERESTS {
         bigint user_id PK,FK
@@ -44,8 +47,8 @@ erDiagram
 ```
 
 - users.mattermost_id가 외부 계정의 고유 키다. 표시 이름은 변경될 수 있으므로 식별자로 사용하지 않는다.
-- USER/ADMIN 역할과 ACTIVE/SUSPENDED/WITHDRAWN 상태는 서버에서 관리한다. class_no는 프로필 등록 후 양수이며 V3부터 온보딩 전 NULL을 허용한다.
-- profiles의 user_id는 PK/FK이므로 사용자당 최대 1개다. 초기 공개값은 false다. 닉네임 중복은 허용한다.
+- USER/ADMIN 역할과 ACTIVE/SUSPENDED/WITHDRAWN 상태는 서버에서 관리한다. class_no는 V9부터 가입 인증 성공 때 파싱해 저장하며 기존 미동기화 행은 NULL일 수 있다.
+- profiles의 user_id는 PK/FK이므로 사용자당 최대 1개다. DB 기본값 false는 레거시이며 현재 유효한 프로필 저장은 항상 true다. 닉네임 중복은 허용한다.
 - user_interests는 `(user_id, interest_id)` 복합 PK다. 현재 FK는 삭제 cascade를 사용하지 않는다.
 - 실명/반이 있는 users 엔티티를 그대로 목록 응답에 직렬화하지 않는다. 프로필 동의와 실제 공개 상태를 확인한다.
 
@@ -144,7 +147,7 @@ erDiagram
     }
 ```
 
-PK는 `(viewer_id, viewed_id)`, 역방향 탐색 인덱스는 `(viewed_id, viewer_id)`다. 자기 방문을 금지한다. A→B는 행 1개이고 B→A가 추가되면 상호 방문이다. 양방향 여부를 별도 컬럼에 중복 저장하지 않는다. 노출 시 현재 계정/프로필 상태와 현재 두 동의/필수 정보 완성을 다시 필터링한다. 페이즈 5-1에서 이 기존 V1 구조를 사용하며 migration 변경은 없다. first_viewed_at은 최초 DB UTC 시각이고 재열기로 갱신하지 않는다. 두 사용자 행을 ID 오름차순으로 잠근 뒤 최초 삽입해 중복/반대 방문과 공개 철회를 직렬화한다. 비공개 뒤 원장은 남지만 현재 그래프/통계에서 제외한다. 상세와 저장은 같은 트랜잭션이며 본인 간선/동료 간 전체 관계 공개는 없다. [탐색 계약](discovery.md)을 따른다.
+PK는 `(viewer_id, viewed_id)`, 역방향 탐색 인덱스는 `(viewed_id, viewer_id)`다. 자기 방문을 금지한다. A→B는 행 1개이고 B→A가 추가되면 상호 방문이다. 양방향 여부를 별도 컬럼에 중복 저장하지 않는다. 노출 시 현재 계정/프로필 상태와 현재 두 동의/필수 정보 완성을 다시 필터링한다. 페이즈 5-1에서 이 기존 V1 구조를 사용하며 migration 변경은 없다. first_viewed_at은 최초 DB UTC 시각이고 재열기로 갱신하지 않는다. 두 사용자 행을 ID 오름차순으로 잠근 뒤 최초 삽입해 중복/반대 방문과 계정 자격 변경을 직렬화한다. 자격을 잃어도 원장은 남지만 현재 그래프/통계에서 제외한다. 상세와 저장은 같은 트랜잭션이며 본인 간선/동료 간 전체 관계 공개는 없다. [탐색 계약](discovery.md)을 따른다.
 
 ## 4. 콘텐츠 원본과 검수 버전 — V6 구현
 
@@ -548,3 +551,7 @@ kind 상수 CHECK와 (id,kind) 복합 FK가 소원/카드/댓글의 혼용을 �
 | content_items | (kind,visibility_status,id) 운영 조회 인덱스 |
 
 감사의 target_type/target_id는 다형 대상 메타데이터이므로 특정 테이블 FK로 그리지 않는다. revision 원문·접수 근거·승인/대기 포인터와 완료 기록은 기존 V6/V7/V4를 유지한다. V8은 신고/시상/회원 제재 테이블이나 참가자 데이터를 만들지 않는다. 조치/감사 원자성과 보관 한계는 [운영 계약](operations-admin.md)을 따른다.
+
+## V9 가져온 프로필과 분류 카탈로그
+
+users의 real_name/region/class_no는 Mattermost에서 파싱한 원본 표시 정보다. mattermost_profile_synced_at은 가져오기 성공 시각, mattermost_picture_updated_at은 사진 버전(0은 사진 없음)이다. interests에 category DOMAIN/TECH_STACK가 추가되며 user_interests 관계는 그대로다. 이미지 원본은 저장하지 않는다. profiles.is_public은 내부 레거시 컬럼으로 남고 새 저장은 항상 true다. 사용자가 이름/반/비공개 여부를 입력하지 않는다. 관심사·소개·링크는 선택이다. [현재 프로필 계약](mattermost-profile.md)이 이전 직접 입력/공개 철회 설계를 대체한다.

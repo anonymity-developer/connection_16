@@ -13,7 +13,7 @@
 | challenge ID | 32바이트 무작위 Base64URL 43자리. 사용자가 입력하는 6자리 번호와 별개 |
 | 닉네임 | 프로필 단계에서 입력할 별도 값. 아이디로 사용하지 않음 |
 
-V3가 `users.mattermost_username`과 `user_credentials`를 추가한다. username은 최대 64자, `utf8mb4_0900_bin` UNIQUE다. 새 계정의 real_name/region/class_no는 프로필 단계 전까지 NULL이며 가짜 이름/지역/반으로 채우지 않는다. 기존 행의 username은 실제 조회 전까지 NULL, 기존 비밀번호는 자동 생성하지 않는다.
+V3가 `users.mattermost_username`과 `user_credentials`를 추가한다. username은 최대 64자, `utf8mb4_0900_bin` UNIQUE다. V9부터 가입 인증 성공 시 real_name/region/class_no를 Mattermost 이름에서 파싱해 저장한다. 파싱 실패 시 가입을 보류하며 가짜 이름/지역/반으로 채우지 않는다. [가져오기 계약](mattermost-profile.md)을 따른다. 기존 행의 username은 실제 조회 전까지 NULL, 기존 비밀번호는 자동 생성하지 않는다.
 
 초기 비밀번호 기준은 **공백을 포함해 15~64 Unicode code point**다. 공백만 있는 값은 거절한다. 원문을 변환하지 않고, 한글/이모지도 허용한다. 서버와 프론트에 같은 길이 기준을 적용했다. Spring Security PasswordEncoder로 PBKDF2-HMAC-SHA256, 600,000회, 사용자별 16바이트 salt, 256-bit 결과를 사용한다. 인코딩 ID는 `{pbkdf2-sha256-v1}`이며 나중에 비용/알고리즘 변경을 구분할 수 있다. JDK가 제공하는 알고리즘을 사용하며 FIPS 인증을 받았다는 의미가 아니다. 실제 운영 서버의 해시 비용·가입/로그인 부하를 확인한 뒤 조정한다.
 
@@ -29,14 +29,14 @@ V3가 `users.mattermost_username`과 `user_credentials`를 추가한다. usernam
 4. 발송 가능한 신규/기존 무자격증명 계정이면 목적별 코드를 저장하고 해당 계정 DM으로 보낸다.
 5. `/auth/signup`에 challengeId/code/password를 함께 제출한다.
 6. 비밀번호 형식, purpose/바인딩, 원자적 OTP 소비, 외부 계정 재검증을 거친다.
-7. 회원과 credentials를 같은 DB 트랜잭션으로 저장한 뒤 세션 ID를 바꾸고 인증을 저장한다.
-8. 프론트는 onboardingRequired이면 내 계정으로 이동한다. 프로필/동의 등록은 [참여 계약](participation.md)에 구현했다.
+7. 가져온 이름/지역/반/사진 버전, 회원과 credentials를 같은 DB 트랜잭션으로 저장한 뒤 세션 ID를 바꾸고 인증을 저장한다.
+8. 가입 후 onboardingRequired이면 `/me/profile`로 이동해 닉네임(필수), 관심사/소개/링크(선택)와 참여 안내를 확인한다. 프로필/동의 등록은 [참여 계약](participation.md)에 구현했다.
 
 이미 비밀번호가 있는 계정은 SIGN_UP으로 덮어쓰지 않는다. V1의 기존 무자격증명 계정은 같은 외부 ID에 대한 DM 확인 후 최초 비밀번호를 설정할 수 있다. 동명이거나 username이 충돌해도 자동 합병하지 않는다.
 
 ### 일반 로그인
 
-username → Mattermost 내부 ID/채널 확인 → 그 내부 ID에 연결된 해시 검증 → 사용자 행 잠금 후 ACTIVE/version 재확인 → username/last_login_at 갱신 → 세션 ID 교체와 SecurityContext 저장 순서다. 비밀번호 검증의 비싼 계산과 외부 통신은 DB 행 잠금 밖에서 수행한다. 인증 저장소는 JdbcTemplate과 기존 Spring 트랜잭션 관리자를 사용하며, 기존 사용자 작업에서는 트랜잭션의 첫 읽기로 사용자 행을 잠근다. 무자격증명 계정의 최초 설정도 challenge의 사용자 ID를 기준으로 먼저 잠가 상태를 재확인한다. 검증 중 비밀번호 버전이 달라지면 로그인하지 않는다.
+username → Mattermost 내부 ID/채널 확인 → 그 내부 ID에 연결된 해시 검증 → 사용자 행 잠금 후 ACTIVE/version 재확인 → Mattermost 프로필과 username/last_login_at 갱신 → 세션 ID 교체와 SecurityContext 저장 순서다. 비밀번호 검증의 비싼 계산과 외부 통신은 DB 행 잠금 밖에서 수행한다. 인증 저장소는 JdbcTemplate과 기존 Spring 트랜잭션 관리자를 사용하며, 기존 사용자 작업에서는 트랜잭션의 첫 읽기로 사용자 행을 잠근다. 무자격증명 계정의 최초 설정도 challenge의 사용자 ID를 기준으로 먼저 잠가 상태를 재확인한다. 검증 중 비밀번호 버전이 달라지면 로그인하지 않는다.
 
 계정 없음/해시 없음/정지/잘못된 비밀번호는 공통 LOGIN_FAILED다. 해시가 없는 경우도 임시 dummy 해시에 대해 검증한다. 외부 서버 오류나 권한 부족을 계정 확인 성공으로 바꾸지 않는다. 동일 내부 ID의 username 변경만 갱신한다. username이 재사용되면 새 내부 ID의 계정을 조회하므로 기존 소유자의 해시를 사용하지 않는다.
 
@@ -91,7 +91,7 @@ OTP 요청은 미존재/미가입/기존 가입/비적격 계정에 같은 형�
 | POST | `/auth/signup` | challengeId/code/password → 201, 내 계정 + 세션 |
 | POST | `/auth/login` | username/password → 내 계정 + 세션; OTP 없음 |
 | POST | `/auth/logout` | 세션 + CSRF → 204 |
-| GET | `/users/me` | 내 계정 ID/username/nickname/onboardingRequired; 필수 프로필·현재 동의·공개 상태 반영, 외부 내부 ID/hash 미포함 |
+| GET | `/users/me` | 내 계정 ID/username/nickname/onboardingRequired; 가져오기 완료·닉네임·현재 두 안내 확인 반영, 외부 내부 ID/hash 미포함 |
 | PUT | `/users/me/password` | challengeId/code/newPassword → 204, 기존 세션 차단 |
 | POST | `/auth/password/reset` | challengeId/code/newPassword → 204, 자동 로그인 없음 |
 

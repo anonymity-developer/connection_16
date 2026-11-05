@@ -11,9 +11,11 @@ public final class ParticipationModels {
     public record Policies(boolean ready, List<Policy> policies) { }
     public record Event(String status, Instant opensAt, Instant submitClosesAt, boolean profilePreparationEnabled) { }
     public record Interest(long id, String name) { }
-    public record OwnProfile(String nickname, String realName, String region, Integer classNo, String bio,
-                             String githubUrl, String blogUrl, boolean isPublic, long version, List<Long> interestIds) { }
-    public record ProfileState(OwnProfile profile, Policies consents, boolean profileComplete, boolean participationReady) { }
+    public record CatalogInterest(long id,String name,String category) { }
+    public record Identity(String realName,String region,Integer classNo,String photoUrl,boolean ready) { }
+    public record OwnProfile(String nickname, @com.fasterxml.jackson.annotation.JsonIgnore String realName, @com.fasterxml.jackson.annotation.JsonIgnore String region, @com.fasterxml.jackson.annotation.JsonIgnore Integer classNo, String bio,
+                             String githubUrl, String blogUrl, @com.fasterxml.jackson.annotation.JsonIgnore boolean isPublic, long version, List<Long> interestIds,@com.fasterxml.jackson.annotation.JsonIgnore boolean sourceReady) { }
+    public record ProfileState(Identity identity,OwnProfile profile, Policies consents, boolean profileComplete, boolean participationReady) { }
     public record Mission(long id, MissionCode code, String letter, String title, String hint, boolean active,
                           String state, Instant unlockedAt, Instant completedAt) { }
     public record Completion(boolean complete, Instant completedAt, Long completionOrder, boolean awardConfirmed) { }

@@ -24,9 +24,10 @@ These are pinned repository copies, not links to instructions you should assume 
 
 - Login ID is the Mattermost username; the password is set in TAG ME at signup. The immutable external user ID remains the account linkage key. Never ask for or proxy a Mattermost password.
 - DM OTP is exactly six numeric characters, including leading zeros, for SIGN_UP/PASSWORD_CHANGE/PASSWORD_RESET. Bind challenges to account/purpose; never implement OTP-only ordinary login or a fixed shared code.
-- New credentials, username storage and business APIs are **planned** until code/migrations implement them. Password hashes only; invalidate previous sessions on password changes/resets.
+- Credentials, username storage and business APIs are implemented; follow current contracts and migrations. Password hashes only; invalidate previous sessions on password changes/resets.
 - NFC/QR uses a 43-character Base64URL token from 32 random bytes; persist only its hash. Authenticate and check server-side unlock on every mission action. Never treat a route, UI state or fixture as authorization.
 - Distinguish the two S missions by code. One official slot per wish/cheer/game, one initial SYNC result. All mission completion uses one transactional path with DB constraints and consistent row locking.
+- Import Mattermost name/region/class/photo; TAG ME nickname is required, interests/bio/links are optional. No participant private-profile toggle. Follow `docs/mattermost-profile.md`; do not reintroduce direct identity input.
 - Keep moderation status, published revision, mission completion, profile visibility and award eligibility separate. Operational completion order is not final award rank.
 - Never invent participants, production results, awards, event dates, SYNC questions or external integration success. Dev fixtures must not enter the production build or create authentication/official records.
 

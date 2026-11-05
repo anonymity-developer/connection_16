@@ -41,13 +41,14 @@ try {
           return reply(200, cursor ? { items: [person(2)], nextCursor: null } : { items: [person(4), person(3)], nextCursor: 3 });
         }
         if (method === 'GET' && path === '/discovery/graph') { assert.equal(url.searchParams.get('limit'), '30'); const nodes = empty ? [] : rawPeople.filter(p => visited.has(p.id) || inbound.has(p.id)).map(p => person(p.id)); return reply(200, { self: { id: 1, nickname: '테스트 나' }, nodes, edges: nodes.flatMap(p => [...(p.visited ? [{ from: 1, to: p.id }] : []), ...(p.visitedMe ? [{ from: p.id, to: 1 }] : [])]), truncated: false }); }
+        if (method === 'GET' && path === '/discovery/profiles/2/photo') { assert.equal(visited.has(2), true); return route.fulfill({ status: 200, contentType: 'image/png', body: Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aENcAAAAASUVORK5CYII=', 'base64') }); }
         const match = path.match(/^\/discovery\/profiles\/(\d+)\/open$/);
         if (match && method === 'POST') {
           assert.equal(req.headers()['x-xsrf-token'], 'discovery-test-csrf'); assert.equal(req.postData(), null); opens++;
           if (hidden) return reply(404, { code: 'PROFILE_NOT_FOUND', message: '공개된 프로필을 찾을 수 없어요.' });
           const id = Number(match[1]), first = !visited.has(id); visited.add(id);
           if (failOpen) { failOpen = false; return reply(503, { message: '프로필 응답을 확인하지 못했어요.' }); }
-          return reply(200, { person: person(id), realName: `테스트 실명${id}`, region: '서울', classNo: 3, bio: '<script>window.profileInjected = true</script>\n테스트용 상세 소개', githubUrl: unsafe ? 'javascript:alert(1)' : 'https://github.com/test-only', blogUrl: unsafe ? 'https://name:secret@example.com' : 'https://example.com/test', newlyVisited: first });
+          return reply(200, { person: person(id), realName: `테스트 실명${id}`, region: '서울', classNo: 3, bio: '<script>window.profileInjected = true</script>\n테스트용 상세 소개', githubUrl: unsafe ? 'javascript:alert(1)' : 'https://github.com/test-only', blogUrl: unsafe ? 'https://name:secret@example.com' : 'https://example.com/test', photoUrl: '/api/v1/discovery/profiles/2/photo?v=9', newlyVisited: first });
         }
       }
       if (method === 'GET' && ['/wishes/me', '/cheers/me'].includes(path)) return reply(200, blank);
@@ -62,7 +63,7 @@ try {
   const visit = path => page.goto(`http://127.0.0.1:4476${path}`); const record = text => { checks.push(text); console.log(`PASS ${text}`); };
   await visit('/discovery'); await page.getByRole('heading', { name: '로그인하고 동료를 만나보세요', exact: true }).waitFor(); assert.equal(discoveryReads, 0); assert.equal(opens, 0);
   record('anonymous navigation shows login without fetching discovery data or opening a profile');
-  signedIn = true; await page.reload(); await page.locator('.person-row').first().waitFor(); assert.equal(await page.getByText('테스트 실명2', { exact: true }).count(), 0); assert.equal(opens, 0);
+  signedIn = true; await page.reload(); await page.locator('.person-row').first().waitFor(); assert.equal(await page.getByText('테스트 실명2', { exact: true }).count(), 0); assert.equal(opens, 0); assert.equal(await page.locator('img').count(), 0);
   for (const width of [360, 390, 430, 768, 1440]) { await page.setViewportSize({ width, height: 900 }); assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth), false); for (const h of await page.locator('h1,h2').all()) assert.ok(await h.evaluate(el => el.getBoundingClientRect().height / Number.parseFloat(getComputedStyle(el).lineHeight) <= 2.1)); await page.screenshot({ path: resolve(output, `discovery-${width}.png`), fullPage: true }); }
   await page.setViewportSize({ width: 390, height: 900 }); record('recommendations show only public nicknames, real reasons and server counts at five widths');
   await page.getByRole('link', { name: '전체 동료', exact: true }).click(); await page.getByLabel('닉네임 검색', { exact: true }).fill('테스트_%!'); await page.getByLabel('관심사', { exact: true }).selectOption('1'); await page.getByRole('button', { name: '동료 검색하기', exact: true }).click(); await page.getByRole('link', { name: '테스트_%! 프로필 보기', exact: true }).waitFor(); assert.equal(await page.locator('.person-row').count(), 1);
@@ -81,7 +82,7 @@ try {
   for (const width of [360, 390, 430, 768, 1440]) { await page.setViewportSize({ width, height: 900 }); assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth), false); await page.screenshot({ path: resolve(output, `discovery-graph-${width}.png`), fullPage: true }); }
   empty = true; await page.reload(); await page.getByText('아직 공개된 열람 관계가 없어요.', { exact: true }).waitFor(); assert.equal(await page.locator('.visit-stats dd').first().textContent(), '0명'); empty = false;
   record('direct relationship arrows and accessible rows use server data; empty graphs keep real zero counts');
-  required = true; await visit('/discovery'); await page.getByRole('link', { name: '내 프로필과 동의 확인하기', exact: true }).waitFor(); assert.equal(await page.locator('.person-row').count(), 0); assert.equal(await page.locator('.visit-stats').count(), 0); required = false;
+  required = true; await visit('/discovery'); await page.getByRole('link', { name: '내 프로필과 참여 안내 확인하기', exact: true }).waitFor(); assert.equal(await page.locator('.person-row').count(), 0); assert.equal(await page.locator('.visit-stats').count(), 0); required = false;
   await visit('/missions/say-something'); await page.getByRole('link', { name: '테스트 공개의 프로필 보기', exact: true }).waitFor(); assert.equal(await page.locator('.content-feed-list a[href="/discovery/profiles/999"]').count(), 0); assert.equal(await page.locator('.content-feed-list a[href="/discovery/profiles/2"]').count(), 1);
   await visit('/missions/make-a-wish'); await page.getByRole('button', { name: '댓글 보기', exact: true }).click(); await page.getByRole('link', { name: '테스트 공개의 프로필 보기', exact: true }).waitFor(); assert.equal(await page.locator('.comment-list a[href="/discovery/profiles/999"]').count(), 0); await page.getByRole('link', { name: '테스트 공개의 프로필 보기', exact: true }).click(); await page.getByText('테스트 실명2', { exact: true }).waitFor();
   record('current profile consent gates discovery and only explicitly public content links to the supplied profile ID');

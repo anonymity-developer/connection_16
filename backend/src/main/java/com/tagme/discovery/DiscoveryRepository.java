@@ -17,8 +17,7 @@ public class DiscoveryRepository {
     // Alias u/p is always the profile being disclosed; this predicate is shared by every surface.
     private static final String VISIBLE="""
         u.status='ACTIVE' AND p.is_public=TRUE AND TRIM(p.nickname)<>''
-        AND TRIM(COALESCE(u.real_name,''))<>'' AND u.region='서울' AND u.class_no>0 AND TRIM(COALESCE(p.bio,''))<>''
-        AND EXISTS(SELECT 1 FROM user_interests vi WHERE vi.user_id=u.id)
+        AND TRIM(COALESCE(u.real_name,''))<>'' AND TRIM(COALESCE(u.region,''))<>'' AND u.class_no>0 AND u.mattermost_profile_synced_at IS NOT NULL
         AND 2=(SELECT COUNT(*) FROM current_consent_policies cp JOIN user_consents uc
           ON uc.policy_type=cp.policy_type AND uc.policy_version=cp.policy_version AND uc.user_id=u.id AND uc.withdrawn_at IS NULL)
         """;
@@ -37,7 +36,7 @@ public class DiscoveryRepository {
     private List<Object> args(long actor) { return new ArrayList<>(List.of(actor,actor,actor,actor,actor)); }
     private Person person(ResultSet r,Map<String,Questionnaire> definitions) throws SQLException {
         List<Interest> interests=new ArrayList<>();List<String> shared=new ArrayList<>();
-        try { for(var i:json.readTree(r.getString("interest_json"))) { interests.add(new Interest(i.get("id").asLong(),i.get("name").asText()));if(i.get("shared").asInt()==1)shared.add(i.get("name").asText()); } }
+        try { for(var i:json.readTree(r.getString("interest_json")==null?"[]":r.getString("interest_json"))) { interests.add(new Interest(i.get("id").asLong(),i.get("name").asText()));if(i.get("shared").asInt()==1)shared.add(i.get("name").asText()); } }
         catch(Exception bad) { throw new IllegalStateException("Cannot read profile interests",bad); }
         interests.sort(Comparator.comparingLong(Interest::id));shared.sort(String::compareTo);
         Type type=null;String version=r.getString("questionnaire_version"),code=r.getString("type_code");
@@ -59,8 +58,8 @@ public class DiscoveryRepository {
     }
     public List<Person> recommended(long actor) { var args=args(actor);args.add(actor);return query(SELECT+" AND u.id<>? ORDER BY visited ASC,common_count DESC,same_type DESC,u.id DESC LIMIT 12",args); }
     public Person person(long actor,long id) { var args=args(actor);args.add(id);return query(SELECT+" AND u.id=?",args).stream().findFirst().orElse(null); }
-    public record Fields(String realName,String region,int classNo,String bio,String githubUrl,String blogUrl) { }
-    public Fields fields(long id) { return db.query("SELECT u.real_name,u.region,u.class_no,p.bio,p.github_url,p.blog_url FROM users u JOIN profiles p ON p.user_id=u.id WHERE u.id=?",(r,n)->new Fields(r.getString("real_name"),r.getString("region"),r.getInt("class_no"),r.getString("bio"),r.getString("github_url"),r.getString("blog_url")),id).getFirst(); }
+    public record Fields(String realName,String region,int classNo,String bio,String githubUrl,String blogUrl,String photoUrl) { }
+    public Fields fields(long id) { return db.query("SELECT u.real_name,u.region,u.class_no,p.bio,p.github_url,p.blog_url,u.mattermost_picture_updated_at FROM users u JOIN profiles p ON p.user_id=u.id WHERE u.id=?",(r,n)->new Fields(r.getString("real_name"),r.getString("region"),r.getInt("class_no"),r.getString("bio"),r.getString("github_url"),r.getString("blog_url"),r.getLong("mattermost_picture_updated_at")>0?"/api/v1/discovery/profiles/"+id+"/photo?v="+r.getLong("mattermost_picture_updated_at"):null),id).getFirst(); }
     public boolean visit(long actor,long target) {
         if(actor==target)return false;
         if(db.queryForObject("SELECT COUNT(*) FROM profile_views WHERE viewer_id=? AND viewed_id=?",Integer.class,actor,target)>0)return false;

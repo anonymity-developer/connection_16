@@ -21,8 +21,7 @@ public class AuthRepository {
             SELECT u.*, c.password_hash, c.credential_version, p.nickname,
                 (p.user_id IS NULL OR u.real_name IS NULL OR u.region IS NULL OR u.class_no IS NULL
                  OR TRIM(COALESCE(p.nickname,''))='' OR TRIM(COALESCE(u.real_name,''))=''
-                 OR u.region<>'서울' OR TRIM(COALESCE(p.bio,''))='' OR p.is_public=FALSE
-                 OR NOT EXISTS (SELECT 1 FROM user_interests i WHERE i.user_id=u.id)
+                 OR TRIM(COALESCE(u.region,''))='' OR u.class_no<1 OR u.mattermost_profile_synced_at IS NULL OR p.is_public=FALSE
                  OR (SELECT COUNT(*) FROM current_consent_policies) <> 2
                  OR EXISTS (SELECT 1 FROM current_consent_policies cp WHERE NOT EXISTS (
                     SELECT 1 FROM user_consents uc WHERE uc.user_id=u.id AND uc.policy_type=cp.policy_type
@@ -47,6 +46,15 @@ public class AuthRepository {
     }
     public void insertCredential(long id, String hash) { jdbc.update("INSERT INTO user_credentials (user_id,password_hash,password_updated_at) VALUES (?,?,UTC_TIMESTAMP(6))", id, hash); }
     public void updateUsername(long id, String username) { jdbc.update("UPDATE users SET mattermost_username=? WHERE id=?", username, id); }
+    public void syncProfile(long id,MattermostProfile profile) {
+        if(profile==null)throw new AuthException(409,"MATTERMOST_PROFILE_INVALID","Mattermost 이름을 이름[지역_반] 형식으로 확인한 뒤 다시 인증해 주세요.");
+        // Lock users before calling this; invalidate in-flight profile edits when imported data changes.
+        Boolean changed=jdbc.queryForObject("SELECT NOT(real_name<=>?) OR NOT(region<=>?) OR NOT(class_no<=>?) OR mattermost_picture_updated_at<>? FROM users WHERE id=?",Boolean.class,profile.realName(),profile.region(),profile.classNo(),profile.pictureUpdatedAt(),id);
+        jdbc.update("UPDATE users SET real_name=?,region=?,class_no=?,mattermost_picture_updated_at=?,mattermost_profile_synced_at=UTC_TIMESTAMP(6) WHERE id=?",profile.realName(),profile.region(),profile.classNo(),profile.pictureUpdatedAt(),id);
+        if(Boolean.TRUE.equals(changed))jdbc.update("UPDATE profiles SET version=version+1,updated_at=UTC_TIMESTAMP(6) WHERE user_id=?",id);
+    }
+    public record ProfileIdentity(String realName,String region,Integer classNo,long pictureVersion,boolean ready) { }
+    public ProfileIdentity profileIdentity(long id) { return jdbc.queryForObject("SELECT real_name,region,class_no,mattermost_picture_updated_at,mattermost_profile_synced_at FROM users WHERE id=?",(r,n)->new ProfileIdentity(r.getString("real_name"),r.getString("region"),r.getObject("class_no",Integer.class),r.getLong("mattermost_picture_updated_at"),r.getTimestamp("mattermost_profile_synced_at")!=null),id); }
     public void recordLogin(long id) { jdbc.update("UPDATE users SET last_login_at=UTC_TIMESTAMP(6) WHERE id=?", id); }
     public void changePassword(long id, String hash) { jdbc.update("UPDATE user_credentials SET password_hash=?,password_updated_at=UTC_TIMESTAMP(6),credential_version=credential_version+1 WHERE user_id=?", hash, id); }
 }
