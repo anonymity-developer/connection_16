@@ -136,3 +136,11 @@ OTP 요청은 미존재/미가입/기존 가입/비적격 계정에 같은 형�
 - `AuthIntegrationTest`에 실제 Redis 4시간 설정·두 세션·로그아웃 삭제·만료·재로그인 검사를 추가했다. Docker가 있는 환경에서 `cd backend && ./gradlew integrationTest --tests 'com.tagme.integration.AuthIntegrationTest'`로 실행한다. Mattermost는 이 테스트에서도 mock이다. 2026-11-06 사용자 Windows/JDK 21/Docker 환경의 BUILD SUCCESSFUL 로그로 이 통합 대상의 통과를 확인했다. 에이전트 환경은 Docker 부재로 실행이 막혔다.
 - `cd frontend && npm run test:auth-nfc-ui`: 운영 빌드에 테스트 전용 API 대역을 연결해 다섯 NFC × 가입/로그인 복귀, 온보딩/새로고침, 유효 세션 재접속, 401 후 재인증·복귀, 태그 보관 만료, 로그아웃을 검사한다. 미션 본문 수행은 STEP 4 범위로 검사하지 않는다.
 - 실제 Mattermost, HTTPS 쿠키·모바일 브라우저 재시작, NFC 실물은 미검증이다. 운영 Compose의 `APP_SESSION_SECURE=true`는 유지했다. 운영 DB·실 DM·배포는 수행하지 않았다.
+
+## 2026-11-06 — 후속: Mattermost 발신 계정 세션 인증 적용
+
+- 앞선 STEP 1의 '발신 계정 로그인 패치 미적용'은 당시 검토 시점의 기록이다. 이후 별도 작업에서 Mattermost 발신 계정 로그인·임시 세션·로그아웃 처리를 적용했다.
+- 환경변수 MATTERMOST_LOGIN_ID, MATTERMOST_LOGIN_PASSWORD, MATTERMOST_TEAM_NAME, MATTERMOST_CHANNEL_NAME 설정을 추가하고 기존 토큰 방식과의 호환성을 유지했다.
+- 인증 단위 테스트, 실제 Redis 인증 통합 테스트, SHOW ME 통합 테스트를 Windows/JDK 21/Docker 환경에서 강제 재실행하여 통과했다.
+- 원격의 4시간 세션 및 NFC 인증 복귀 변경도 병합했다. NFC 브라우저 계약 14개, 프론트 lint와 운영 빌드가 통과했다.
+- 실제 Mattermost 계정 로그인·채널 권한·DM 전송, 모바일 브라우저 및 NFC 실물 검증은 아직 수행하지 않았다.
