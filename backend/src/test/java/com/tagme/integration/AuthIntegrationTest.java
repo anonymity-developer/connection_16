@@ -50,6 +50,7 @@ class AuthIntegrationTest {
     @Autowired StringRedisTemplate redis;
     @Autowired TestRestTemplate http;
     @Autowired OtpStore store;
+    @Autowired org.springframework.session.data.redis.RedisIndexedSessionRepository redisSessions;
     @Autowired AuthService service;
     @Autowired PasswordEncoder passwords;
     @MockitoBean MattermostClient mattermost;
@@ -107,6 +108,25 @@ class AuthIntegrationTest {
         var browser = new Browser(); String id = browser.otp(name, OtpStore.Purpose.SIGN_UP);
         var response = browser.send(HttpMethod.POST, "/auth/signup", Map.of("challengeId", id, "code", sent.getLast().code(), "password", PASSWORD));
         assertThat(response.getStatusCode().value()).isEqualTo(201); return browser;
+    }
+    @Test void redisSessionUsesFourHourIdleTimeoutAndLogoutDeletesOnlyCurrentDevice() {
+        var first = signup("alice"); var second = new Browser();
+        assertThat(second.login("alice", PASSWORD).getStatusCode().value()).isEqualTo(200);
+        String principal = Long.toString(accounts.byExternalId(ALICE).orElseThrow().id());
+        var active = redisSessions.findByPrincipalName(principal);
+        assertThat(active).hasSize(2);
+        active.values().forEach(session -> assertThat(session.getMaxInactiveInterval()).isEqualTo(Duration.ofHours(4)));
+        assertThat(first.get("/users/me").getStatusCode().value()).isEqualTo(200);
+        assertThat(first.send(HttpMethod.POST, "/auth/logout", null).getStatusCode().value()).isEqualTo(204);
+        assertThat(first.get("/users/me").getStatusCode().value()).isEqualTo(401);
+        assertThat(second.get("/users/me").getStatusCode().value()).isEqualTo(200);
+        var remaining = redisSessions.findByPrincipalName(principal);
+        assertThat(remaining).hasSize(1);
+        var expired = remaining.values().iterator().next();
+        expired.setLastAccessedTime(java.time.Instant.now().minus(Duration.ofHours(4)));
+        redisSessions.save(expired);
+        assertThat(second.get("/users/me").getStatusCode().value()).isEqualTo(401);
+        assertThat(second.login("alice", PASSWORD).getStatusCode().value()).isEqualTo(200);
     }
     @Test void signupPreservesLeadingZeroStoresOnlyHashAndRotatesLoginSession() {
         doReturn("012345").when(crypto).code();
