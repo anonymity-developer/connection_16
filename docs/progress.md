@@ -1,5 +1,17 @@
 # 페이즈별 개발 현황
 
+## 2026-11-06 — v5 STEP 0·1: Mattermost·4시간 세션
+
+- 범위: STEP 0·1만 수행. 기존 React/Java 21/Spring Boot/MySQL/Redis와 인증·NFC 복귀 구현을 유지했다. [인증 검증 상세](auth.md#2026-11-06--v5-step-1-검증).
+- 시작 시 작업 트리는 깨끗했고 `feat/network-graph`였다. fetch 후 원격 `f77aba1`과 로컬 HEAD의 파일 트리가 동일하며 main 대비 원격 작업 브랜치는 3개 커밋 앞선다. 이전 로컬/원격 커밋 해시 차이로 ahead/behind 3/3이지만 파일 차이는 없었다. 히스토리를 재작성하거나 병합하지 않았다.
+- 운영 코드 변경: `spring.session.timeout` 2h → 4h. 마지막 접근 이후 유휴 만료이며 기존 Redis indexed session·ID 교체·CSRF·쿠키·15분 태그 보관은 유지한다. 참고용 발신 계정 로그인 패치는 비교만 했으며 서버 정책 확인 전 적용하지 않았다.
+- 기존 인증 대상 테스트 13개, 기존 인증 브라우저 계약 5개 그룹, 프론트 단위 13개 통과. 백엔드 전체 단위 39개와 bootJar 통과 후 비밀번호 버전의 두 기기 거절 검사를 추가하여 세션 대상 12개 재검증도 통과했다(기존 28개 + 신규 12개, 총 40개 고유 단위 검사 통과).
+- 신규 NFC 브라우저 계약 14개 통과: 다섯 태그 × 가입/로그인, 온보딩·새로고침 복귀, 유효 세션 재접속, 401 후 복구, 태그 intent 만료, 로그아웃. 실제 미션 본문 수행은 이번 범위가 아니다. 프론트 lint/build 통과(최초 테스트 파일의 중복 global 선언 lint 오류 수정).
+- 에이전트 환경의 Redis 통합 실행은 Docker 부재로 초기화 실패했다. 이후 사용자의 Windows/JDK 21/Docker 환경에서 `./gradlew integrationTest --tests 'com.tagme.integration.AuthIntegrationTest'`가 BUILD SUCCESSFUL(2026-11-06 09:20 KST)로 완료된 로그를 확인했다. 실제 MySQL/Redis + Mattermost mock 검증이며 실서버 인증 성공은 아니다. 사용자 제공 Compose 재빌드 로그에서도 api/web/mysql/redis Healthy를 확인했다.
+- 실제 Mattermost 권한·조회·DM, HTTPS 쿠키, 실기기 브라우저 재시작/NFC는 미검증. 실서버 호출·운영 DB 변경·PR·merge·운영 배포 없음. 최초 보고 시 commit/push하지 않았으며, 이후 사용자가 이번 STEP 1 변경의 작업 브랜치 commit/push를 승인했다.
+- STEP 1에서 종료. 다음은 별도 작업으로 SHOW ME 조건 수정이며 이번에는 분석·구현하지 않았다.
+
+
 ## 2026-11-05 — feat/network-graph AI 검수·관계 가중치 작업
 
 사용자 지시로 외부 검수 연결을 우선 작업한다. GMS/OpenAI 어댑터, 익명 보호 관계 가중치, 홈 그래프/노드 이동 및 추천 이유 표시를 추가했다. 기존 미션/검수/추천 정렬은 유지한다. [작업 보고](network-moderation-handoff.md)에 설정·제약·검증 및 확정 시상 정책을 기록했다. 검토 보고 후 사용자가 작업 브랜치 commit/push를 승인했다. PR/merge는 진행하지 않는다.

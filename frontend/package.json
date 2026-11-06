@@ -19,7 +19,8 @@
     "test:content-ui": "node scripts/check-content-ui.mjs",
     "test:reactions-ui": "node scripts/check-reactions-ui.mjs",
     "test:discovery-ui": "node scripts/check-discovery-ui.mjs",
-    "test:operations-ui": "node scripts/check-operations-ui.mjs"
+    "test:operations-ui": "node scripts/check-operations-ui.mjs",
+    "test:auth-nfc-ui": "node scripts/check-auth-nfc-ui.mjs"
   },
   "dependencies": {
     "react": "19.3.1",
