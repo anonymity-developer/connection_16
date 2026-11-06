@@ -71,7 +71,7 @@ OTP 요청은 미존재/미가입/기존 가입/비적격 계정에 같은 형�
 
 - 모든 변경 API에 기존 CSRF 쿠키/헤더 검사를 유지한다. 익명 로그인/가입/OTP/재설정도 예외가 아니다.
 - 가입/로그인 시 SessionAuthenticationStrategy로 세션 ID와 CSRF를 갱신하고 HttpSessionSecurityContextRepository에 명시적으로 저장한다.
-- Redis indexed session을 사용한다. principal은 서비스 사용자 ID/version/역할만 포함하며 해시/OTP를 포함하지 않는다.
+- Redis indexed session을 사용한다. `spring.session.timeout=4h`로 마지막 세션 접근 이후 4시간 동안 유효하다. 요청 시 유효 세션의 유휴 만료 시각이 갱신되며 영구 자동 로그인은 아니다. 브라우저 세션 쿠키이므로 브라우저 종료·재기동 시 보존 여부는 실기기 검증이 필요하다. principal은 서비스 사용자 ID/version/역할만 포함하며 해시/OTP를 포함하지 않는다.
 - `/api/v1/admin/**`는 서버 ADMIN 역할을 요구한다. 운영 API 자체는 아직 구현하지 않았다.
 - 인증 요청마다 DB의 ACTIVE/version/역할을 검사한다. 변경/재설정 후 오래된 세션의 version은 거절한다. Redis 세션 삭제가 누락돼도 이 DB 검사가 권한을 막는다.
 - Redis에서 이전 버전의 indexed session도 삭제한다. 새 버전으로 로그인한 세션을 무조건 같이 삭제하지 않는다.
@@ -126,3 +126,13 @@ OTP 요청은 미존재/미가입/기존 가입/비적격 계정에 같은 형�
 - [Mattermost 공식 API YAML](https://github.com/mattermost/mattermost/blob/master/api/v4/source/channels.yaml)
 - [Spring Security 6.5 세션 관리](https://docs.spring.io/spring-security/reference/6.5/servlet/authentication/session-management.html)
 - [OWASP 비밀번호 저장](https://cheatsheetseries.owasp.org/cheatsheets/Password_Storage_Cheat_Sheet.html)
+
+
+## 2026-11-06 — v5 STEP 1 검증
+
+- 기존 Mattermost 토큰/지정 채널 검증, OTP, Redis indexed session, 로그인 시 ID 교체와 CSRF, 15분 hash-only 태그 보관을 재사용했다. 가입자는 기존 프로필·동의 단계를 마친 뒤 `/t/resume`에서 원래 미션을 연다. 세션 4시간과 태그 보관 15분은 별도 제한이다.
+- 참고용 발신 계정 로그인 패치는 README와 실제 diff를 비교했으나 적용하지 않았다. 호출별 외부 로그인/로그아웃과 발신 비밀번호 관리가 추가되며 실제 허용 정책이 미확정이다. PAT와 대체 방식의 최종 운영 선택은 승인 후 권한·부하 검증이 필요하다.
+- `AuthSessionLifecycleTest`: 실제 Security/Session 필터와 **메모리 저장소 대역**으로 다섯 태그 × 가입/로그인, ID 교체 후 intent 보존·소비, 4시간 유휴 만료와 접근 갱신, 재로그인·기기별 로그아웃, 비밀번호 버전 변경 시 두 기기 거절을 검사한다. 실제 Redis 검증을 대체하지 않는다.
+- `AuthIntegrationTest`에 실제 Redis 4시간 설정·두 세션·로그아웃 삭제·만료·재로그인 검사를 추가했다. Docker가 있는 환경에서 `cd backend && ./gradlew integrationTest --tests 'com.tagme.integration.AuthIntegrationTest'`로 실행한다. Mattermost는 이 테스트에서도 mock이다. 2026-11-06 사용자 Windows/JDK 21/Docker 환경의 BUILD SUCCESSFUL 로그로 이 통합 대상의 통과를 확인했다. 에이전트 환경은 Docker 부재로 실행이 막혔다.
+- `cd frontend && npm run test:auth-nfc-ui`: 운영 빌드에 테스트 전용 API 대역을 연결해 다섯 NFC × 가입/로그인 복귀, 온보딩/새로고침, 유효 세션 재접속, 401 후 재인증·복귀, 태그 보관 만료, 로그아웃을 검사한다. 미션 본문 수행은 STEP 4 범위로 검사하지 않는다.
+- 실제 Mattermost, HTTPS 쿠키·모바일 브라우저 재시작, NFC 실물은 미검증이다. 운영 Compose의 `APP_SESSION_SECURE=true`는 유지했다. 운영 DB·실 DM·배포는 수행하지 않았다.
