@@ -256,4 +256,55 @@ class ParticipationIntegrationTest {
         assertThat(service.save(principal,minimal).participationReady()).isTrue();assertThat(repository.profile(alice).realName()).isEqualTo("테스트이름");assertThat(repository.profile(alice).isPublic()).isTrue();
         assertThat(repository.interests()).anyMatch(x->"DOMAIN".equals(x.category())).anyMatch(x->"TECH_STACK".equals(x.category()));
     }
+    @Test
+    void showMeRequiresBioAndInterestForFirstS() {
+        var consents = Arrays.stream(PolicyType.values())
+                .map(t -> new ParticipationController.Acceptance(t, "test-v1"))
+                .toList();
+
+        // 1. 닉네임만 작성: 저장 가능, S 미지급
+        var minimal = new ParticipationController.ProfileRequest(
+                "테스트별명", null, null, null,
+                List.of(), consents, 0
+        );
+        assertThat(service.save(principal, minimal).participationReady()).isTrue();
+
+        var tag = service.resolve(
+                principal, ParticipationService.tokenHash(token)
+        );
+        assertThat(tag.newlyCompleted()).isFalse();
+        assertThat(repository.mission(alice, MissionCode.SHOW_ME).state())
+                .isEqualTo("UNLOCKED");
+
+        // 2. 소개만 작성: S 미지급
+        service.save(principal, new ParticipationController.ProfileRequest(
+                "테스트별명", "안녕하세요!", null, null,
+                List.of(), consents, 1
+        ));
+        assertThat(repository.mission(alice, MissionCode.SHOW_ME).state())
+                .isEqualTo("UNLOCKED");
+
+        // 3. 관심사만 선택: S 미지급
+        service.save(principal, new ParticipationController.ProfileRequest(
+                "테스트별명", null, null, null,
+                interestIds(), consents, 2
+        ));
+        assertThat(repository.mission(alice, MissionCode.SHOW_ME).state())
+                .isEqualTo("UNLOCKED");
+
+        // 4. 소개 + 관심사 완성: 첫 S 지급
+        service.save(principal, new ParticipationController.ProfileRequest(
+                "테스트별명", "안녕하세요!", null, null,
+                interestIds(), consents, 3
+        ));
+        var mission = repository.mission(alice, MissionCode.SHOW_ME);
+        assertThat(mission.state()).isEqualTo("COMPLETED");
+
+        // 5. 다시 태그를 열어도 중복 지급 없음
+        assertThat(service.resolve(
+                principal, ParticipationService.tokenHash(token)
+        ).newlyCompleted()).isFalse();
+        assertThat(repository.mission(alice, MissionCode.SHOW_ME).completedAt())
+                .isEqualTo(mission.completedAt());
+    }
 }

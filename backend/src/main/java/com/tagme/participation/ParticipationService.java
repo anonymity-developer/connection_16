@@ -80,7 +80,7 @@ public class ParticipationService {
             repository.saveProfile(principal.userId(),value);
             var saved = repository.profile(principal.userId());
             var mission = repository.mission(principal.userId(),MissionCode.SHOW_ME);
-            if (repository.eligible(principal.userId())) {
+            if (repository.showMeEligible(principal.userId())) {
                 var receipt = repository.receipt(principal.userId(),"PROFILE",saved.version(),received);
                 if (!"LOCKED".equals(mission.state()) && mission.active() && "OPEN".equals(repository.event(false).status())) completion.complete(principal.userId(),MissionCode.SHOW_ME,receipt.id());
             }
@@ -111,7 +111,7 @@ public class ParticipationService {
             if (newlyUnlocked) {
                 repository.unlock(principal.userId(),mission.id(),received);
                 var receipt = repository.receipt(principal.userId(),"TAG_UNLOCK",mission.id(),received);
-                if (code == MissionCode.SHOW_ME && repository.eligible(principal.userId())) newlyCompleted = completion.complete(principal.userId(),code,receipt.id());
+                 if (code == MissionCode.SHOW_ME && repository.showMeEligible(principal.userId()))newlyCompleted = completion.complete(principal.userId(),code,receipt.id());
             }
             var current = repository.mission(principal.userId(),code);
             return new TagResult(code,current.state(),route(code),newlyUnlocked,newlyCompleted);

@@ -34,7 +34,9 @@ export function ProfilePage() {
     setBusy(true); setError('');
     try {
       const result = await participationApi.saveProfile({ nickname: values.nickname, bio: values.bio || null, githubUrl: values.githubUrl || null, blogUrl: values.blogUrl || null, expectedVersion: state.profile?.version ?? 0, interestIds: values.interestIds, acceptPolicies: state.consents.policies.filter(p => !p.agreed).map(p => ({ type: p.type, version: p.version })) });
-      setState(result); auth.acceptUser(await authApi.me()); await participation.refresh(); auth.setFlash('프로필을 저장했어요. SHOW ME 태그를 열면 글자를 받을 수 있어요.');
+      setState(result); auth.acceptUser(await authApi.me()); await participation.refresh(); auth.setFlash(
+  '프로필을 저장했어요! 첫 번째 S 획득에는 한 줄 소개, 관심사 1개 이상, SHOW ME 태그 참여가 필요해요.'
+  );
       const pending = await participationApi.pending().catch(() => ({ present: false })); navigate(result.participationReady && pending.present ? '/t/resume' : '/me');
     } catch (failure) { setConflict(failure instanceof ApiError && failure.status === 409); setError(failure instanceof Error ? failure.message : '저장하지 못했어요.'); }
     finally { setBusy(false); }
@@ -50,7 +52,13 @@ export function ProfilePage() {
         <section aria-labelledby="profile-sharing"><h2 id="profile-sharing">참여 안내</h2><p className="profile-disclosure">{disclosure}</p><label className="consent-option"><input type="checkbox" name="policy" checked={values.accepted} disabled={busy || state.consents.policies.every(p => p.agreed)} onChange={event => { setError(''); setValues(previous => ({ ...previous, accepted: event.target.checked })); }} /><span>참여 안내와 상세 정보 공개 범위를 확인했어요.</span></label><div className="profile-policy-links">{state.consents.policies.map(p => <button key={p.type} type="button" className="text-button" onClick={() => setPolicy(p)}>{p.title} 내용 보기</button>)}</div></section>
         {!canWrite && <p className="form-notice" role="status">{schedule?.status === 'NOT_CONFIGURED' ? '행사 일정을 준비하고 있어요.' : '지금은 프로필을 저장할 수 있는 시간이 아니에요.'}</p>}{error && <p className="form-notice is-error" role="alert">{error}</p>}{conflict && <Button variant="secondary" onClick={load}>최신 프로필과 동의 불러오기</Button>}<Button type="submit" className="full-width" disabled={busy || !canWrite || conflict}>{busy ? '저장 중…' : '프로필 저장하기'}<Icon name="arrow" size={18} /></Button>
       </form>
-      <aside className="profile-preview" aria-labelledby="profile-preview-heading"><h2 id="profile-preview-heading">동료에게 보일 첫인사</h2><p className="profile-section-help">목록에서는 닉네임으로 만나요.</p><div className="profile-initial" aria-hidden="true">{Array.from(values.nickname.trim())[0] || 'T'}</div><p className="profile-preview-name">{values.nickname || '닉네임을 정해 주세요'}</p><div className="profile-interest-preview">{interests.filter(i => values.interestIds.includes(i.id)).map(i => <span key={i.id}>{i.name}</span>)}</div><p className="profile-preview-scope">닉네임을 누르면 사진과 전체 소개가 공개돼요.</p><div className="profile-reward-note"><b>SHOW ME · 첫 번째 S</b><p>프로필을 저장한 뒤 현장 태그를 열면 글자를 받아요. 태그를 먼저 열었다면 저장할 때 지급돼요.</p></div></aside>
+      <aside className="profile-preview" aria-labelledby="profile-preview-heading"><h2 id="profile-preview-heading">동료에게 보일 첫인사</h2><p className="profile-section-help">목록에서는 닉네임으로 만나요.</p><div className="profile-initial" aria-hidden="true">{Array.from(values.nickname.trim())[0] || 'T'}</div><p className="profile-preview-name">{values.nickname || '닉네임을 정해 주세요'}</p><div className="profile-interest-preview">{interests.filter(i => values.interestIds.includes(i.id)).map(i => <span key={i.id}>{i.name}</span>)}</div><p className="profile-preview-scope">닉네임을 누르면 사진과 전체 소개가 공개돼요.</p><div className="profile-reward-note"><b>SHOW ME · 첫 번째 S</b><p>
+    한 줄 소개와 관심사는 프로필 저장 시 선택 항목이에요.
+    두 항목을 모두 입력하고 SHOW ME 태그를 열면
+    첫 번째 S를 획득할 수 있어요!
+    태그를 먼저 열었다면 두 항목을 저장할 때 지급돼요.
+  </p>
+</div></aside>
     </div>}
     <Dialog open={!!policy} title="참여 안내 확인" onClose={() => setPolicy(null)}><p className="policy-title">{policy?.title}</p><p className="policy-version">버전 {policy?.version}</p><p className="policy-body">{policy?.body}</p><Button onClick={() => setPolicy(null)}>확인했어요</Button></Dialog>
   </div>;

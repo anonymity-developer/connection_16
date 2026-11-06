@@ -100,6 +100,14 @@ public class ParticipationRepository {
         var profile = profile(userId); var policies = policyState(userId, true);
         return profileComplete(profile) && profile.isPublic() && policies.ready() && policies.policies().stream().allMatch(Policy::agreed);
     }
+    public boolean showMeEligible(long userId) {
+    if (!eligible(userId)) return false;
+
+    var profile = profile(userId);
+
+    return present(profile.bio())
+            && !profile.interestIds().isEmpty();
+    }
     public void hide(long userId) { db.update("UPDATE profiles SET is_public=FALSE,updated_at=UTC_TIMESTAMP(6),version=version+1 WHERE user_id=? AND is_public=TRUE",userId); }
     public void saveProfile(long userId, ParticipationController.ProfileRequest value) {
 
