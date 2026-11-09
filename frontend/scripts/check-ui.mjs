@@ -55,7 +55,9 @@ try {
     await visit(`${productionUrl}/?preview=complete`);
     assert.equal(await page.getByRole('complementary', { name: '개발용 상태 미리보기' }).count(), 0);
     assert.equal(await page.getByRole('progressbar').count(), 0);
-    assert.ok((await page.locator('.collection-count').innerText()).includes('로그인 후'));
+    assert.equal(await page.locator('.collection-count').count(), 0, 'signed-out visitors do not see an invented collection count');
+    assert.equal(await page.locator('.letter-slot').count(), 5, 'all five mission letters remain visible');
+    assert.equal(await page.locator('.letter-slot.is-collected').count(), 0, 'signed-out visitors do not see falsely earned letters');
     await visit(`${productionUrl}/me/password?preview=unlocked`);
     assert.equal(await page.locator('input[name="password"]').count(), 0);
     await visit(`${productionUrl}/complete?preview=complete`);

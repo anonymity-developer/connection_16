@@ -61,7 +61,7 @@ try {
     } catch (error) { routeErrors.push(error.message); await route.fulfill({ status: 500, contentType: 'application/json', body: JSON.stringify({ message: '계약 검사 오류' }) }); }
   });
   const visit = path => page.goto(`http://127.0.0.1:4476${path}`); const record = text => { checks.push(text); console.log(`PASS ${text}`); };
-  await visit('/discovery'); await page.getByRole('heading', { name: '로그인하고 동료를 만나보세요', exact: true }).waitFor(); assert.equal(discoveryReads, 0); assert.equal(opens, 0);
+  await visit('/discovery'); await page.getByRole('heading', { name: '동료 찾기', exact: true }).waitFor(); await page.getByText('함께할 동료를 만나봐요', { exact: true }).waitFor(); await page.getByRole('link', { name: '로그인하기', exact: true }).waitFor(); assert.equal(discoveryReads, 0); assert.equal(opens, 0);
   record('anonymous navigation shows login without fetching discovery data or opening a profile');
   signedIn = true; await page.reload(); await page.locator('.person-row').first().waitFor(); assert.equal(await page.getByText('테스트 실명2', { exact: true }).count(), 0); assert.equal(opens, 0); assert.equal(await page.locator('img').count(), 0);
   for (const width of [360, 390, 430, 768, 1440]) { await page.setViewportSize({ width, height: 900 }); assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth), false); for (const h of await page.locator('h1,h2').all()) assert.ok(await h.evaluate(el => el.getBoundingClientRect().height / Number.parseFloat(getComputedStyle(el).lineHeight) <= 2.1)); await page.screenshot({ path: resolve(output, `discovery-${width}.png`), fullPage: true }); }
