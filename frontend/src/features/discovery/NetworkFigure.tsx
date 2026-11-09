@@ -16,6 +16,6 @@ export function NetworkFigure({ graph }: { graph: Graph }) {
     })}
     <circle className="graph-self" cx="160" cy="160" r="24" /><text x="160" y="166" textAnchor="middle">나</text>
   </svg>{points.map(({ person, x, y }) => <Link key={person.id} className="network-node" style={{ left: `${x / 3.2}%`, top: `${y / 3.2}%` }} href={`/discovery/profiles/${person.id}`} aria-label={`${person.nickname} 그래프에서 프로필 보기`} title={person.nickname}><span aria-hidden="true">{Array.from(person.nickname)[0]}</span><small>{Array.from(person.nickname).slice(0, 4).join('')}{Array.from(person.nickname).length > 4 ? '…' : ''}</small></Link>)}</div>
-    <figcaption>화살표는 프로필을 연 방향이에요. 선이 굵고 진할수록 교류가 많아요. 최초 방문·상호 방문·내가 누른 공개 응원 하트를 반영해요. 익명 활동은 제외해요. 그림은 최대 8명을 보여줘요.</figcaption>
+    <figcaption><p>화살표는 프로필을 연 방향이에요. 선이 굵고 진할수록 교류가 많아요.</p><details className="network-explainer"><summary>관계 표시 기준 알아보기</summary><p>최초 방문·상호 방문·내가 누른 공개 응원 하트를 반영해요. 익명 활동은 제외해요. 그림은 최대 8명을 보여줘요.</p></details></figcaption>
   </figure>;
 }

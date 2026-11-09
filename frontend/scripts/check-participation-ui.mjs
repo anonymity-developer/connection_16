@@ -95,7 +95,15 @@ try {
   assert.equal(await page.locator('input[name="policy"]').count(), 1);
   assert.equal(await page.locator('input[name="realName"],input[name="classNo"]').count(), 0);
   assert.equal(await page.locator('input[name="policy"]:checked').count(), 0);
-  await fill(); await page.getByRole('button', { name: '프로필 저장하기', exact: true }).click(); assert.equal(saves, 0);
+  const checklist = page.getByRole('region', { name: '첫 번째 S 준비하기', exact: true });
+  // Draft inputs can satisfy presentation checks, but must not claim a server award.
+  assert.equal(await checklist.locator('.is-ready').count(), 0);
+  await fill();
+  assert.equal(await checklist.locator('.is-ready').count(), 2);
+  assert.equal(await checklist.getByText('현장에서 태그해 주세요', { exact: true }).count(), 1);
+  assert.equal(await page.getByRole('heading', { name: '첫 번째 S를 모았어요', exact: true }).count(), 0);
+  assert.equal(completed, false);
+  await page.getByRole('button', { name: '프로필 저장하기', exact: true }).click(); assert.equal(saves, 0);
   await page.getByRole('button', { name: /내용 보기$/ }).first().click();
   await page.getByRole('dialog').waitFor(); assert.ok((await page.getByRole('dialog').innerText()).includes('실제 운영 정책이 아닙니다.'));
   await page.keyboard.press('Escape'); await agree();
