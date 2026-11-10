@@ -24,7 +24,7 @@ try {
     if (path === '/auth/config') body = { available: true, passwordMinLength: 15, passwordMaxLength: 64 };
     else if (path === '/users/me') {
       if (!signedIn) return route.fulfill({ status: 401, json: { code: 'UNAUTHENTICATED', message: '로그인이 필요해요.' } });
-      body = { id: 1, username: 'ui-fixture', nickname: 'UI 검사', onboardingRequired: false };
+      body = { id: 1, username: 'ui-fixture', nickname: 'UI 검사', onboardingRequired: false, admin };
     } else if (path === '/tags/pending') body = { present: false };
     else if (path === '/event') body = { status: 'OPEN', opensAt: null, submitClosesAt: null, profilePreparationEnabled: false };
     else if (path === '/missions/collection') body = { missions: codes.map((code, i) => ({ id: i + 1, code, state: currentState, active: true })), completedCount: currentState === 'COMPLETED' ? 5 : 0, completion: { complete: currentState === 'COMPLETED', completionOrder: 1 } };
@@ -34,7 +34,15 @@ try {
     else return route.fulfill({ status: 503, json: { code: 'TEST_OUT_OF_SCOPE', message: '본문 데이터는 이 UI 검사의 범위가 아니에요.' } });
     return route.fulfill({ status: 200, json: body });
   });
-  async function open(path) { await page.goto('http://127.0.0.1:4475' + path); await page.getByRole('link', { name: 'TAG ME 홈' }).waitFor(); await page.waitForLoadState('networkidle'); }
+  async function open(path) {
+    await page.goto('http://127.0.0.1:4475' + path);
+    await page.locator('#main-content').waitFor();
+    await page.waitForLoadState('networkidle');
+    if (path.startsWith('/admin')) {
+      if (signedIn) await page.locator('.admin-title h1').waitFor();
+      else await page.getByRole('heading', { name: '운영자 로그인', exact: true }).waitFor();
+    } else await page.getByRole('link', { name: 'TAG ME 홈', exact: true }).waitFor();
+  }
   async function fits() { assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1), 'no page horizontal overflow'); }
   for (const width of [360, 375, 390, 412, 430, 1440]) {
     await page.setViewportSize({ width, height: 900 });
