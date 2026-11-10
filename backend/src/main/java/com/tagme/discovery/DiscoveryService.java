@@ -46,7 +46,10 @@ public class DiscoveryService {
     }
     public Stats stats(AuthPrincipal actor) { return tx.execute(s->{guard(actor);return repository.stats(actor.userId());}); }
     public Graph graph(AuthPrincipal actor,Integer limit) {
-        int size=limit==null?20:limit;if(size<1||size>30)throw error(400,"INVALID_LIMIT","관계는 한 번에 최대 30명까지 확인할 수 있어요.");
-        return tx.execute(s->{guard(actor);return repository.graph(actor.userId(),participation.profile(actor.userId()).nickname(),size);});
+        return graph(actor,limit,0);
+    }
+    public Graph graph(AuthPrincipal actor,Integer limit,int offset) {
+        int size=limit==null?20:limit;if(offset<0||size<1||size>30)throw error(400,"INVALID_LIMIT","관계는 한 번에 최대 30명까지 확인할 수 있어요.");
+        return tx.execute(s->{guard(actor);return repository.graph(actor.userId(),participation.profile(actor.userId()).nickname(),size,offset);});
     }
 }

@@ -143,6 +143,13 @@ paths:
           minimum: 1
           maximum: 30
           default: 20
+      - name: offset
+        in: query
+        description: 현재 관계 강도 순서에서 건너뛸 인원 수
+        schema:
+          type: integer
+          minimum: 0
+          default: 0
   /discovery/profiles/{id}/photo:
     get:
       summary: 열어 본 참여자의 Mattermost 사진

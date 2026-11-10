@@ -38,6 +38,7 @@ class DiscoveryIntegrationTest {
     AuthPrincipal actor,bob,charlie;String hash;long interest;final Map<String,String> cookies=new HashMap<>();static final String PASSWORD="a long test password";
     @BeforeEach void setup(){
         reset(repository,mattermost,accounts);cookies.clear();
+        db.update("DELETE FROM connection_sessions");
         db.update("DELETE FROM cheer_likes");
         db.update("UPDATE content_items SET approved_revision_id=NULL,pending_revision_id=NULL");
         db.update("DELETE FROM content_revisions");db.update("DELETE FROM content_items");
@@ -86,6 +87,32 @@ class DiscoveryIntegrationTest {
     @Test void hidingAndPolicyChangesFilterEveryReadWithoutDeletingHistory(){service.open(actor,bob.userId());service.open(bob,actor.userId());db.update("UPDATE profiles SET is_public=FALSE WHERE user_id=?",bob.userId());assertThat(people().items()).noneMatch(p->p.id()==bob.userId());assertThat(service.recommended(actor)).noneMatch(p->p.id()==bob.userId());assertThat(service.graph(actor,30).nodes()).isEmpty();assertThat(service.stats(actor).mutualCount()).isZero();assertThatThrownBy(()->service.open(actor,bob.userId())).isInstanceOf(AuthException.class);assertThat(db.queryForObject("SELECT COUNT(*) FROM profile_views",Integer.class)).isEqualTo(2);db.update("INSERT INTO consent_policies VALUES ('PROFILE_PUBLICATION','test-v2','새 테스트','테스트 전용')");db.update("UPDATE current_consent_policies SET policy_version='test-v2' WHERE policy_type='PROFILE_PUBLICATION'");assertThatThrownBy(()->people()).isInstanceOf(AuthException.class);}
     @Test void suspendedWithdrawnOrIncompleteProfilesAreNotDiscoverable(){db.update("UPDATE users SET status='SUSPENDED' WHERE id=?",bob.userId());db.update("UPDATE profiles SET nickname='' WHERE user_id=?",charlie.userId());assertThat(people().items()).isEmpty();db.update("UPDATE users SET status='WITHDRAWN' WHERE id=?",bob.userId());assertThatThrownBy(()->service.open(actor,bob.userId())).isInstanceOf(AuthException.class);}
     @Test void cursorAndLiteralNicknameFiltersAreBoundedAndNeverSearchRealNames(){db.update("UPDATE profiles SET nickname='동료_%!' WHERE user_id=?",bob.userId());var found=service.people(actor,null,1,"_%!",interest,null,null);assertThat(found.items()).hasSize(1);assertThat(found.items().getFirst().id()).isEqualTo(bob.userId());assertThat(service.people(actor,null,20,"비공개실명",null,null,null).items()).isEmpty();var first=service.people(actor,null,1,null,null,null,null);var second=service.people(actor,first.nextCursor(),1,null,null,null,null);assertThat(first.items().getFirst().id()).isNotEqualTo(second.items().getFirst().id());assertThat(second.nextCursor()).isNull();assertThatThrownBy(()->service.people(actor,null,31,null,null,null,null)).isInstanceOf(AuthException.class);assertThatThrownBy(()->service.people(actor,null,20,null,null,"X",null)).isInstanceOf(AuthException.class);}
+    @Test void stableRecommendationsPreferAnotherClassOnlyOnAffinityTies() {
+        db.update("UPDATE users SET class_no=4 WHERE id=?",bob.userId());
+        assertThat(service.recommended(actor)).extracting(DiscoveryModels.Person::id)
+            .containsExactly(bob.userId(),charlie.userId());
+        assertThat(service.recommended(actor)).isEqualTo(service.recommended(actor));
+        db.update("DELETE FROM user_interests WHERE user_id=?",bob.userId());
+        assertThat(service.recommended(actor).getFirst().id()).isEqualTo(charlie.userId());
+    }
+    @Test void recommendationTiesUseDescendingIdUntilASecondInterestMatches() {
+        assertThat(service.recommended(actor)).extracting(DiscoveryModels.Person::id)
+            .containsExactly(charlie.userId(),bob.userId());
+        long second=db.queryForObject("SELECT MIN(id) FROM interests WHERE id>?",Long.class,interest);
+        for (var peer: List.of(actor,bob)) db.update("INSERT INTO user_interests VALUES (?,?)",peer.userId(),second);
+        var first=service.recommended(actor).getFirst();
+        assertThat(first.id()).isEqualTo(bob.userId());
+        assertThat(first.sharedInterests()).hasSize(2);
+    }
+    @Test void strongOlderRelationshipSurvivesLimitAndNextPageIsReachable() {
+        service.open(actor,bob.userId());
+        service.open(bob,actor.userId());
+        service.open(actor,charlie.userId());
+        assertThat(service.graph(actor,1).nodes().getFirst().id()).isEqualTo(bob.userId());
+        var next=service.graph(actor,1,1);
+        assertThat(next.nodes().getFirst().id()).isEqualTo(charlie.userId());
+        assertThat(next.truncated()).isFalse();
+    }
     @Test void recommendationsUsePublicSharedInterestsAndUnvisitedOrdering(){service.open(actor,charlie.userId());var rows=service.recommended(actor);assertThat(rows.getFirst().id()).isEqualTo(bob.userId());assertThat(rows.getFirst().sharedInterests()).hasSize(1);assertThat(rows.getFirst().sameType()).isFalse();assertThat(rows.getFirst().type()).isNull();}
     @Test void typeExplanationsRequireAStoredResultAndTheSameQuestionnaireVersion(){
         String def="""
@@ -114,6 +141,14 @@ class DiscoveryIntegrationTest {
     ResponseEntity<Map> raw(HttpMethod method,String path,Object body,String csrf){var h=new HttpHeaders();h.setContentType(MediaType.APPLICATION_JSON);if(!cookies.isEmpty())h.add(HttpHeaders.COOKIE,String.join("; ",cookies.entrySet().stream().map(e->e.getKey()+"="+e.getValue()).toList()));if(csrf!=null)h.add("X-XSRF-TOKEN",csrf);var r=http.exchange("/api/v1"+path,method,new HttpEntity<>(body,h),Map.class);for(String c:r.getHeaders().getOrEmpty(HttpHeaders.SET_COOKIE)){var p=c.split(";",2)[0].split("=",2);if(p.length==2)cookies.put(p[0],p[1]);}return r;}
     ResponseEntity<Map> send(String path,Object body){var c=raw(HttpMethod.GET,"/csrf",null,null);return raw(HttpMethod.POST,path,body,(String)c.getBody().get("token"));}
     @Test void httpRequiresSessionAndCsrfAndHasNoGetDetailBypass(){assertThat(raw(HttpMethod.GET,"/discovery/people",null,null).getStatusCode().value()).isEqualTo(401);assertThat(send("/auth/login",Map.of("username","alice","password",PASSWORD)).getStatusCode().value()).isEqualTo(200);assertThat(raw(HttpMethod.POST,"/discovery/profiles/"+bob.userId()+"/open",null,null).getStatusCode().value()).isEqualTo(403);assertThat(raw(HttpMethod.GET,"/discovery/profiles/"+bob.userId()+"/open",null,null).getStatusCode().value()).isEqualTo(405);var opened=send("/discovery/profiles/"+bob.userId()+"/open",Map.of("viewerId",charlie.userId(),"visited",true));assertThat(opened.getStatusCode().value()).isEqualTo(200);assertThat(db.queryForObject("SELECT viewer_id FROM profile_views",Long.class)).isEqualTo(actor.userId());assertThat(raw(HttpMethod.GET,"/profiles",null,null).getHeaders().getCacheControl()).contains("no-store");}
+    @Test void graphIgnoresRequestedViewerAndHidesUnrelatedVisits() {
+        service.open(bob,charlie.userId());
+        assertThat(send("/auth/login",Map.of("username","alice","password",PASSWORD)).getStatusCode().value()).isEqualTo(200);
+        var response=raw(HttpMethod.GET,"/discovery/graph?viewerId="+bob.userId(),null,null);
+        assertThat(response.getStatusCode().value()).isEqualTo(200);
+        assertThat((List<?>)response.getBody().get("nodes")).isEmpty();
+        assertThat((List<?>)response.getBody().get("edges")).isEmpty();
+    }
     @Test void photosRequireOpeningTheProfileAndRecheckCurrentAccountAfterExternalIo() {
         db.update("UPDATE users SET mattermost_picture_updated_at=1 WHERE id=?",bob.userId());String external=accounts.byId(bob.userId()).orElseThrow().mattermostId();
         assertThatThrownBy(()->photos.photo(actor,bob.userId(),false)).isInstanceOf(AuthException.class);verify(mattermost,never()).photo(anyString());

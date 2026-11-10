@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react';
 import { LetterSticker } from '../components/LetterSticker';
 import { WinterDecor } from '../components/WinterDecor';
 import { ConnectionStickers } from '../components/EventArtwork';
-import { HomeNetwork } from '../features/discovery/HomeNetwork';
 import { useParticipation } from '../features/participation/context';
 import type { CollectionCelebrations } from '../features/participation/collection-celebrations';
 import { useAuth } from '../features/auth/context';
@@ -91,7 +90,6 @@ export function Home({ data }: { data: ScreenData }) {
       <MissionCards data={data} />
 
     </section>
-    {!data.preview && auth.user && !auth.user.onboardingRequired && <HomeNetwork key={auth.user.id} />}
   </div>;
 }
 

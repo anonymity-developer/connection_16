@@ -10,5 +10,5 @@ export const discoveryApi = {
   recommended: () => request<Person[]>('/discovery/recommendations'),
   open: (id: number) => request<Detail>(`/discovery/profiles/${id}/open`, 'POST'),
   stats: () => request<Stats>('/discovery/stats'),
-  graph: () => request<Graph>('/discovery/graph?limit=30'),
+  graph: (offset = 0) => request<Graph>(`/discovery/graph?limit=30&offset=${offset}`),
 };
