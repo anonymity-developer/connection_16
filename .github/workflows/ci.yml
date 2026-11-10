@@ -123,6 +123,8 @@ jobs:
         run: |
           docker compose -f compose.yml -f compose.dev.yml --profile app config --quiet
           docker compose -f compose.yml -f compose.prod.yml --profile app config --quiet
+          docker compose -f compose.yml -f compose.dev.yml -f compose.small.yml --profile app config --quiet
+          docker compose -f compose.yml -f compose.prod.yml -f compose.small.yml --profile app config --quiet
       - name: Build and start full development stack
         run: docker compose -f compose.yml -f compose.dev.yml --profile app up -d --build --wait --wait-timeout 180
       - name: Check browser proxy and API metadata
