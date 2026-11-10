@@ -1,6 +1,6 @@
 # EC2 초기 배포 — 한 달 이내 행사 운영
 
-GitHub Actions/배포 릴리스/EC2 연결, `anonmitydeveloper.site`의 가비아 DNS, 운영 환경 파일과 실제 상태는 [배포 연결 문서](github-actions-ec2.md)를 따른다. OIDC 생성이 AWS SCP에 차단되어 사용자는 무료 플랜을 유지하고 공개 릴리스를 EC2가 받는 방식을 선택했다. 아래 초기 준비 기록은 당시 이력이다.
+GitHub Actions/배포 릴리스/EC2 연결, `anonymity-developer.site`의 가비아 DNS, 운영 환경 파일과 실제 상태는 [배포 연결 문서](github-actions-ec2.md)를 따른다. OIDC 생성이 AWS SCP에 차단되어 사용자는 무료 플랜을 유지하고 공개 릴리스를 EC2가 받는 방식을 선택했다. 아래 초기 준비 기록은 당시 이력이다.
 
 최대 동시 접속 100명 예상, 신규 AWS 계정, 단일 VM의 기존 Docker Compose를 사용한다. `compose.small.yml`은 2GiB 서버용 시작 설정이며 100명 처리 성능을 보증한 결과가 아니다. 실제 AWS 서버·DNS·Mattermost 연결·100명 부하는 서버 생성 후 확인한다. AI 검수 추가 연동과 구조 재작성은 이번 초기 배포 범위에서 제외한다.
 

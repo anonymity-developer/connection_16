@@ -10,7 +10,7 @@
 
 | 항목 | 값 |
 | --- | --- |
-| 운영 도메인 | 가비아 `anonmitydeveloper.site` |
+| 운영 도메인 | 가비아 `anonymity-developer.site` |
 | EC2 | `i-0faa77905f491ab31`, `tagme-event` |
 | 리전 / IP | Sydney `ap-southeast-2` / `13.236.85.206` |
 | OS / 인스턴스 | Ubuntu 24.04 / `t3.small`, 2 vCPU, 2GiB |
@@ -24,7 +24,7 @@ AWS CLI는 Ubuntu 저장소에 설치 후보가 없어 공식 2.39.7 ZIP과 PGP 
 
 PR [#15](https://github.com/anonymity-developer/connection_16/pull/15)의 최종 Frontend/Backend/Docker와 병합 후 main CI가 모두 성공했다. 첫 [배포 실행](https://github.com/anonymity-developer/connection_16/actions/runs/42788902331)의 main `d0dcbb37542ead25252a43941774b7af1ab2ebfd` 릴리스를 EC2에 적용해 네 컨테이너 healthy, HTTPS 웹/API smoke를 확인했다. 실제 HTTPS에서 CSRF 없는 로그인 403, 관리자 로그인, `TAGME_SESSION` Secure/HttpOnly, 관리자 조회, 로그아웃 후 401을 통과했다. `AUTO_DEPLOY=true`를 설정했고 이후 main push CI 성공 시 자동 릴리스 발행/EC2 반영이 활성화돼 있다.
 
-실제 등록 주소에는 `anonymity`의 `y`가 없는 `anonmitydeveloper.site`를 사용한다. 초기에 전달된 다른 철자는 공용 등록/DNS에 없었으며, 사용자 등록 정보 확인 후 운영 파라미터를 수정했다. 정식 주소의 A 레코드가 서버 IP를 가리키고 HTTPS가 유효한 것을 확인했다.
+최초 `anonmitydeveloper.site`로 기동한 뒤 사용자가 **`anonymity-developer.site`로 도메인 변경**을 요청했다. 운영 `.env.production`과 SSM SecureString v3를 새 주소로 맞추고 DB dump 후 Caddy를 재적용했다. 새 주소 A=`13.236.85.206`, 유효 HTTPS·웹/API·CSRF·관리자 로그인/로그아웃 검증을 통과했다. DB/API 컨테이너는 도메인 변경 중 재시작하지 않았다.
 
 2026-11-10 Price List 조회 기준 서버+30GiB+IPv4는 730시간당 약 **$25.80**, 전송/백업 등은 별도다. 당시 Free ACTIVE, 잔액 $100을 확인했다. CPU 크레딧 소진 시 성능이 제한될 수 있다. IP는 stop/start 시 바뀔 수 있으므로 재시작 전 DNS 영향을 확인한다. 종료해도 보존 EBS는 자동 삭제되지 않는다.
 

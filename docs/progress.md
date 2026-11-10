@@ -1,5 +1,11 @@
 # 페이즈별 개발 현황
 
+## 2026-11-10 — 최종 운영 도메인 anonymity-developer.site로 변경
+
+- 사용자가 `anonmitydeveloper.site` 대신 **`anonymity-developer.site`로 변경**을 요청했다. 새 가비아 NS와 A=`13.236.85.206`을 확인하고 운영 `.env.production`/SSM SecureString v3에 반영했다. DB dump 후 현재 검증된 이미지로 Caddy만 재적용했으며 API/DB/Redis는 계속 실행됐다.
+- 새 HTTPS 주소의 웹/API smoke·인증서·CSRF 없는 로그인 403·관리자 로그인·Secure/HttpOnly 세션·관리자 조회·로그아웃 후 401을 실제로 통과했다. 네 컨테이너 healthy이고 타이머를 재활성화했다. 계정/DB/HMAC 비밀값은 변경하지 않았다.
+- 운영 기록 커밋 `c286542`의 main CI가 성공하고, `workflow_run`으로 [자동 배포 Actions](https://github.com/anonymity-developer/connection_16/actions/runs/42791355503)가 실제 트리거됐다. EC2의 current가 해당 자동 릴리스로 바뀌고 네 컨테이너 healthy, systemd Result=success, 새 도메인 유지/HTTPS 200을 확인해 자동 게시부터 서버 적용까지 검증했다. [현재 운영 연결](github-actions-ec2.md).
+
 ## 2026-11-10 — 실제 HTTPS 배포·관리자 인증·자동 배포 활성화 완료
 
 - PR [#15](https://github.com/anonymity-developer/connection_16/pull/15)의 최종 Frontend/Backend/Docker CI와 병합 후 main CI가 모두 통과했다. 사용자 승인대로 `d0dcbb37542ead25252a43941774b7af1ab2ebfd`로 main에 병합했다. [첫 배포 Actions](https://github.com/anonymity-developer/connection_16/actions/runs/42788902331)가 성공해 공개 runtime 릴리스를 발행했고 EC2가 main/CI/실행/파일·이미지·체크섬 검증 후 적용했다.
