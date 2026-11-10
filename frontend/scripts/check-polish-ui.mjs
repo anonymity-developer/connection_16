@@ -46,18 +46,19 @@ try {
     const bubble = await page.locator('.collection-bubble').boundingBox();
     const slots = await page.locator('.letter-slots').boundingBox();
     assert.ok(bubble.x >= 0 && bubble.x + bubble.width <= width && bubble.y + bubble.height + 5 <= slots.y, 'bubble fits and does not cover characters');
-    assert.equal(await page.locator('.mission-list > .mission-row').count(), 6);
+    assert.equal(await page.locator('.mission-list > .mission-row').count(), 5);
+    assert.equal(await page.locator('.mission-overview-card').count(), 0);
     assert.deepEqual(await page.locator('.slot-label').allTextContents(), ['소개', '취향', '소원', '탭', '응원']);
     assert.equal(await page.locator('.collection-count, .home-help').count(), 0);
-    await page.locator('.mission-overview-card').click();
+    await open('/missions');
     await page.getByRole('heading', { name: '미션 현황·힌트', exact: true }).waitFor();
     assert.equal(await page.locator('.mission-overview-list .mission-progress-guide').count(), 5);
     await fits();
     await open('/');
     const y = await page.locator('.mission-list > [data-mission="SAY_SOMETHING"]').boundingBox();
-    const overview = await page.locator('.mission-overview-card').boundingBox();
-    if (width >= 1100) assert.ok(Math.abs(y.width - overview.width) <= 1 && Math.abs(y.y - overview.y) <= 1, 'Y and overview share an equal-width last row');
-    else assert.ok(overview.y >= y.y + y.height, 'mobile cards stack vertically');
+    const first = await page.locator('.mission-list > [data-mission="SHOW_ME"]').boundingBox();
+    if (width > 640) assert.ok(Math.abs(y.width - first.width) <= 1 && Math.abs(y.x - first.x) <= 1, 'fifth card occupies the left half of the last row');
+    else assert.ok(Math.abs(y.width - first.width) <= 1, 'mobile cards stack at full width');
     assert.equal(await page.locator('.mission-shortcut, .preparation-note').count(), 0);
     assert.equal(await page.locator('.home-overview .next-panel').count(), 0);
     const board = await page.locator('.sticker-board').boundingBox();
@@ -75,6 +76,10 @@ try {
       await open('/');
       assert.equal(await page.locator('.collection-bubble').count(), state === 'COMPLETED' ? 0 : 1);
       assert.equal(await page.locator('.letter-slots .is-uncollected').count(), state === 'COMPLETED' ? 0 : 5);
+      const visuals = await page.locator('.letter-slots .letter-slot').evaluateAll(nodes => nodes.map(node => node.getAttribute('data-visual')));
+      assert.deepEqual(visuals, codes.map(code => state === 'COMPLETED' ? 'collected' : state === 'LOCKED' || code === 'SHOW_ME' ? 'unrevealed' : 'unlocked'), 'collection visual matches server mission state');
+      const imgFilter = await page.locator('.letter-slots .letter-slot:first-child .letter-sticker img').evaluate(el => window.getComputedStyle(el).filter);
+      assert.ok(state === 'COMPLETED' ? imgFilter === 'none' : imgFilter.includes('grayscale'), 'unearned character stays gray');
       for (const code of codes) {
         await open('/missions/' + code.toLowerCase().replaceAll('_', '-'));
         await fits();
@@ -92,5 +97,5 @@ try {
     admin = false; signedIn = false; currentState = 'LOCKED'; adminReads = 0;
   }
   assert.deepEqual(errors, []);
-  console.log('PASS: production UI widths 360/375/390/412/430/1440, overview, navigation clearance, empty states, five mission hints/states and admin read gates (fixtures only).');
+  console.log('PASS: production UI widths 360/375/390/412/430/1440, five-card layout, three collection visuals, navigation clearance, five mission hints/states and admin read gates (fixtures only).');
 } finally { await browser?.close(); await new Promise(resolve => server.httpServer.close(resolve)); }

@@ -2,7 +2,6 @@ import { useState } from 'react';
 import { LetterSticker } from '../components/LetterSticker';
 import { WinterDecor } from '../components/WinterDecor';
 import { ConnectionStickers } from '../components/EventArtwork';
-import { HomeNetwork } from '../features/discovery/HomeNetwork';
 import { useParticipation } from '../features/participation/context';
 import { useAuth } from '../features/auth/context';
 import { Link } from '../app/navigation';
@@ -11,6 +10,13 @@ import { missions, stateLabels } from '../features/missions/model';
 import type { MissionCode, MissionState, ScreenData } from '../features/missions/model';
 
 const slotLabels: Record<MissionCode, string> = { SHOW_ME: '소개', SYNC_ME: '취향', MAKE_A_WISH: '소원', FAST_TAP: '탭', SAY_SOMETHING: '응원' };
+
+/** SHOW ME has no NFC unlock step; only its completed state reveals color. */
+export function collectionVisual(code: MissionCode, state: MissionState, known: boolean): 'unrevealed' | 'unlocked' | 'collected' {
+  if (!known || state === 'LOCKED') return 'unrevealed';
+  if (state === 'COMPLETED') return 'collected';
+  return code === 'SHOW_ME' ? 'unrevealed' : 'unlocked';
+}
 
 const missionStatusLabel = (state: MissionState, code?: MissionCode) => code === 'SHOW_ME' && state === 'LOCKED' ? '프로필을 완성해 주세요' : state === 'PENDING' && !!code && !['MAKE_A_WISH', 'SAY_SOMETHING'].includes(code) ? '진행 중이에요' : stateLabels[state];
 
@@ -27,8 +33,9 @@ export function Collection({ data }: { data: ScreenData }) {
     {completed < 5 && <div className="collection-invitation"><span className="collection-bubble" aria-hidden="true">우리를 찾아봐!</span></div>}
     <div className="letter-slots">{missions.map((mission) => {
       const state = known ? data.progress[mission.code] : 'LOCKED';
-      return <Link key={mission.code} data-mission={mission.code} href={`/missions/${mission.slug}`} className={`letter-slot ${state === 'COMPLETED' ? 'is-collected' : ''}`} title={mission.name} aria-label={`${mission.letter}, ${mission.name}, ${data.preview || data.serverLoaded ? missionStatusLabel(state, mission.code) : '미션 알아보기'}`}>
-        <LetterSticker code={mission.code} collectionState={state === 'COMPLETED' ? 'collected' : 'uncollected'} celebrate={!!data.serverLoaded && !data.preview} /><span className="slot-name">{mission.letter}</span><span className="slot-label">{slotLabels[mission.code]}</span><span className="slot-state"><Icon size={14} name={!data.preview && !data.serverLoaded ? 'tag' : state === 'COMPLETED' ? 'check' : state === 'PENDING' ? 'clock' : state === 'UNLOCKED' ? 'arrow' : mission.code === 'SHOW_ME' ? 'person' : 'lock'} /></span>
+      const visual = collectionVisual(mission.code, state, known);
+      return <Link key={mission.code} data-mission={mission.code} data-visual={visual} href={`/missions/${mission.slug}`} className={`letter-slot ${visual === 'collected' ? 'is-collected' : ''}`} title={mission.name} aria-label={`${mission.letter}, ${mission.name}, ${data.preview || data.serverLoaded ? missionStatusLabel(state, mission.code) : '미션 알아보기'}`}>
+        <LetterSticker code={mission.code} collectionState={visual === 'collected' ? 'collected' : 'uncollected'} celebrate={!!data.serverLoaded && !data.preview} /><span className="slot-name">{mission.letter}</span><span className="slot-label">{slotLabels[mission.code]}</span><span className="slot-state"><Icon size={14} name={!data.preview && !data.serverLoaded ? 'tag' : state === 'COMPLETED' ? 'check' : state === 'PENDING' ? 'clock' : state === 'UNLOCKED' ? 'arrow' : mission.code === 'SHOW_ME' ? 'person' : 'lock'} /></span>
       </Link>;
     })}</div>
     {(data.preview || data.serverLoaded) && <div className="collection-progress" role="progressbar" aria-label={data.preview ? '미리보기 글자 수집' : '나의 글자 수집'} aria-valuenow={completed} aria-valuemin={0} aria-valuemax={5}><span style={{ width: `${completed * 20}%` }} /></div>}
@@ -49,25 +56,14 @@ export function Home({ data }: { data: ScreenData }) {
     <EventEncouragement />
     <section className="mission-section" aria-labelledby="mission-heading"><div className="section-heading"><h2 id="mission-heading">SSAFY 미션</h2><span>어떤 미션부터 알아볼까요?</span></div>
       <MissionCards data={data} />
+      <p className="home-policy-note">소원과 응원은 승인된 후 글자를 받아요.</p>
 
     </section>
-    {!data.preview && auth.user && !auth.user.onboardingRequired && <HomeNetwork key={auth.user.id} />}
   </div>;
 }
 
-function GuideSticker() {
-  return <svg className="guide-sticker" viewBox="0 0 64 80" width="64" height="80" aria-hidden="true">
-    <path d="M14 19 27 23 40 17 55 22V63L41 58 28 65 10 60Z" fill="#e5edff" stroke="white" strokeWidth="7" strokeLinejoin="round" />
-    <path d="M14 20 27 24V60L14 57ZM41 20 52 24V59L41 55Z" fill="#bfd5f5" />
-    <path d="M27 24V59M41 20V55" stroke="#6f8ec7" strokeWidth="2" />
-    <circle cx="33" cy="40" r="16" fill="white" stroke="#6f8ec7" strokeWidth="2" />
-    <path d="M39 30 36 43 26 50 29 37Z" fill="#5378ba" /><path d="m39 30-7 10-6 10 3-13Z" fill="#b8c8ed" />
-    <circle cx="32" cy="40" r="2" fill="#264c87" />
-  </svg>;
-}
-
 export function MissionCards({ data }: { data: ScreenData }) {
-  return <div className="mission-list">{missions.map((mission) => <Link key={mission.code} href={`/missions/${mission.slug}`} className="mission-row" data-mission={mission.code} aria-label={`${mission.name}, ${mission.description}, 상세 안내`}><span className={`mission-letter ${data.progress[mission.code] === 'COMPLETED' ? 'is-collected' : ''}`} aria-hidden="true"><LetterSticker code={mission.code} /></span><div className="mission-row-copy"><h3>{mission.name}</h3><p>{mission.description}</p>{['MAKE_A_WISH', 'SAY_SOMETHING'].includes(mission.code) && <small className="mission-moderation-note">검수 승인 후 글자 획득</small>}</div><div className="mission-row-state">{(data.preview || data.serverLoaded) && <StateBadge state={data.progress[mission.code]} missionCode={mission.code} />}<Icon name="arrow" size={18} /></div></Link>)}<Link href="/missions" className="mission-row mission-overview-card"><GuideSticker /><div className="mission-row-copy"><h3>미션 현황·힌트</h3><p>다섯 미션의 진행 현황과 힌트를 한곳에서 확인해요.</p></div><div className="mission-row-state"><span className="mission-link-label">현황·힌트 보기</span><Icon name="arrow" size={18} /></div></Link></div>;
+  return <div className="mission-list">{missions.map((mission) => <Link key={mission.code} href={`/missions/${mission.slug}`} className="mission-row" data-mission={mission.code} aria-label={`${mission.name}, ${mission.description}, 상세 안내`}><span className={`mission-letter ${data.progress[mission.code] === 'COMPLETED' ? 'is-collected' : ''}`} aria-hidden="true"><LetterSticker code={mission.code} /></span><div className="mission-row-copy"><h3>{mission.name}</h3><p>{mission.description}</p></div><div className="mission-row-state">{(data.preview || data.serverLoaded) && <StateBadge state={data.progress[mission.code]} missionCode={mission.code} />}<Icon name="arrow" size={18} /></div></Link>)}</div>;
 }
 
 export function EventEncouragement() {

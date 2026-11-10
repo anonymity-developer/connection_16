@@ -15,6 +15,7 @@ import '../styles/global.css';
 import '../styles/friendly.css';
 import '../styles/polish.css';
 import '../styles/account.css';
+import '../styles/followup.css';
 import './experience.css';
 
 function ProfileDemo({store}:{store:Experience}) {

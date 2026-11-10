@@ -1,0 +1,47 @@
+/* Participant-only restoration; no admin, API, auth, or mission rule changes. */
+.participant-shell .letter-slot[data-visual='unrevealed'] {
+  background: #f4f7fa;
+  border: 2px dashed #d8e5ed;
+  box-shadow: none;
+}
+.participant-shell .letter-slot[data-visual='unrevealed'] .letter-sticker img {
+  filter: grayscale(1);
+  opacity: .43;
+}
+.participant-shell .letter-slot[data-visual='unrevealed'] .slot-state { color: #8b9ba8; }
+.participant-shell .letter-slot[data-visual='unrevealed']:hover {
+  background: #edf3f7;
+  border-color: #b8cbd9;
+}
+.participant-shell .letter-slot[data-visual='unlocked'] {
+  background: var(--mission-tint, var(--accent-soft));
+  border: 2px dashed var(--accent-track);
+  box-shadow: none;
+}
+.participant-shell .letter-slot[data-visual='unlocked'] .letter-sticker img {
+  filter: grayscale(1);
+  opacity: .6;
+}
+.participant-shell .letter-slot[data-visual='unlocked']:hover {
+  background: var(--mission-tint, var(--accent-soft));
+  border-color: var(--accent);
+}
+.participant-shell .letter-slot[data-visual='collected'] {
+  background: var(--mission-tint, var(--accent-soft));
+  border: 2px solid var(--surface);
+}
+.participant-shell .letter-slot[data-visual='collected'] .letter-sticker img {
+  filter: none;
+  opacity: 1;
+}
+/* Five missions: the Y card occupies one column, not a full row. */
+.participant-shell .mission-list > .mission-row:last-child { grid-column: auto; }
+.participant-shell .home-policy-note {
+  margin-top: 10px;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.6;
+}
+@media (max-width: 640px) {
+  .participant-shell .home-policy-note { font-size: 12px; }
+}
