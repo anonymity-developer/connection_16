@@ -15,6 +15,7 @@ import { SyncMission } from '../features/results/SyncMission';
 import { TapMission } from '../features/results/TapMission';
 import { ContentMission } from '../features/content/ContentMission';
 import { ProfilePage } from './Profile';
+import { OperationsContent } from './Operations';
 
 const number = (value: number) => value.toLocaleString('ko-KR');
 const date = (value: string | null) => value ? new Intl.DateTimeFormat('ko-KR', { dateStyle: 'short', timeStyle: 'short', timeZone: 'Asia/Seoul' }).format(new Date(value)) : '—';
@@ -35,15 +36,20 @@ export function AdminConsole() {
   const location = useLocation(), path = location.split('?')[0], auth = useAuth();
   const [allowed, setAllowed] = useState(false), [error, setError] = useState(''), [menuOpen, setMenuOpen] = useState(false);
   useEffect(() => {
+    if (!auth.ready) { setAllowed(false); return; }
     let active = true;
     const check = () => request<{ admin: boolean }>('/admin/access').then(result => { if (active) { setAllowed(result.admin); setError(''); } }).catch(failure => { if (active) { setAllowed(false); setError(failure instanceof Error ? failure.message : '관리자 권한을 확인하지 못했어요.'); } });
     void check(); const timer = window.setInterval(check, 30000); window.addEventListener('focus', check);
     return () => { active = false; window.clearInterval(timer); window.removeEventListener('focus', check); };
-  }, [auth.user?.id]);
+  }, [auth.user?.id, auth.ready]);
   async function logout() { try { await authApi.logout(); auth.acceptUser(null); navigate('/auth'); } catch (failure) { setError(failure instanceof Error ? failure.message : '로그아웃하지 못했어요.'); } }
   const params = new URLSearchParams(location.split('?')[1]), section = path.split('/')[2] || 'overview';
-  const selected = nav.find(([href]) => href !== '/admin' && path.startsWith(href))?.[1] || '참여 현황';
-  return <div className="admin-console"><aside className="admin-sidebar"><Brand /><p className="admin-scope">SSAFY 16기 · 운영</p><Button className="admin-menu-toggle" variant="secondary" aria-expanded={menuOpen} aria-controls="admin-navigation" onClick={() => setMenuOpen(value => !value)}>메뉴</Button><div id="admin-navigation" className={`admin-navigation ${menuOpen ? 'is-open' : ''}`}><nav aria-label="관리자 메뉴">{nav.map(([href, name]) => <Link key={href} href={href} onClick={() => setMenuOpen(false)} aria-current={(href === '/admin' ? path === href : path.startsWith(href)) ? 'page' : undefined}>{name}</Link>)}</nav><div className="admin-account"><span>{auth.user?.username}</span><Button variant="quiet" onClick={logout}>로그아웃</Button><Link href="/">참가자 화면</Link></div></div></aside><div className="admin-sheet"><header className="admin-title"><div><h1>{selected}</h1><p>TAG ME 가입과 미션 참여 기록</p></div><Link href="/admin/preview" className="button button--secondary">미션 바로 확인</Link></header>{!allowed && !error && <p role="status">관리자 권한을 확인하고 있어요.</p>}{error && <p role="alert" className="admin-error">{error}</p>}{allowed && (section === 'overview' ? <OverviewPanel /> : section === 'members' && /^\d+$/.test(path.split('/')[3] || '') ? <MemberPanel id={Number(path.split('/')[3])} key={path} /> : section === 'members' || section === 'completions' ? <MembersPanel completed={section === 'completions'} params={params} key={`${section}:${params.get('q') || ''}`} /> : section === 'rankings' ? <RankingsPanel params={params} /> : section === 'preview' ? <PreviewPanel /> : <p>화면을 찾을 수 없어요.</p>)}</div></div>;
+  const tab = params.get('tab');
+  const selectedHref = section === 'moderation' ? `/admin/moderation${tab === 'awards' || tab === 'results' ? `?tab=${tab}` : ''}` : nav.find(([href]) => href !== '/admin' && !href.includes('?') && (path === href || path.startsWith(`${href}/`)))?.[0] || '/admin';
+  const selected = nav.find(([href]) => href === selectedHref)?.[1] || '참여 현황';
+  const description = section !== 'moderation' ? 'TAG ME 가입과 미션 참여 기록' : tab === 'results' ? '참여 현황과 잠정 시상 근거를 함께 확인해요.' : tab === 'awards' ? '서버 기록의 근거를 확인해요. 수상 확정이나 지급은 하지 않아요.' : '원문을 확인하고, 사유가 남는 조치를 진행해요.';
+  const deny = (message: string) => { setAllowed(false); setError(message); };
+  return <div className="admin-console"><aside className="admin-sidebar"><Brand /><p className="admin-scope">SSAFY 16기 · 운영</p><Button className="admin-menu-toggle" variant="secondary" aria-expanded={menuOpen} aria-controls="admin-navigation" onClick={() => setMenuOpen(value => !value)}>메뉴</Button><div id="admin-navigation" className={`admin-navigation ${menuOpen ? 'is-open' : ''}`}><nav aria-label="관리자 메뉴">{nav.map(([href, name]) => <Link key={href} href={href} onClick={() => setMenuOpen(false)} aria-current={href === selectedHref ? 'page' : undefined}>{name}</Link>)}</nav><div className="admin-account"><span>{auth.user?.username}</span><Button variant="quiet" onClick={logout}>로그아웃</Button><Link href="/">참가자 화면</Link></div></div></aside><div className="admin-sheet"><header className="admin-title"><div><h1>{selected}</h1><p>{description}</p></div><Link href="/admin/preview" className="button button--secondary">미션 바로 확인</Link></header>{(!auth.ready || !allowed) && !error && <p role="status">관리자 권한을 확인하고 있어요.</p>}{error && <p role="alert" className="admin-error">{error}</p>}{auth.ready && allowed && (section === 'moderation' ? <OperationsContent onDenied={deny} /> : section === 'overview' ? <OverviewPanel /> : section === 'members' && /^\d+$/.test(path.split('/')[3] || '') ? <MemberPanel id={Number(path.split('/')[3])} key={path} /> : section === 'members' || section === 'completions' ? <MembersPanel completed={section === 'completions'} params={params} key={`${section}:${params.get('q') || ''}`} /> : section === 'rankings' ? <RankingsPanel params={params} /> : section === 'preview' ? <PreviewPanel /> : <p>화면을 찾을 수 없어요.</p>)}</div></div>;
 }
 function OverviewPanel() {
   const remote = useRemote<Overview>('/admin/overview');

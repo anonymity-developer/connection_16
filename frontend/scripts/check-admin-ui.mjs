@@ -5,6 +5,7 @@ import { chmod, mkdir, writeFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { chromium } from 'playwright';
 import { preview } from 'vite';
+import { emptyReport } from '../tests/fixtures/post-event.mjs';
 
 // Isolated browser contracts: synthetic rows only, no live administrator or participant records.
 let snapshot = '';
@@ -37,6 +38,9 @@ try {
     if (path === '/tags/pending') return reply(200, { present: false });
     if (!signedIn || !allowed) return reply(403, { code: 'ADMIN_REQUIRED', message: '관리자 권한이 필요해요.' });
     if (path === '/admin/access') return reply(200, { admin: true });
+    if (path === '/admin/moderation/tasks' || path === '/admin/content' || path === '/admin/audit-logs') return reply(200, { items: [], nextCursor: null });
+    if (path === '/admin/results') return reply(200, emptyReport);
+    if (path === '/admin/awards') return reply(200, { ruleVersion: 'fixture-v1', provisional: true, observedAt: now, opensAt: null, submitClosesAt: null, moderationClosesAt: null, eventPhase: 'NOT_CONFIGURED', category: url.searchParams.get('category'), eligibleCompleteCount: 0, total: 0, offset: 0, limit: 20, items: [], invalidProofs: 0, incompleteProofSets: 0, pendingModeration: 0, reviewTotal: 0, reviewRecords: [], pendingDecisions: [] });
     if (path === '/admin/overview') return reply(200, { members: members.length, activeMembers: 3, completeMembers: 1, activeSessions: 1, connectedMembers: 2, connectionSeconds: 7260, trackedSince: now, missions: codes.map((code, i) => ({ code, title: code.replaceAll('_', ' '), unlocked: 3, participated: i < 2 ? 3 : 1, completed: i < 2 ? 3 : 1 })), generatedAt: now });
     if (path === '/admin/members') return reply(200, slice(members.filter(m => !url.searchParams.get('q') || m.nickname.includes(url.searchParams.get('q'))), url.searchParams));
     if (path === '/admin/completions') return reply(200, slice(members.filter(m => m.completionOrder !== null), url.searchParams));
@@ -53,13 +57,26 @@ try {
   snapshot = (await page.content()).replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, '');
   for (const width of [1440, 768, 430, 390, 360]) {
     await page.setViewportSize({ width, height: 1000 });
-    for (const [route, name] of [['/admin', 'overview'], ['/admin/members', 'members'], ['/admin/members/10', 'detail'], ['/admin/rankings', 'rankings'], ['/admin/completions', 'completions']]) {
+    for (const [route, name] of [['/admin', 'overview'], ['/admin/members', 'members'], ['/admin/members/10', 'detail'], ['/admin/rankings', 'rankings'], ['/admin/completions', 'completions'], ['/admin/moderation', 'moderation'], ['/admin/moderation?tab=content', 'content'], ['/admin/moderation?tab=audit', 'audit'], ['/admin/moderation?tab=awards', 'awards'], ['/admin/moderation?tab=results', 'results']]) {
       await visit(route); await page.locator('.admin-sheet').waitFor(); await page.waitForLoadState('networkidle');
       assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1), `${route} fits ${width}`);
+      assert.equal(await page.locator('h1').count(), 1); assert.equal(await page.locator('.admin-sidebar').count(), 1);
+      assert.equal(await page.locator('.admin-sidebar nav [aria-current="page"]').count(), 1);
+      assert.equal(await page.locator('[role="alert"]').count(), 0);
       await page.screenshot({ path: resolve(output, `admin-${name}-${width}.png`), fullPage: true });
     }
   }
-  record('overview, members, details, ranks and completion order render at 360/390/430/768/1440 widths');
+  record('analytics, members, moderation, content, audit, awards and results share one sidebar and heading at five widths');
+  await page.setViewportSize({ width: 1440, height: 1000 }); await visit('/admin');
+  await page.locator('.admin-sidebar').evaluate(element => { element.dataset.continuity = 'same-shell'; });
+  for (const name of ['콘텐츠 검수', '시상 후보', '행사 결과', '미션 미리보기', '참가자', '참여 현황']) {
+    const navigation = page.getByRole('navigation', { name: '관리자 메뉴', exact: true });
+    await navigation.getByRole('link', { name, exact: true }).click(); await page.getByRole('heading', { name, exact: true, level: 1 }).waitFor(); await page.waitForLoadState('networkidle');
+    assert.equal(await page.locator('.admin-sidebar').getAttribute('data-continuity'), 'same-shell');
+    assert.equal(await navigation.locator('[aria-current="page"]').innerText(), name);
+    assert.equal(await page.locator('[role="alert"]').count(), 0);
+  }
+  record('sidebar navigation keeps the same mounted shell across previews, analytics, moderation, awards and results');
   await page.setViewportSize({ width: 390, height: 900 }); await visit('/admin'); await page.getByRole('button', { name: '메뉴', exact: true }).click(); await page.getByRole('navigation', { name: '관리자 메뉴', exact: true }).getByRole('link', { name: '참가자', exact: true }).click(); await page.waitForURL('**/admin/members'); assert.equal(await page.getByRole('navigation', { name: '관리자 메뉴', exact: true }).isVisible(), false); record('phone menu opens accessibly and folds after navigation');
   await visit('/admin/members'); await page.getByLabel('이름·닉네임·아이디 검색').fill('봄빛'); await page.getByRole('button', { name: '검색', exact: true }).click(); await page.getByRole('heading', { name: '가입 순서 · 1명', exact: true }).waitFor(); assert.equal(await page.locator('.admin-table tbody tr').count(), 1); await page.goBack(); await page.getByRole('heading', { name: '가입 순서 · 3명', exact: true }).waitFor(); assert.equal(await page.getByLabel('이름·닉네임·아이디 검색').inputValue(), ''); record('participant search keeps original signup order and restores input/count on browser back');
   await visit('/admin/preview'); await page.getByRole('button', { name: '기록 없이 연습하기', exact: true }).waitFor();
