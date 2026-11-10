@@ -62,7 +62,7 @@ try {
           assert.deepEqual(await page.locator('.letter-slots .letter-sticker img').evaluateAll(images => images.map(image => window.getComputedStyle(image).filter)), Array(5).fill('grayscale(1)'));
           assert.deepEqual(await cards.locator('.letter-sticker img').evaluateAll(images => images.map(image => window.getComputedStyle(image).filter)), Array(5).fill('none'));
           const slotColors = await page.locator('.letter-slots .letter-slot').evaluateAll(slots => slots.map(slot => window.getComputedStyle(slot).backgroundColor));
-          assert.ok(new Set(slotColors).size > 1, 'uncollected slots use mission pastels');
+          assert.equal(new Set(slotColors).size, 5, 'each uncollected slot uses its mission pastel');
           assert.deepEqual(await cards.evaluateAll(rows => rows.map(row => window.getComputedStyle(row).backgroundColor)), Array(5).fill('rgb(255, 255, 255)'));
         }
         await page.screenshot({ path: resolve(output, `${name}-${width}.png`), fullPage: true });
@@ -191,7 +191,7 @@ try {
       const data = path === '/users/me' ? { id: userId, nickname: '수집 검증', onboardingRequired: true }
         : path === '/event' ? { status: 'CLOSED' }
         : path === '/missions/collection' ? {
-          missions: codes.map(code => ({ code, active: true, state: completed.has(code) ? 'COMPLETED' : 'IN_PROGRESS' })),
+          missions: codes.map(code => ({ code, active: true, state: completed.has(code) ? 'COMPLETED' : code === 'SYNC_ME' ? 'IN_PROGRESS' : 'LOCKED' })),
           completedCount: completed.size,
           completion: { complete: completed.size === codes.length },
         } : undefined;
@@ -199,6 +199,12 @@ try {
     });
     await page.setViewportSize({ width: 360, height: 720 });
     await page.clock.install();
+    await visit(productionUrl);
+    await page.getByRole('progressbar', { name: '나의 글자 수집' }).waitFor();
+    assert.deepEqual(await page.locator('.letter-slots .letter-sticker img').evaluateAll(images => images.map(image => window.getComputedStyle(image).filter)), ['none', 'grayscale(1)', 'none', 'none', 'grayscale(1)']);
+    assert.match(await page.locator('.mission-row[data-mission="SYNC_ME"]').innerText(), /진행 중이에요/);
+    assert.match(await page.locator('.mission-row[data-mission="SAY_SOMETHING"]').innerText(), /태그를 찾아주세요/);
+    assert.match(await page.locator('.mission-row[data-mission="MAKE_A_WISH"]').innerText(), /글자 획득 완료/);
     await visit(`${productionUrl}/missions/show-me`);
     await page.getByRole('heading', { name: '연결의 한 조각을 모았어요', exact: true }).waitFor();
     assert.equal(await page.locator('.letter-sticker.celebrate').count(), 0);
@@ -209,6 +215,7 @@ try {
     const animated = page.locator('.letter-slots .letter-sticker.celebrate');
     assert.equal(await animated.count(), 1);
     assert.equal(await animated.evaluate(el => el.closest('.letter-slot').getAttribute('data-mission')), 'SYNC_ME');
+    assert.equal(await animated.locator('img').evaluate(el => window.getComputedStyle(el).filter), 'none');
     assert.equal(await animated.evaluate(el => window.getComputedStyle(el).animationDuration), '0.55s');
     await page.clock.fastForward(3800);
     assert.equal(await animated.count(), 0);

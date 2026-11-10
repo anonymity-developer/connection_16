@@ -11,9 +11,9 @@ public class MetaController {
         return new MetaResponse("TAG ME", "bootstrap", List.of(
                 new MissionInfo("SHOW_ME", "S", "SHOW ME"),
                 new MissionInfo("SYNC_ME", "S", "SYNC ME"),
-                new MissionInfo("MAKE_A_WISH", "A", "MAKE A WISH"),
+                new MissionInfo("MAKE_A_WISH", "A", "A WISH COME TRUE"),
                 new MissionInfo("FAST_TAP", "F", "FAST TAP"),
-                new MissionInfo("SAY_SOMETHING", "Y", "SAY SOMETHING")));
+                new MissionInfo("SAY_SOMETHING", "Y", "YOU GOT THIS")));
     }
 
     public record MetaResponse(String service, String stage, List<MissionInfo> missions) { }

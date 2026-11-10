@@ -1,10 +1,3 @@
-/* State reflects confirmed completion; color is never a discovery reward. */
-.participant-shell [data-mission="SHOW_ME"] { --slot-color:#e1f3ff; --slot-edge:#8bbbd7; }
-.participant-shell [data-mission="SYNC_ME"] { --slot-color:#def6ec; --slot-edge:#79bba1; }
-.participant-shell [data-mission="MAKE_A_WISH"] { --slot-color:#fff3c8; --slot-edge:#d3b45d; }
-.participant-shell [data-mission="FAST_TAP"] { --slot-color:#d9f5f7; --slot-edge:#66b5c1; }
-.participant-shell [data-mission="SAY_SOMETHING"] { --slot-color:#f4e5f6; --slot-edge:#be8cbd; }
-.participant-shell .letter-slot[data-visual="collected"] { background:var(--slot-color); border:2px solid var(--slot-edge); box-shadow:inset 0 0 0 2px #ffffffb3; }
 .participant-shell .mission-list { grid-template-columns:repeat(2,minmax(0,1fr)); }
 .participant-shell .mission-row:last-child { grid-column:auto; }
 .experience-back { display:flex; align-items:center; gap:16px; padding:4px 0 24px; font-size:13px; color:var(--muted); }

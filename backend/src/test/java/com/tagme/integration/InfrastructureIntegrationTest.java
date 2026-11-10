@@ -50,6 +50,10 @@ class InfrastructureIntegrationTest {
         assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM missions", Integer.class)).isEqualTo(5);
         assertThat(jdbc.queryForObject("SELECT GROUP_CONCAT(letter ORDER BY sort_order SEPARATOR '') FROM missions", String.class))
                 .isEqualTo("SSAFY");
+        assertThat(jdbc.queryForObject("SELECT title FROM missions WHERE code = 'MAKE_A_WISH'", String.class))
+                .isEqualTo("A WISH COME TRUE");
+        assertThat(jdbc.queryForObject("SELECT title FROM missions WHERE code = 'SAY_SOMETHING'", String.class))
+                .isEqualTo("YOU GOT THIS");
         assertThatThrownBy(() -> jdbc.update(
                 "INSERT INTO missions (code, letter, title, hint, sort_order) VALUES ('SHOW_ME', 'S', 'duplicate', '', 6)"))
                 .isInstanceOf(DataIntegrityViolationException.class);
