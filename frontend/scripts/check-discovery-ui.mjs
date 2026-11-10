@@ -87,7 +87,8 @@ try {
   assert.equal(await page.locator('.network-strong line').first().evaluate(el => getComputedStyle(el).strokeWidth), '4px');
   const opensBeforeNode = opens; await page.locator('.network-node').first().click();
   await page.locator('.public-profile').waitFor(); assert.equal(opens, opensBeforeNode + 1);
-  await visit('/'); await page.locator('.home-network .network-node').first().waitFor();
+  const readsBeforeHome = discoveryReads; await visit('/'); await page.locator('.mission-section').waitFor();
+  assert.equal(await page.locator('.discovery-graph, .home-network').count(), 0); assert.equal(discoveryReads, readsBeforeHome);
   record('direct relationship arrows and accessible rows use server data; empty graphs keep real zero counts');
   required = true; await visit('/discovery'); await page.getByRole('link', { name: '내 프로필과 참여 안내 확인하기', exact: true }).waitFor(); assert.equal(await page.locator('.person-row').count(), 0); assert.equal(await page.locator('.visit-stats').count(), 0); required = false;
   await visit('/missions/say-something'); await page.getByRole('link', { name: '테스트 공개의 프로필 보기', exact: true }).waitFor(); assert.equal(await page.locator('.content-feed-list a[href="/discovery/profiles/999"]').count(), 0); assert.equal(await page.locator('.content-feed-list a[href="/discovery/profiles/2"]').count(), 1);

@@ -101,9 +101,6 @@
 .participant-shell .network-explainer { margin-top: 8px; }
 .participant-shell .network-explainer summary { min-height: 44px; display: list-item; align-content: center; cursor: pointer; color: var(--accent-ink); }
 .participant-shell .network-explainer p { margin-top: 4px; }
-.participant-shell .home-network { margin-top: 28px; }
-.participant-shell .home-network > [role='alert'], .participant-shell .home-network > p { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 24px; }
-.participant-shell .home-network .section-heading a { min-height: 44px; display: inline-flex; align-items: center; font-size: 14px; color: var(--accent-ink); }
 .participant-shell .public-profile { max-width: 860px; padding: 32px; }
 .participant-shell .public-profile-intro { align-items: center; }
 .participant-shell .public-nickname { font-size: 26px; }
