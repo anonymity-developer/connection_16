@@ -14,5 +14,5 @@ public class DiscoveryController {
     @GetMapping("/discovery/recommendations") public java.util.List<Person> recommended(Authentication auth) { return service.recommended(actor(auth)); }
     @PostMapping("/discovery/profiles/{id}/open") public Detail open(Authentication auth,@PathVariable long id) { return service.open(actor(auth),id); }
     @GetMapping("/discovery/stats") public Stats stats(Authentication auth) { return service.stats(actor(auth)); }
-    @GetMapping("/discovery/graph") public Graph graph(Authentication auth,@RequestParam(required=false) Integer limit) { return service.graph(actor(auth),limit); }
+    @GetMapping("/discovery/graph") public Graph graph(Authentication auth,@RequestParam(required=false) Integer limit,@RequestParam(defaultValue="0") int offset) { return service.graph(actor(auth),limit,offset); }
 }

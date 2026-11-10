@@ -1,5 +1,13 @@
 # 페이즈별 개발 현황
 
+## 2026-11-11 — PR #16·#17·#18 로컬 테스트 준비
+
+- 최신 main `3f90af5`에서 같은 작업 폴더의 `review/pr-16-18-local`을 만들고 #17 `3433f3c`와 #18 `b6cb527`을 로컬 병합했다. 진행 기록의 충돌은 양쪽을 보존했다. main·원격 PR·운영 서버와 배포 설정은 보존했다.
+- #16 `a0aab1c`는 최신 UI와 5개 파일에서 충돌하며 미발견 배경 등 표현도 달라 별도 개발 서버로 비교한다. #17에는 UI뿐 아니라 비밀번호·소원/응원 지급·시상 근거 정책 변경도 있다.
+- 기존 로컬 DB를 백업·복제한 별도 `tagme-pr-review` Compose 네 서비스가 healthy다. 기존 사용자 11명(더미 포함)을 유지하고 새 DB에만 V10/V11과 기존 관리자 계정을 적용했다. 별도 Git 제외 환경 파일을 사용하며 운영과 기존 볼륨은 변경하지 않았다.
+- frontend lint·단위 104개·build와 UI/탐색/관리자/콘텐츠/결과/체험/인증 브라우저 검사 7개 스크립트를 통과했다. 실제 로컬 관리자 로그인·다섯 미션 미리보기·조회·공식 테이블 건수 불변·로그아웃 후 401을 확인했다. JDK 21 Docker의 백엔드 단위 84개·실제 MySQL/Redis 통합 138개 통과, 옵트인 장애 리허설 1개 제외 및 bootJar 성공을 확인했다. 각 PR head의 GitHub CI도 성공 상태다.
+- 통합본 `localhost:8088`, 태그 없는 개발 체험 `localhost:5173/experience.html`, #16 UI 비교 `localhost:5175`를 실행했다. [재실행·검증·테스트 항목](pr-16-18-local-review.md). 실제 DM 발송·운영 배포·main 병합은 하지 않았다.
+
 ## 2026-11-10 — 최종 운영 도메인 anonymity-developer.site로 변경
 
 - 사용자가 `anonmitydeveloper.site` 대신 **`anonymity-developer.site`로 변경**을 요청했다. 새 가비아 NS와 A=`13.236.85.206`을 확인하고 운영 `.env.production`/SSM SecureString v3에 반영했다. DB dump 후 현재 검증된 이미지로 Caddy만 재적용했으며 API/DB/Redis는 계속 실행됐다.
@@ -383,3 +391,9 @@ PR #9 병합 뒤 [PR #10](https://github.com/anonymity-developer/connection_16/p
 
 - 승인된 편지·하늘·동전 일러스트의 gradient 6곳과 전체 수집 축하 문구에 Taste가 지원하는 줄 단위 예외와 보존 이유를 적었다. 사용처가 없는 동의 체크 문자 CSS 한 줄을 제거했다.
 - Node 24에서 Taste lint 0 FAIL·35 WARN, ESLint, 단위 테스트 100개, TypeScript·production build, UI·콘텐츠 브라우저 계약 검사를 통과했다. 360/390/430/768/1440px 수집판과 획득 모션·축하창, 분수의 동전·그림자·구름·편지를 확인했다. Production Taste inspect는 0 FAIL·1 WARN이며, WARN은 데스크톱 첫 화면 아래에 이어지는 블록 배치다.
+## 2026-11-10 — WORK 1 동료 추천·나의 발견 관계
+
+- 기준 main db71a13. 기존 방문/관심사/유형 순서에 다른 반 동점 처리를 추가했다. 직접 관계는 공개 하트와 상호 방문을 제한 전에 정렬한다. 홈 그래프와 조회를 제거하고 탐색에서만 가변 원형·전체 목록을 제공한다. [알고리즘과 공개 경계](discovery.md), [API](discovery.openapi.yaml).
+- 변경 전후 프론트 단위 99→103, 탐색 브라우저 계약 7→8 PASS, lint/build PASS. 360/390/430/768/1440px에서 30명 긴 이름 터치 영역의 겹침과 가로 넘침을 검사하고 목록의 31번째 항목을 확인했다. 서버 대역 브라우저 검사이며 실제 행사 참여 증가율은 측정하지 않았다.
+- 백엔드 단위 84 PASS 및 bootJar 성공. Docker 소켓 부재로 원본 Testcontainers 실행은 시작 단계에서 실패했다. 별도 복사본에서 컨테이너 기동 부분만 로컬 MySQL 8.4.7/Redis 7.4.2 접속으로 대체해 탐색 통합 22/22 PASS. 최초 로컬 DB 시간대에서 로그인 503이 발생해 저장소 Compose 기준 UTC로 맞춘 뒤 재검증했다. 앱·테스트 기대값은 유지했다.
+- 기존 개인 차단 원장 부재, 익명 댓글/타인의 하트 제외. 관계가 바뀌는 동안 offset 페이지가 이동할 수 있어 새로고침으로 재조회한다. 실제 모바일 기기·운영 데이터·부하 검증은 미실시.
