@@ -2,6 +2,8 @@
 
 최대 동시 접속 100명 예상, 신규 AWS 계정, 단일 VM의 기존 Docker Compose를 사용한다. `compose.small.yml`은 2GiB 서버용 시작 설정이며 100명 처리 성능을 보증한 결과가 아니다. 실제 AWS 서버·DNS·Mattermost 연결·100명 부하는 서버 생성 후 확인한다. AI 검수 추가 연동과 구조 재작성은 이번 초기 배포 범위에서 제외한다.
 
+2026-11-10 현재 프로젝트는 새로운 AWS 경험을 사용하며, 사용자가 시드니 `ap-southeast-2`에서 진행하기로 선택했다. 새로운 AWS 경험은 프로젝트에 지정된 리전에서 리소스를 생성하므로 이전 서울 제안보다 이 선택을 따른다. 프로젝트 지정 리전은 AWS Settings → View all projects → Overview → Additional Info → Region에서 확인한다. [공식 새 AWS 경험 규칙](https://raw.githubusercontent.com/aws/agent-toolkit-for-aws/refs/heads/main/rules/aws-starter-rules.md).
+
 ## 1. 계정 가입
 
 1. [AWS 공식 무료 계정](https://aws.amazon.com/free/)에서 가입한다. 화면에서 요구하는 본인 확인을 완료하고 Free plan을 유지한다. 지원 플랜 선택이 나오면 무료 Basic을 사용한다.
@@ -16,7 +18,7 @@ Free tier eligible 표시는 무제한 무료가 아니다. EC2 외 디스크·�
 
 | 항목 | 초기 선택 |
 | --- | --- |
-| 리전 | 아시아 태평양(서울), `ap-northeast-2` |
+| 리전 | 아시아 태평양(시드니), `ap-southeast-2` |
 | 이름 | `tagme-event` |
 | OS | Canonical Ubuntu Server 24.04 LTS, x86_64, 일반 AMI |
 | 인스턴스 | `t3.small`, vCPU 2 / 메모리 2GiB |
@@ -26,6 +28,8 @@ Free tier eligible 표시는 무제한 무료가 아니다. EC2 외 디스크·�
 | 보안 그룹 | TCP 22는 내 IP, TCP 80/443은 웹 사용자 접속 허용 |
 
 MySQL 3306, Redis 6379, API 8080을 외부에 열지 않는다. 계정 제한으로 위 사양을 선택할 수 없으면 콘솔의 구체적인 제한을 먼저 확인한다. 임의로 유료 플랜 전환이나 더 큰 서버를 생성하지 않는다. 2GiB가 부족하면 부하 측정과 예상 크레딧 소진액을 비교해 사양을 변경한다.
+
+AWS CLI/Agent Toolkit을 통한 배포 준비가 가능하므로 수동 콘솔 작업과 자동화 중 필요한 방식을 선택한다. 사용자는 GitHub Actions에서 이미지를 빌드하고 EC2가 실행하는 배포를 선호한다. 워크플로와 배포 권한은 아직 설정하지 않았다. 로컬 `aws login` 세션을 CI에 복사하지 않고, CI용 역할/OIDC 등 별도 인증 방식을 실제 지원 범위 안에서 구성한다.
 
 [신규 프리티어 대상](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-free-tier-usage.html). 가입·키 보관은 사용자 기기에서 수행하며 PEM·비밀번호·토큰은 채팅/저장소에 넣지 않는다.
 
@@ -75,3 +79,22 @@ docker stats --no-stream
 기본 자원 설정으로 돌아갈 때는 원래 개발 Compose 두 파일로 다시 실행한다. 데이터 볼륨을 삭제할 필요는 없다. 작은 설정 변경은 DB/API 재시작을 수반하므로 서비스 이용 중에는 적용 시점을 정한다.
 
 2026-11-10 로컬 검증: 네 컨테이너 healthy, 실제 관리자 로그인·다섯 미리보기·로그아웃·공식 테이블 행 수 무변경과 웹/API 메타 smoke를 통과했다. 저부하 스냅샷 합계 약 1057MiB → 623MiB, OOM 종료 없음·재시작 0회였다. 실제 EC2 2GiB 환경과 100명 부하는 아직 미검증이다.
+
+## 6. AWS Agent Toolkit 설정 완료
+
+Windows 사용자 영역에 AWS CLI 2.39.7, uv 0.13.7을 설치하고 `aws login` 브라우저 인증 및 STS 확인을 완료했다. 프로필은 `tagme`, 기본 리전은 `ap-southeast-2`다. [공식 설정 절차](https://raw.githubusercontent.com/aws/agent-toolkit-for-aws/refs/heads/main/setup-instructions/setup.md)를 따랐다.
+
+- 기본 AWS 스킬 25개를 설치했고 인증된 카탈로그에서 121개 스킬을 조회했다. 감지된 Codex와 Claude Code에 MCP를 등록했다.
+- Codex의 `~/.codex/config.toml`과 Claude의 생성된 `aws-mcp` 항목에는 `AWS_MCP_PROXY_PROFILES=tagme`를 지정했다. 기존 Codex 설정/다른 MCP 항목, 생성된 command/args는 보존했다. 자격증명과 전역 설정 백업은 Git에 포함하지 않는다.
+- MCP 주소의 `us-east-1`은 툴킷 서비스 위치다. 애플리케이션 배포 리전을 바꾸는 값이 아니다.
+- 실제 MCP initialize/도구 목록/`agent_skills` 검색/정확한 이름의 스킬 가져오기를 읽기 전용으로 검증했다. Windows의 cp949 카탈로그 출력 오류는 검증 프로세스에서 UTF-8 환경을 지정해 해결했다.
+- 프로젝트 `AGENTS.md`/`CLAUDE.md`의 기존 지침을 보존하며 공식 규칙 블록과 `help_level=MEDIUM`을 기록했다. Codex를 재시작하고 새 세션을 열면 설치한 스킬·MCP 설정을 읽는다.
+
+재인증이 필요할 때는 다음을 사용한다. AWS 비밀키를 새로 만들거나 서비스 `.env`에 로컬 개발용 자격증명을 복사할 필요는 없다.
+
+```powershell
+aws login --region ap-southeast-2 --profile tagme
+aws sts get-caller-identity --profile tagme
+```
+
+툴킷 설치는 EC2 인스턴스 생성·애플리케이션 배포·GitHub Actions 배포 연결 완료를 뜻하지 않는다.
