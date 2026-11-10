@@ -6,5 +6,6 @@ import { AuthProvider } from './features/auth/context';
 import './styles/global.css';
 import './styles/friendly.css';
 import './styles/polish.css';
+import './styles/admin.css';
 
 createRoot(document.getElementById('root')!).render(<StrictMode><AuthProvider><ParticipationProvider><App /></ParticipationProvider></AuthProvider></StrictMode>);

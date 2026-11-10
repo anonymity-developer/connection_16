@@ -22,7 +22,8 @@
     "test:operations-ui": "node scripts/check-operations-ui.mjs",
     "test:auth-nfc-ui": "node scripts/check-auth-nfc-ui.mjs",
     "test:awards-ui": "node scripts/check-awards-ui.mjs",
-    "test:post-event-ui": "node scripts/check-post-event-ui.mjs"
+    "test:post-event-ui": "node scripts/check-post-event-ui.mjs",
+    "test:admin-ui": "node scripts/check-admin-ui.mjs"
   },
   "dependencies": {
     "react": "19.3.1",

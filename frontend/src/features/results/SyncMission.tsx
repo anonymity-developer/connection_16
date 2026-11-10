@@ -6,7 +6,8 @@ import { useParticipation } from '../participation/context';
 import { ApiError } from '../auth/api';
 import { resultsApi as serverApi } from './api';
 import type { SyncQuestions, SyncResult } from './api';
-export function SyncMission() { const participation = useParticipation(); return <SyncMissionView api={serverApi} refresh={participation.refresh} />; }
+import { useMissionRuntime } from '../admin/MissionRuntime';
+export function SyncMission() { const participation = useParticipation(), runtime = useMissionRuntime(); return <SyncMissionView api={runtime?.results ?? serverApi} refresh={runtime?.refresh ?? participation.refresh} />; }
 export function SyncMissionView({ api, refresh, stepwise = false }: { api: typeof serverApi; refresh: () => Promise<void>; stepwise?: boolean }) {
   const resultsApi = api; const participation = { refresh }; const [questionIndex, setQuestionIndex] = useState(0); const [questions, setQuestions] = useState<SyncQuestions | null>(null); const [result, setResult] = useState<SyncResult | null>(null);
   const [answers, setAnswers] = useState<Record<string, string>>({}); const [loading, setLoading] = useState(true); const [busy, setBusy] = useState(false); const [error, setError] = useState(''); const [changed, setChanged] = useState(false);
@@ -36,5 +37,6 @@ export function SyncMissionView({ api, refresh, stepwise = false }: { api: typeo
 }
 
 export function SyncResultCard({ result }: { result: SyncResult }) {
-  return <section className="sync-result" aria-labelledby="sync-result-heading"><p className="context-label">나의 최초 결과 · {result.type.code}</p><h2 id="sync-result-heading">나의 성향 결과</h2><p className="sync-type-title">{result.type.title}</p><p>{result.type.description}</p><p className="result-footnote">동료와 대화를 시작하기 위한 재미용 성향이에요. 전문적인 성격 진단이 아니며 최초 결과는 다시 바뀌지 않아요.</p><Link className="button button--primary" href="/discovery">나와 통하는 동료 만나기<Icon name="arrow" size={18} /></Link><Link className="text-link" href="/">수집판으로 돌아가기</Link></section>;
+  const preview = !!useMissionRuntime();
+  return <section className="sync-result" aria-labelledby="sync-result-heading"><p className="context-label">나의 최초 결과 · {result.type.code}</p><h2 id="sync-result-heading">나의 성향 결과</h2><p className="sync-type-title">{result.type.title}</p><p>{result.type.description}</p><p className="result-footnote">동료와 대화를 시작하기 위한 재미용 성향이에요. 전문적인 성격 진단이 아니며 최초 결과는 다시 바뀌지 않아요.</p>{preview ? <p className="result-footnote">관리자 미리보기 결과예요. 실제 동료 조회나 방문 기록은 만들지 않아요.</p> : <><Link className="button button--primary" href="/discovery">나와 통하는 동료 만나기<Icon name="arrow" size={18} /></Link><Link className="text-link" href="/">수집판으로 돌아가기</Link></>}</section>;
 }

@@ -21,9 +21,9 @@ try{
   }
   return reply(503,{code:'TEST_OUT_OF_SCOPE',message:'범위 밖 fixture'});
  });
- await page.goto('http://127.0.0.1:4479/admin?tab=awards');await page.getByRole('alert').waitFor();assert.equal(reads,0,'no private candidate request before permission');admin=true;
+ await page.goto('http://127.0.0.1:4479/admin/moderation?tab=awards');await page.getByRole('alert').waitFor();assert.equal(reads,0,'no private candidate request before permission');admin=true;
  for(const width of [360,375,390,412,430,1440]){
-  await page.setViewportSize({width,height:900});await page.goto('http://127.0.0.1:4479/admin?tab=awards');await page.getByRole('heading',{name:'잠정 시상 후보',exact:true}).waitFor();
+  await page.setViewportSize({width,height:900});await page.goto('http://127.0.0.1:4479/admin/moderation?tab=awards');await page.getByRole('heading',{name:'잠정 시상 후보',exact:true}).waitFor();
   for(const category of ['FIRST_COMPLETION','COMMENT_KING','POPULAR_CHEER','FAST_TAP']){await page.getByLabel('시상 부문',{exact:true}).selectOption(category);await page.getByText('이 조회 범위의 후보가 없어요. 설정과 다섯 미션의 유효 근거를 확인해 주세요.',{exact:true}).waitFor();assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth+1));}
  }
  assert.deepEqual(errors,[]);console.log('PASS: candidate permission gate, GET-only fixtures, four categories, 360/375/390/412/430/1440 widths');

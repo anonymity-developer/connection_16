@@ -84,7 +84,7 @@ try {
     assert.equal(await page.evaluate(() => document.activeElement?.id), 'main-content');
     await page.getByRole('button', { name: '로그인하기', exact: true }).click();
     assert.equal(await page.locator('input[name="username"]').evaluate((element) => document.activeElement === element), true);
-    await page.getByLabel('Mattermost 아이디', { exact: true }).fill('ui_test');
+    await page.getByLabel('아이디', { exact: true }).fill('ui_test');
     await page.getByLabel('비밀번호', { exact: true }).fill('example-only-password');
     await page.getByRole('button', { name: '비밀번호 표시', exact: true }).click();
     assert.equal(await page.getByLabel('비밀번호', { exact: true }).getAttribute('type'), 'text');

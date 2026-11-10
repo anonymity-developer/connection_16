@@ -62,6 +62,8 @@ class AuthSessionLifecycleTest {
     @MockitoBean AuthService service;
     @MockitoBean AuthRepository accounts;
     @MockitoBean AuthProperties properties;
+    @MockitoBean ConnectionSessions connections;
+    @MockitoBean LocalAdminService admins;
     @MockitoBean ParticipationService participation;
     @MockitoBean FindByIndexNameSessionRepository<?> indexedSessions;
     final AuthRepository.Account account = new AuthRepository.Account(1, "a".repeat(26), "alice", "ACTIVE", "USER", "unused", 1L, "Alice", false);

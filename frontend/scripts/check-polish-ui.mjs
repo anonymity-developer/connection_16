@@ -88,7 +88,7 @@ try {
     }
     await open('/admin'); assert.equal(adminReads, 0, 'non-admin account never mounts workspace');
     admin = true;
-    for (const tab of ['moderation', 'content', 'audit']) { await open('/admin?tab=' + tab); await page.locator('.ops-sheet').waitFor(); await fits(); }
+    for (const tab of ['moderation', 'content', 'audit']) { await open('/admin/moderation?tab=' + tab); await page.locator('.ops-sheet').waitFor(); await fits(); }
     admin = false; signedIn = false; currentState = 'LOCKED'; adminReads = 0;
   }
   assert.deepEqual(errors, []);

@@ -14,7 +14,7 @@ export function ParticipationProvider({ children }: { children: ReactNode }) {
   const [collectionOwner, setCollectionOwner] = useState<number | undefined>(undefined);
   const [event, setEvent] = useState<EventState | null>(null);
   const [loading, setLoading] = useState(false); const [error, setError] = useState('');
-  const revision = useRef(0); const userId = auth.user?.id;
+  const revision = useRef(0); const userId = auth.user?.admin ? undefined : auth.user?.id;
   const refresh = useCallback(async () => {
     const version = ++revision.current;
     if (preview || !userId) { setCollection(null); setEvent(null); setLoading(false); setError(''); return; }

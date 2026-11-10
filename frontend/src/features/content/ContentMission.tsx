@@ -12,11 +12,12 @@ import { createWishFeedback } from './WishToss';
 import { WishGallery } from './WishGallery';
 import { contentApi as serverContentApi } from './api';
 import type { ContentInput, ContentKind, Feed, OwnSlot, Revision } from './api';
+import { useMissionRuntime } from '../admin/MissionRuntime';
 
 const labels: Record<Revision['status'], string> = { QUEUED: '검수 대기', PROCESSING: '검수 중', APPROVED: '승인됨', REJECTED: '수정이 필요해요', REVIEW_REQUIRED: '운영자 확인 중', SUPERSEDED: '새 수정본 제출됨' };
 const empty: ContentInput = { content: '', templateId: 'PLAIN', style: 'ROSE', anonymous: true, expectedVersion: null };
-export function ContentMission({ kind }: { kind: ContentKind }) { const participation = useParticipation(); return <ContentMissionView kind={kind} api={serverContentApi} reactions={serverReactionsApi} refresh={participation.refresh} />; }
-export function ContentMissionView({ kind, api: contentApi, reactions: reactionsApi, refresh }: { kind: ContentKind; api: typeof serverContentApi; reactions: typeof serverReactionsApi; refresh: () => Promise<void> }) {
+export function ContentMission({ kind }: { kind: ContentKind }) { const participation = useParticipation(), runtime = useMissionRuntime(); return <ContentMissionView kind={kind} api={runtime?.content ?? serverContentApi} reactions={runtime?.reactions ?? serverReactionsApi} refresh={runtime?.refresh ?? participation.refresh} preview={!!runtime} />; }
+export function ContentMissionView({ kind, api: contentApi, reactions: reactionsApi, refresh, preview = false }: { kind: ContentKind; api: typeof serverContentApi; reactions: typeof serverReactionsApi; refresh: () => Promise<void>; preview?: boolean }) {
   const wish = kind === 'wishes'; const participation = { refresh };
   const [slot, setSlot] = useState<OwnSlot | null>(null); const [feed, setFeed] = useState<Feed | null>(null);
   const [input, setInput] = useState<ContentInput>(empty); const [editing, setEditing] = useState(false);
@@ -69,7 +70,7 @@ export function ContentMissionView({ kind, api: contentApi, reactions: reactions
     </section>;
   return <div className={`content-mission ${wish ? 'content-mission--wish' : ''}`}>
     {wish && feedSection}
-    <section className="content-own" aria-labelledby="content-own-heading"><div className="content-section-heading"><h2 id="content-own-heading">{wish ? '분수에 띄울 내 소원' : '동료에게 전할 한마디'}</h2>{slot?.missionCompleted && <span className="content-status">글자 획득 완료</span>}</div>
+    <section className="content-own" aria-labelledby="content-own-heading"><div className="content-section-heading"><h2 id="content-own-heading">{wish ? '분수에 띄울 내 소원' : '동료에게 전할 한마디'}</h2>{slot?.missionCompleted && <span className="content-status">{preview ? '미리보기 승인 완료' : '글자 획득 완료'}</span>}</div>
       <p className="result-footnote">{wish ? '소원은 익명으로 공개돼요.' : '응원은 익명 또는 닉네임으로 공개할 수 있어요.'} 글 하나를 남기고, 수정할 때마다 다시 검수해요.</p>
       {slot?.approvedRevision && <div className={`content-card tone-${slot.approvedRevision.style.toLowerCase()} template-${slot.approvedRevision.templateId.toLowerCase()}`}><p className="context-label">마지막 승인본</p><p className="content-body">{slot.approvedRevision.content}</p><span className="content-byline">{slot.approvedRevision.anonymous ? '익명' : '내 닉네임으로 공개'}</span>{wish && slot.luckScore !== null && <p className="content-luck">나의 운 점수 <strong>{slot.luckScore}</strong></p>}</div>}
       {latest && latest.id !== slot?.approvedRevision?.id && <div className="content-review-state" role="status"><strong>{labels[latest.status]}</strong><p className="content-body">{latest.content}</p><p>{latest.status === 'REJECTED' ? '공개 기준에 맞게 내용을 다듬어 다시 제출해 주세요.' : latest.reason === 'CONTACT_OR_URL' ? '연락처나 링크가 포함되어 운영자 확인이 필요해요.' : latest.status === 'REVIEW_REQUIRED' ? slot.approvedRevision ? '운영자가 수정본을 확인하고 있어요. 기존 승인본과 이미 받은 글자는 유지돼요.' : '운영자가 내용을 확인하고 있어요. 첫 승인 전에는 공개되거나 글자가 지급되지 않아요.' : slot.approvedRevision ? '수정본이 승인되기 전까지 기존 승인본을 유지해요.' : '내용 확인을 마치면 공개되고 글자가 지급돼요.'}</p></div>}

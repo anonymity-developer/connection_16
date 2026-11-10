@@ -1,0 +1,566 @@
+openapi: 3.1.0
+info:
+  title: TAG ME 관리자 콘솔 API
+  version: 0.1.0
+  description: 'Independent admin: credentials use the existing /auth/login. All endpoints
+    require the current server ADMIN and session version. Mission preview actions
+    use an isolated in-memory client; no preview write API exists.'
+servers:
+- url: /api/v1
+security:
+- cookieAuth: []
+paths:
+  /admin/overview:
+    get:
+      summary: 가입·완료·접속 세션과 다섯 미션의 실제 현황
+      responses:
+        '200':
+          description: Success; no-store.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Overview'
+        '401':
+          description: Valid session required.
+        '403':
+          description: Current ADMIN role required.
+        '400':
+          description: Invalid parameters.
+  /admin/members:
+    get:
+      summary: 가입 순서와 참가자 목록; 독립 관리자는 제외
+      responses:
+        '200':
+          description: Success; no-store.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MemberPage'
+        '401':
+          description: Valid session required.
+        '403':
+          description: Current ADMIN role required.
+        '400':
+          description: Invalid parameters.
+      parameters:
+      - &id001
+        name: offset
+        in: query
+        schema:
+          type: integer
+          minimum: 0
+          maximum: 100000
+          default: 0
+      - &id002
+        name: limit
+        in: query
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 50
+          default: 25
+      - name: q
+        in: query
+        schema:
+          type: string
+          maxLength: 64
+  /admin/members/{id}:
+    get:
+      summary: 프로필·참여·최근 접속 30건
+      responses:
+        '200':
+          description: Success; no-store.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Detail'
+        '401':
+          description: Valid session required.
+        '403':
+          description: Current ADMIN role required.
+        '400':
+          description: Invalid parameters.
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: integer
+          minimum: 1
+  /admin/completions:
+    get:
+      summary: 운영상 전체 완료 순서; 최종 수상 순위 아님
+      responses:
+        '200':
+          description: Success; no-store.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MemberPage'
+        '401':
+          description: Valid session required.
+        '403':
+          description: Current ADMIN role required.
+        '400':
+          description: Invalid parameters.
+      parameters:
+      - *id001
+      - *id002
+  /admin/rankings/{mission}:
+    get:
+      summary: 현재 유효한 미션별 순위; 최종 시상 확정 아님
+      responses:
+        '200':
+          description: Success; no-store.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Ranking'
+        '401':
+          description: Valid session required.
+        '403':
+          description: Current ADMIN role required.
+        '400':
+          description: Invalid parameters.
+      parameters:
+      - name: mission
+        in: path
+        required: true
+        schema:
+          type: string
+          enum:
+          - SHOW_ME
+          - SYNC_ME
+          - MAKE_A_WISH
+          - FAST_TAP
+          - SAY_SOMETHING
+      - *id001
+      - *id002
+  /admin/preview/sync:
+    get:
+      summary: 관리자 미리보기용 등록 문항 또는 명시적 예제; 기록 생성 없음
+      responses:
+        '200':
+          description: Success; no-store.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PreviewDefinition'
+        '401':
+          description: Valid session required.
+        '403':
+          description: Current ADMIN role required.
+        '400':
+          description: Invalid parameters.
+components:
+  securitySchemes:
+    cookieAuth:
+      type: apiKey
+      in: cookie
+      name: TAGME_SESSION
+  schemas:
+    Member:
+      type: object
+      required:
+      - id
+      - signupOrder
+      - username
+      - nickname
+      - realName
+      - region
+      - classNo
+      - status
+      - joinedAt
+      - lastLoginAt
+      - unlockedCount
+      - completedCount
+      - completionOrder
+      - completedAt
+      - connectionSeconds
+      - lastSeenAt
+      - activeSessions
+      properties:
+        id:
+          type: integer
+          format: int64
+        signupOrder:
+          type: integer
+          format: int64
+        username:
+          type:
+          - string
+          - 'null'
+        nickname:
+          type:
+          - string
+          - 'null'
+        realName:
+          type:
+          - string
+          - 'null'
+        region:
+          type:
+          - string
+          - 'null'
+        classNo:
+          type:
+          - integer
+          - 'null'
+          format: int64
+        status:
+          type: string
+          enum:
+          - ACTIVE
+          - SUSPENDED
+          - WITHDRAWN
+        joinedAt:
+          type: string
+          format: date-time
+        lastLoginAt:
+          type:
+          - string
+          - 'null'
+          format: date-time
+        unlockedCount:
+          type: integer
+          format: int64
+        completedCount:
+          type: integer
+          format: int64
+        completionOrder:
+          type:
+          - integer
+          - 'null'
+          format: int64
+        completedAt:
+          type:
+          - string
+          - 'null'
+          format: date-time
+        connectionSeconds:
+          type:
+          - integer
+          - 'null'
+          format: int64
+        lastSeenAt:
+          type:
+          - string
+          - 'null'
+          format: date-time
+        activeSessions:
+          type: integer
+          format: int64
+    MemberPage:
+      type: object
+      required:
+      - items
+      - total
+      - offset
+      - nextOffset
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Member'
+        total:
+          type: integer
+          format: int64
+        offset:
+          type: integer
+          format: int64
+        nextOffset:
+          type:
+          - integer
+          - 'null'
+          format: int64
+    MissionStat:
+      type: object
+      required:
+      - code
+      - title
+      - unlocked
+      - participated
+      - completed
+      properties:
+        code:
+          type: string
+        title:
+          type: string
+        unlocked:
+          type: integer
+          format: int64
+        participated:
+          type: integer
+          format: int64
+        completed:
+          type: integer
+          format: int64
+    Overview:
+      type: object
+      required:
+      - members
+      - activeMembers
+      - completeMembers
+      - activeSessions
+      - connectedMembers
+      - connectionSeconds
+      - trackedSince
+      - missions
+      - generatedAt
+      properties:
+        members:
+          type: integer
+          format: int64
+        activeMembers:
+          type: integer
+          format: int64
+        completeMembers:
+          type: integer
+          format: int64
+        activeSessions:
+          type: integer
+          format: int64
+        connectedMembers:
+          type: integer
+          format: int64
+        connectionSeconds:
+          type:
+          - integer
+          - 'null'
+          format: int64
+        trackedSince:
+          type:
+          - string
+          - 'null'
+          format: date-time
+        missions:
+          type: array
+          items:
+            $ref: '#/components/schemas/MissionStat'
+        generatedAt:
+          type: string
+          format: date-time
+    MissionDetail:
+      type: object
+      required:
+      - code
+      - title
+      - state
+      - unlockedAt
+      - completedAt
+      - participated
+      - resultStatus
+      - tapCount
+      - syncType
+      - moderationStatus
+      properties:
+        code:
+          type: string
+        title:
+          type: string
+        state:
+          type: string
+        unlockedAt:
+          type:
+          - string
+          - 'null'
+          format: date-time
+        completedAt:
+          type:
+          - string
+          - 'null'
+          format: date-time
+        participated:
+          type: boolean
+        resultStatus:
+          type:
+          - string
+          - 'null'
+        tapCount:
+          type:
+          - integer
+          - 'null'
+          format: int64
+        syncType:
+          type:
+          - string
+          - 'null'
+        moderationStatus:
+          type:
+          - string
+          - 'null'
+    Connection:
+      type: object
+      required:
+      - startedAt
+      - lastSeenAt
+      - expiresAt
+      - endedAt
+      - status
+      - seconds
+      properties:
+        startedAt:
+          type: string
+          format: date-time
+        lastSeenAt:
+          type: string
+          format: date-time
+        expiresAt:
+          type: string
+          format: date-time
+        endedAt:
+          type:
+          - string
+          - 'null'
+          format: date-time
+        status:
+          type: string
+        seconds:
+          type: integer
+          format: int64
+    Detail:
+      type: object
+      required:
+      - member
+      - missions
+      - connections
+      - bio
+      - interests
+      - githubUrl
+      - blogUrl
+      properties:
+        member:
+          $ref: '#/components/schemas/Member'
+        missions:
+          type: array
+          items:
+            $ref: '#/components/schemas/MissionDetail'
+        connections:
+          type: array
+          items:
+            $ref: '#/components/schemas/Connection'
+        bio:
+          type:
+          - string
+          - 'null'
+        interests:
+          type: array
+          items:
+            type: string
+        githubUrl:
+          type:
+          - string
+          - 'null'
+        blogUrl:
+          type:
+          - string
+          - 'null'
+    Rank:
+      type: object
+      required:
+      - rank
+      - userId
+      - nickname
+      - realName
+      - region
+      - classNo
+      - metric
+      - completedAt
+      properties:
+        rank:
+          type: integer
+          format: int64
+        userId:
+          type: integer
+          format: int64
+        nickname:
+          type:
+          - string
+          - 'null'
+        realName:
+          type:
+          - string
+          - 'null'
+        region:
+          type:
+          - string
+          - 'null'
+        classNo:
+          type:
+          - integer
+          - 'null'
+          format: int64
+        metric:
+          type: integer
+          format: int64
+        completedAt:
+          type: string
+          format: date-time
+    Ranking:
+      type: object
+      required:
+      - mission
+      - basis
+      - items
+      - total
+      - offset
+      - nextOffset
+      properties:
+        mission:
+          type: string
+        basis:
+          type: string
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Rank'
+        total:
+          type: integer
+          format: int64
+        offset:
+          type: integer
+          format: int64
+        nextOffset:
+          type:
+          - integer
+          - 'null'
+          format: int64
+    PreviewDefinition:
+      type: object
+      required:
+      - version
+      - source
+      - definition
+      properties:
+        version:
+          type: string
+        source:
+          type: string
+          enum:
+          - EXAMPLE
+          - CONFIGURED
+        definition:
+          type: object
+          description: 'Questionnaire: title, axes(id/negative/positive/tie), questions(id/text/options
+            with scores), types(code/title/description). Administrator-only; no participant
+            submissions.'
+          required:
+          - title
+          - axes
+          - questions
+          - types
+          properties:
+            title:
+              type: string
+            axes:
+              type: array
+              items:
+                type: object
+            questions:
+              type: array
+              items:
+                type: object
+            types:
+              type: array
+              items:
+                type: object

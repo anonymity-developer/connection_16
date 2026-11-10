@@ -62,7 +62,7 @@ try {
   await page.clock.install();
 
   await visit('/auth/signup');
-  await page.getByLabel('Mattermost 아이디', { exact: true }).fill('contract-test');
+  await page.getByLabel(/^(Mattermost )?아이디$/, { exact: true }).fill('contract-test');
   heldOtp = new Promise((done) => { releaseOtp = done; });
   await page.getByRole('button', { name: '인증번호 받기', exact: true }).click();
   await page.locator('form[aria-busy="true"]').waitFor();
@@ -117,7 +117,7 @@ try {
   assert.equal(await page.getByLabel('비밀번호', { exact: true }).inputValue(), '');
   await record('password change uses the current session and returns to login with cleared secrets');
 
-  await page.getByLabel('Mattermost 아이디', { exact: true }).fill('contract-test');
+  await page.getByLabel(/^(Mattermost )?아이디$/, { exact: true }).fill('contract-test');
   await page.getByLabel('비밀번호', { exact: true }).fill(password);
   assert.equal(await page.locator('input[name="code"]').count(), 0);
   await page.getByRole('button', { name: '로그인하기', exact: true }).click();
@@ -130,7 +130,7 @@ try {
 
   await page.getByRole('link', { name: '비밀번호를 잊으셨나요?', exact: true }).click();
   await page.getByRole('heading', { name: '비밀번호 재설정', exact: true }).waitFor();
-  await page.getByLabel('Mattermost 아이디', { exact: true }).fill('contract-test');
+  await page.getByLabel(/^(Mattermost )?아이디$/, { exact: true }).fill('contract-test');
   await page.getByRole('button', { name: '인증번호 받기', exact: true }).click();
   await page.getByLabel('인증번호', { exact: true }).waitFor();
   assert.deepEqual(lastOtp, { purpose: 'PASSWORD_RESET', username: 'contract-test' });
@@ -143,7 +143,7 @@ try {
   await record('reset uses its own purpose and never automatically logs in');
 
   await visit('/auth/signup');
-  await page.getByLabel('Mattermost 아이디', { exact: true }).fill('contract-test');
+  await page.getByLabel(/^(Mattermost )?아이디$/, { exact: true }).fill('contract-test');
   limited = true;
   await page.getByRole('button', { name: '인증번호 받기', exact: true }).click();
   await page.getByRole('alert').filter({ hasText: '요청이 많아요' }).waitFor();

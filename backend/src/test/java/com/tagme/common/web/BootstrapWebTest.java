@@ -19,6 +19,7 @@ class BootstrapWebTest {
     @Autowired
     MockMvc mvc;
     @MockitoBean AuthRepository accounts;
+    @MockitoBean com.tagme.auth.ConnectionSessions connections;
 
     @Test
     void metadataIsPublicAndHasTwoSeparateSMissions() throws Exception {

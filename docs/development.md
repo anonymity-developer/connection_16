@@ -1,5 +1,7 @@
 # 개발 및 운영 가이드
 
+관리자만 먼저 실행하려면 `ADMIN_BOOTSTRAP_ID`, `ADMIN_BOOTSTRAP_PASSWORD`, `AUTH_HMAC_KEY`를 설정하고 `AUTH_ENABLED=false`를 유지할 수 있다. 등록 규칙·같은 로그인 폼·비밀번호 교체·접속 집계는 [관리자 콘솔](admin-console.md)을 따른다. Compose는 새 관리자 환경변수도 API에 전달한다.
+
 ## 1. 버전과 필수 도구
 
 - JDK 21 (javac 포함; JRE만으로 컴파일 불가), Gradle Wrapper 8.14.3 (별도 Gradle 설치 불필요)

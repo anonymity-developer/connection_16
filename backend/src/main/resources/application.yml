@@ -58,6 +58,9 @@ management:
 
 # Disabled until an operator provides the real integration credentials.
 tagme:
+  admin:
+    bootstrap-id: ${ADMIN_BOOTSTRAP_ID:}
+    bootstrap-password: ${ADMIN_BOOTSTRAP_PASSWORD:}
   moderation:
     provider: ${TAGME_MODERATION_PROVIDER:NONE}
     gms-base-url: ${TAGME_GMS_BASE_URL:}

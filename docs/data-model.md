@@ -1,8 +1,10 @@
 # 데이터 모델과 마이그레이션 계획
 
+V10은 `local_admin_accounts`(user_id PK/FK, login_id UNIQUE)와 `connection_sessions`(임의 UUID PK, 사용자/credential version, 시작/최근 요청/만료/종료 시각·사유)를 추가한다. [관리자 콘솔](admin-console.md)의 집계·보관 경계를 따른다.
+
 ## 1. 적용 범위
 
-현재 실행 가능한 DDL은 `backend/src/main/resources/db/migration`의 V1/V2/V3/V4/V5/V6/V7/V8/V9다. 소원/응원과 검수는 V6, 댓글/하트는 V7, 관리자 감사/재처리 한도는 V8이며 시상은 아래 **후속 설계**다. 해당 도메인의 규칙과 함께 마이그레이션을 추가한다.
+현재 실행 가능한 DDL은 `backend/src/main/resources/db/migration`의 V1~V10이다. 소원/응원과 검수는 V6, 댓글/하트는 V7, 관리자 감사/재처리 한도는 V8이며 시상은 아래 **후속 설계**다. 해당 도메인의 규칙과 함께 마이그레이션을 추가한다.
 
 이 문서의 ERD는 핵심 요약이다. 모든 도메인의 컬럼/관계/복합키와 nullable 규칙은 [전체 도메인 ERD](erd.md)를 함께 읽는다. 현재 SQL과 후속 설계의 경계를 유지하고, 후속 설계를 현재 DB에 적용된 것으로 간주하지 않는다.
 

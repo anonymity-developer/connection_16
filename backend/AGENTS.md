@@ -1,7 +1,7 @@
 # Backend implementation
 
 - Follow root AGENTS.md. Use Java 21, existing Spring Boot/Gradle Wrapper, Jakarta validation, Spring Security, JPA, Flyway and Redis session configuration.
-- Read `docs/auth.md` before authentication work. Login is Mattermost username + TAG ME password. DM OTP is signup/change/reset only and must bind purpose/account. Password changes must revoke current and other sessions through credential version checks.
+- Read `docs/auth.md` before authentication work. Participant login is Mattermost username + TAG ME password. Independently provisioned `admin:` accounts use the existing session/role/version enforcement without Mattermost; see `docs/admin-console.md`. DM OTP is participant signup/change/reset only and must bind purpose/account. Password changes revoke current and other sessions through credential version checks.
 - Current V1/V2 are applied baseline migrations. Add new migrations for usernames/credentials/consents and later domains; never rewrite existing migrations. Distinguish planned ERD from actual DDL.
 - Keep controllers responsible for DTOs/HTTP and services for ownership, event period, unlock, slots, transactions and state. Never serialize JPA users/credentials directly to public JSON.
 - Retain CSRF, safe session cookies, account/IP limits and explicit allowed public endpoints. Never trust body user IDs, roles, scores, types or completion flags.

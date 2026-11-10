@@ -64,7 +64,7 @@ try {
   });
   const visit = path => page.goto(`http://127.0.0.1:4274${path}`);
   async function login() {
-    await page.getByLabel('Mattermost 아이디', { exact: true }).fill('contract-test');
+    await page.getByLabel('아이디', { exact: true }).fill('contract-test');
     await page.getByLabel('비밀번호', { exact: true }).fill('a long test password');
     await page.getByRole('button', { name: '로그인하기', exact: true }).click();
   }

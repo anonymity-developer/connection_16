@@ -20,15 +20,18 @@ public class AuthSessions {
     private final SecurityContextRepository contexts;
     private final CsrfTokenRepository csrf;
     private final FindByIndexNameSessionRepository<? extends Session> sessions;
-    public AuthSessions(SecurityContextRepository contexts, CsrfTokenRepository csrf, FindByIndexNameSessionRepository<? extends Session> sessions) {
-        this.contexts = contexts; this.csrf = csrf; this.sessions = sessions;
+    private final ConnectionSessions connections;
+    public AuthSessions(SecurityContextRepository contexts, CsrfTokenRepository csrf, FindByIndexNameSessionRepository<? extends Session> sessions, ConnectionSessions connections) {
+        this.contexts = contexts; this.csrf = csrf; this.sessions = sessions; this.connections=connections;
     }
     public void login(AuthRepository.Account account, HttpServletRequest request, HttpServletResponse response) {
+        connections.close(request.getSession(false),"REPLACED");
         var principal = account.principal();
         var authentication = UsernamePasswordAuthenticationToken.authenticated(principal, null, List.of(new SimpleGrantedAuthority("ROLE_" + account.role())));
         request.getSession(true);
         new ChangeSessionIdAuthenticationStrategy().onAuthentication(authentication, request, response);
         new CsrfAuthenticationStrategy(csrf).onAuthentication(authentication, request, response);
+        connections.open(account,request.getSession());
         var context = SecurityContextHolder.createEmptyContext(); context.setAuthentication(authentication);
         SecurityContextHolder.setContext(context);
         request.getSession().setAttribute(FindByIndexNameSessionRepository.PRINCIPAL_NAME_INDEX_NAME, principal.getName());
@@ -36,12 +39,14 @@ public class AuthSessions {
     }
     public void logout(HttpServletRequest request, HttpServletResponse response) {
         var session = request.getSession(false);
+        connections.close(session,"LOGOUT");
         if (session != null) session.invalidate();
         SecurityContextHolder.clearContext();
         contexts.saveContext(SecurityContextHolder.createEmptyContext(), request, response);
         csrf.saveToken(null, request, response);
     }
     public void revokeOld(AuthRepository.Account account) {
+        connections.revoke(account.id(),account.version());
         try {
             sessions.findByPrincipalName(Long.toString(account.id())).values().forEach(session -> {
                 SecurityContext context = session.getAttribute("SPRING_SECURITY_CONTEXT");

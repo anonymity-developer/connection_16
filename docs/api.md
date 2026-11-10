@@ -1,5 +1,7 @@
 # API 계약 계획
 
+추가된 관리자 현황·회원/접속·순위·미리보기 API와 인증 응답 필드는 [관리자 콘솔 계약](admin-console.md#화면과-api)을 따른다. `/api/v1/admin/**`는 모두 현재 DB의 ADMIN과 유효 세션이 필요하다.
+
 ## 1. 공통 규칙
 
 기본 경로는 `/api/v1`, JSON 응답, 서버 세션 쿠키, UTC ISO-8601 시각을 사용한다. 브라우저는 동일 출처로 요청하며 변경 요청은 CSRF 헤더가 필요하다. 기본 API는 아래 표에 있으며, 인증, 페이즈 3 참여와 페이즈 4-1 SYNC/FAST TAP API도 구현했다. 그 밖의 도메인은 개발 계획이다. 정확한 스키마는 [인증 OpenAPI](auth.openapi.yaml)와 [참여 OpenAPI](participation.openapi.yaml)를 따른다.
