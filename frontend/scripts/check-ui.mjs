@@ -62,7 +62,7 @@ try {
           assert.deepEqual(await page.locator('.letter-slots .letter-sticker img').evaluateAll(images => images.map(image => window.getComputedStyle(image).filter)), Array(5).fill('grayscale(1)'));
           assert.deepEqual(await cards.locator('.letter-sticker img').evaluateAll(images => images.map(image => window.getComputedStyle(image).filter)), Array(5).fill('none'));
           const slotColors = await page.locator('.letter-slots .letter-slot').evaluateAll(slots => slots.map(slot => window.getComputedStyle(slot).backgroundColor));
-          assert.equal(new Set(slotColors).size, 5, 'each uncollected slot uses its mission pastel');
+          assert.deepEqual(slotColors, Array(5).fill('rgb(244, 247, 250)'), 'unknown and undiscovered slots keep a gray background');
           assert.deepEqual(await cards.evaluateAll(rows => rows.map(row => window.getComputedStyle(row).backgroundColor)), Array(5).fill('rgb(255, 255, 255)'));
         }
         await page.screenshot({ path: resolve(output, `${name}-${width}.png`), fullPage: true });
@@ -130,6 +130,34 @@ try {
     await page.screenshot({ path: resolve(output, 'home-preview-complete-390.png'), fullPage: true });
     await page.getByRole('link', { name: '완성 기록 보기', exact: true }).click();
     await page.getByRole('heading', { name: '다섯 글자를 모두 모았어요', exact: true }).waitFor();
+  });
+  await check('collection keeps gray undiscovered slots, pastel discovered slots and color only for earned letters', async () => {
+    const gray = 'rgb(244, 247, 250)';
+    for (const width of [360, 390, 430, 768, 1440]) {
+      await page.setViewportSize({ width, height: 900 });
+      for (const mode of ['locked', 'unlocked', 'pending', 'complete']) {
+        await visit(`${developmentUrl}/?preview=${mode}`);
+        await page.getByRole('progressbar').filter({ visible: true }).waitFor();
+        const slots = page.locator('.letter-slots .letter-slot');
+        const expected = mode === 'locked' ? Array(5).fill('undiscovered')
+          : mode === 'unlocked' ? ['undiscovered', 'discovered', 'discovered', 'discovered', 'discovered']
+          : mode === 'pending' ? ['collected', 'collected', 'discovered', 'undiscovered', 'discovered']
+          : Array(5).fill('collected');
+        await page.waitForFunction(visuals => [...document.querySelectorAll('.letter-slots .letter-slot')].every((el, i) => el.dataset.visual === visuals[i]), expected);
+        const appearance = await slots.evaluateAll(elements => elements.map(el => ({
+          color: window.getComputedStyle(el).backgroundColor,
+          filter: window.getComputedStyle(el.querySelector('img')).filter,
+        })));
+        for (const [i, visual] of expected.entries()) {
+          if (visual === 'undiscovered') assert.equal(appearance[i].color, gray);
+          else assert.notEqual(appearance[i].color, gray);
+          assert.equal(appearance[i].filter, visual === 'collected' ? 'none' : 'grayscale(1)');
+        }
+        if (mode === 'complete') assert.equal(new Set(appearance.map(slot => slot.color)).size, 5);
+        assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth), false);
+        await page.screenshot({ path: resolve(output, `collection-${mode}-${width}.png`), fullPage: true });
+      }
+    }
   });
   await check('leading-zero OTP paste, mismatch focus, dialog Escape/focus and account change', async () => {
     await visit(`${developmentUrl}/auth/signup?preview=unlocked`);
