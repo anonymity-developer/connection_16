@@ -540,10 +540,18 @@ components:
       - available
       - passwordMinLength
       - passwordMaxLength
+      - participantAvailable
+      - adminAvailable
       properties:
         available:
           type: boolean
-          description: 설정상 활성 여부이며 실제 외부 권한 확인 결과는 아니다.
+          description: 참가자 또는 독립 관리자 로그인이 설정상 준비됨. 실제 Mattermost 권한 검증 결과는 아니다.
+        participantAvailable:
+          type: boolean
+          description: 참가자 Mattermost 인증 활성 여부.
+        adminAvailable:
+          type: boolean
+          description: '독립 관리자 계정이 준비됨. admin: 아이디는 Mattermost를 호출하지 않는다.'
         passwordMinLength:
           type: integer
           const: 15
@@ -567,6 +575,7 @@ components:
       - username
       - nickname
       - onboardingRequired
+      - admin
       properties:
         id:
           type: integer
@@ -580,7 +589,10 @@ components:
           - 'null'
         onboardingRequired:
           type: boolean
-          description: 필수 프로필/관심사/현재 정책 동의/공개 상태 미완성 여부. 이름/반의 외부 검증을 의미하지 않는다.
+          description: 가져온 이름/지역/반·닉네임·현재 정책 동의/공개 상태 미완성 여부. 소개/관심사는 선택이며 독립 관리자는 false다.
+        admin:
+          type: boolean
+          description: 현재 ADMIN 역할 여부. 실제 권한은 서버에서 매 요청 다시 검사한다.
     OtpRequest:
       type: object
       additionalProperties: false

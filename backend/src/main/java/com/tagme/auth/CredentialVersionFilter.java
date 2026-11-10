@@ -12,7 +12,8 @@ import org.springframework.web.filter.OncePerRequestFilter;
 
 public class CredentialVersionFilter extends OncePerRequestFilter {
     private final AuthRepository accounts;
-    public CredentialVersionFilter(AuthRepository accounts) { this.accounts = accounts; }
+    private final ConnectionSessions connections;
+    public CredentialVersionFilter(AuthRepository accounts,ConnectionSessions connections) { this.accounts = accounts;this.connections=connections; }
     @Override protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain chain) throws IOException, ServletException {
         var authentication = SecurityContextHolder.getContext().getAuthentication();
         if (authentication != null && authentication.getPrincipal() instanceof AuthPrincipal principal) {
@@ -20,7 +21,7 @@ public class CredentialVersionFilter extends OncePerRequestFilter {
                 boolean valid = accounts.byId(principal.userId()).filter(a -> "ACTIVE".equals(a.status())
                         && Objects.equals(a.version(), principal.version()) && Objects.equals(a.role(), principal.role())).isPresent();
                 if (!valid) {
-                    var session = request.getSession(false); if (session != null) session.invalidate();
+                    var session = request.getSession(false); connections.close(session,"REVOKED"); if (session != null) session.invalidate();
                     SecurityContextHolder.clearContext();
                     error(response, 401, "SESSION_EXPIRED", "로그인이 만료됐어요. 다시 로그인해 주세요."); return;
                 }

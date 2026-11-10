@@ -14,9 +14,9 @@ import org.springframework.web.bind.annotation.*;
 @RestController
 @RequestMapping("/api/v1")
 public class AuthController {
-    public record ConfigResponse(boolean available, int passwordMinLength, int passwordMaxLength) { }
-    public record UserResponse(long id, String username, String nickname, boolean onboardingRequired) {
-        static UserResponse from(AuthRepository.Account account) { return new UserResponse(account.id(), account.username(), account.nickname(), account.onboardingRequired()); }
+    public record ConfigResponse(boolean available, int passwordMinLength, int passwordMaxLength,boolean participantAvailable,boolean adminAvailable) { }
+    public record UserResponse(long id, String username, String nickname, boolean onboardingRequired,boolean admin) {
+        static UserResponse from(AuthRepository.Account account) { return new UserResponse(account.id(), account.username(), account.nickname(), account.onboardingRequired(),"ADMIN".equals(account.role())); }
     }
     public record LoginRequest(@NotBlank @Size(max = 64) String username, @NotBlank @Size(max = 128) String password) {
         @Override public String toString() { return "LoginRequest[redacted]"; }
@@ -34,18 +34,19 @@ public class AuthController {
     private final AuthProperties properties;
     private final AuthSessions sessions;
     private final AuthRepository accounts;
-    public AuthController(AuthService service, AuthProperties properties, AuthSessions sessions, AuthRepository accounts) {
-        this.service = service; this.properties = properties; this.sessions = sessions; this.accounts = accounts;
+    private final LocalAdminService admins;
+    public AuthController(AuthService service, AuthProperties properties, AuthSessions sessions, AuthRepository accounts,LocalAdminService admins) {
+        this.service = service; this.properties = properties; this.sessions = sessions; this.accounts = accounts; this.admins=admins;
     }
     @GetMapping("/auth/config")
-    public ConfigResponse config() { return new ConfigResponse(properties.enabled(), PasswordPolicy.MIN, PasswordPolicy.MAX); }
+    public ConfigResponse config() { boolean admin=accounts.localAdminAvailable();return new ConfigResponse(properties.enabled()||admin, PasswordPolicy.MIN, PasswordPolicy.MAX,properties.enabled(),admin); }
     @PostMapping("/auth/otp/request")
     public AuthService.OtpResponse otp(@Valid @RequestBody OtpRequest body, Authentication authentication, HttpServletRequest request) {
         return service.request(body.purpose(), body.username(), principalOrNull(authentication), sessionId(request), request.getRemoteAddr());
     }
     @PostMapping("/auth/login")
     public UserResponse login(@Valid @RequestBody LoginRequest body, HttpServletRequest request, HttpServletResponse response) {
-        var account = service.login(body.username(), body.password(), request.getRemoteAddr());
+        var account = LocalAdminService.adminLogin(body.username())?admins.login(body.username(),body.password(),request.getRemoteAddr()):service.login(body.username(), body.password(), request.getRemoteAddr());
         sessions.login(account, request, response); return UserResponse.from(account);
     }
     @PostMapping("/auth/signup")

@@ -3,6 +3,8 @@ package com.tagme.common.config;
 import jakarta.servlet.http.HttpServletResponse;
 import com.tagme.auth.AuthRepository;
 import com.tagme.auth.CredentialVersionFilter;
+import com.tagme.auth.ConnectionSessions;
+import com.tagme.auth.ConnectionActivityFilter;
 import org.springframework.http.HttpMethod;
 import org.springframework.security.web.context.SecurityContextHolderFilter;
 import org.springframework.security.web.context.SecurityContextRepository;
@@ -22,7 +24,7 @@ public class SecurityConfig {
     @Bean
     CsrfTokenRepository csrfTokenRepository() { return CookieCsrfTokenRepository.withHttpOnlyFalse(); }
     @Bean
-    SecurityFilterChain securityFilterChain(HttpSecurity http, AuthRepository accounts, SecurityContextRepository contexts, CsrfTokenRepository csrfTokens) throws Exception {
+    SecurityFilterChain securityFilterChain(HttpSecurity http, AuthRepository accounts, SecurityContextRepository contexts, CsrfTokenRepository csrfTokens,ConnectionSessions connections) throws Exception {
         return http
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(HttpMethod.GET, "/api/v1/meta", "/api/v1/csrf", "/api/v1/auth/config", "/api/v1/event", "/api/v1/tags/pending", "/actuator/health/**").permitAll()
@@ -33,7 +35,8 @@ public class SecurityConfig {
                         .csrfTokenRepository(csrfTokens)
                         .csrfTokenRequestHandler(new CsrfTokenRequestAttributeHandler()))
                 .securityContext(context -> context.securityContextRepository(contexts).requireExplicitSave(true))
-                .addFilterAfter(new CredentialVersionFilter(accounts), SecurityContextHolderFilter.class)
+                .addFilterAfter(new CredentialVersionFilter(accounts,connections), SecurityContextHolderFilter.class)
+                .addFilterAfter(new ConnectionActivityFilter(connections), CredentialVersionFilter.class)
                 .headers(headers -> headers.cacheControl(cache -> { }))
                 .requestCache(cache -> cache.disable())
                 .formLogin(form -> form.disable())

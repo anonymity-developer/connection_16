@@ -22,7 +22,7 @@ These are pinned repository copies, not links to instructions you should assume 
 
 ## Non-negotiable product rules
 
-- Login ID is the Mattermost username; the password is set in TAG ME at signup. The immutable external user ID remains the account linkage key. Never ask for or proxy a Mattermost password.
+- Participant login ID is the Mattermost username; the password is set in TAG ME at signup. The immutable external user ID remains the linkage key. Never ask for or proxy a participant Mattermost password. Independently provisioned operators use the disjoint `admin:` namespace and existing session/role checks; follow `docs/admin-console.md`.
 - DM OTP is exactly six numeric characters, including leading zeros, for SIGN_UP/PASSWORD_CHANGE/PASSWORD_RESET. Bind challenges to account/purpose; never implement OTP-only ordinary login or a fixed shared code.
 - Credentials, username storage and business APIs are implemented; follow current contracts and migrations. Password hashes only; invalidate previous sessions on password changes/resets.
 - NFC/QR uses a 43-character Base64URL token from 32 random bytes; persist only its hash. Authenticate and check server-side unlock on every mission action. Never treat a route, UI state or fixture as authorization.
@@ -30,6 +30,7 @@ These are pinned repository copies, not links to instructions you should assume 
 - Import Mattermost name/region/class/photo; TAG ME nickname is required, interests/bio/links are optional. No participant private-profile toggle. Follow `docs/mattermost-profile.md`; do not reintroduce direct identity input.
 - Keep moderation status, published revision, mission completion, profile visibility and award eligibility separate. Operational completion order is not final award rank.
 - Never invent participants, production results, awards, event dates, SYNC questions or external integration success. Dev fixtures must not enter the production build or create authentication/official records.
+- Admin previews reuse real components with an isolated memory client after server ADMIN verification. Label examples, never register them as live configuration or call participant writes, and preserve all normal mission unlock checks.
 
 ## Checks and change delivery
 

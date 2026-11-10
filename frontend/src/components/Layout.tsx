@@ -9,6 +9,7 @@ export function Brand() {
 }
 export function Layout({ path, children }: { path: string; children: ReactNode }) {
   const auth = useAuth();
+  if (path === '/admin' || path.startsWith('/admin/')) return <><a className="skip-link" href="#main-content">본문으로 바로가기</a><main id="main-content" tabIndex={-1}>{children}</main></>;
   const active = (href: string) => href === '/' ? path === '/' || path.startsWith('/missions/') || path === '/complete' : path === href || path.startsWith(`${href}/`);
   return <>
     <a className="skip-link" href="#main-content">본문으로 바로가기</a>

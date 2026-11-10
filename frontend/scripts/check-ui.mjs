@@ -20,6 +20,15 @@ try {
   await development.listen();
   browser = await chromium.launch();
   const context = await browser.newContext({ permissions: ['clipboard-read', 'clipboard-write'] });
+  // This layout/validation suite expects unavailable auth. Do not inherit a developer's live API proxy or send its sample credentials externally.
+  await context.route('**/api/v1/**', route => {
+    if (route.request().method() !== 'GET') return route.abort();
+    const path = new URL(route.request().url()).pathname;
+    if (path.endsWith('/auth/config')) return route.fulfill({ status: 200, json: { available: false, participantAvailable: false, adminAvailable: false, passwordMinLength: 15, passwordMaxLength: 64 } });
+    if (path.endsWith('/users/me')) return route.fulfill({ status: 401, json: { code: 'UNAUTHENTICATED', message: '로그인이 필요해요.' } });
+    if (path.endsWith('/tags/pending')) return route.fulfill({ status: 200, json: { present: false } });
+    return route.fulfill({ status: 503, json: { code: 'TEST_UNAVAILABLE', message: 'UI 검사에서 실제 서버를 호출하지 않아요.' } });
+  });
   const page = await context.newPage();
   const failures = [];
   const writes = [];
@@ -72,7 +81,7 @@ try {
     assert.equal(await page.evaluate(() => document.activeElement?.id), 'main-content');
     await page.getByRole('button', { name: '로그인하기', exact: true }).click();
     assert.equal(await page.locator('input[name="username"]').evaluate((element) => document.activeElement === element), true);
-    await page.getByLabel('Mattermost 아이디', { exact: true }).fill('ui_test');
+    await page.getByLabel(/^(Mattermost )?아이디$/, { exact: true }).fill('ui_test');
     await page.getByLabel('비밀번호', { exact: true }).fill('example-only-password');
     await page.getByRole('button', { name: '비밀번호 표시', exact: true }).click();
     assert.equal(await page.getByLabel('비밀번호', { exact: true }).getAttribute('type'), 'text');
@@ -113,7 +122,7 @@ try {
   await check('leading-zero OTP paste, mismatch focus, dialog Escape/focus and account change', async () => {
     await visit(`${developmentUrl}/auth/signup?preview=unlocked`);
     await page.getByRole('complementary', { name: '개발용 상태 미리보기' }).waitFor();
-    await page.getByLabel('Mattermost 아이디', { exact: true }).fill('ui_test');
+    await page.getByLabel(/^(Mattermost )?아이디$/, { exact: true }).fill('ui_test');
     await page.getByRole('button', { name: '인증번호 받기', exact: true }).click();
     const code = page.getByLabel('인증번호', { exact: true });
     await code.waitFor();

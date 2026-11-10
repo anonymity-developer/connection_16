@@ -10,10 +10,12 @@ import { reactionsApi } from './reactions-api';
 import type { LikeState } from './reactions-api';
 import { contentApi } from './api';
 import type { ContentInput, ContentKind, Feed, OwnSlot, Revision } from './api';
+import { useMissionRuntime } from '../admin/MissionRuntime';
 
 const labels: Record<Revision['status'], string> = { QUEUED: '검수 대기', PROCESSING: '검수 중', APPROVED: '승인됨', REJECTED: '수정이 필요해요', REVIEW_REQUIRED: '운영자 확인 중', SUPERSEDED: '새 수정본 제출됨' };
 const empty: ContentInput = { content: '', templateId: 'PLAIN', style: 'ROSE', anonymous: true, expectedVersion: null };
 export function ContentMission({ kind }: { kind: ContentKind }) {
+  const runtime = useMissionRuntime(); const api = runtime?.content ?? contentApi;
   const wish = kind === 'wishes'; const participation = useParticipation();
   const [slot, setSlot] = useState<OwnSlot | null>(null); const [feed, setFeed] = useState<Feed | null>(null);
   const [input, setInput] = useState<ContentInput>(empty); const [editing, setEditing] = useState(false);
@@ -25,7 +27,7 @@ export function ContentMission({ kind }: { kind: ContentKind }) {
   useEffect(() => { active.current = true; void load(); return () => { active.current = false; }; }, [kind]);
   async function loadFeed(cursor?: number) {
     setFeedBusy(true); setFeedError('');
-    try { const next = await contentApi.feed(kind, cursor); if (!active.current) return; setFeed(previous => cursor && previous ? { items: [...previous.items, ...next.items.filter(item => !previous.items.some(old => old.id === item.id))], nextCursor: next.nextCursor } : next);
+    try { const next = await api.feed(kind, cursor); if (!active.current) return; setFeed(previous => cursor && previous ? { items: [...previous.items, ...next.items.filter(item => !previous.items.some(old => old.id === item.id))], nextCursor: next.nextCursor } : next);
       if (kind === 'cheers' && next.items.length) { setHeartLoading(true); setHeartError(''); try { const states = await reactionsApi.hearts(next.items.map(item => item.id)); if (active.current) setHearts(previous => cursor ? { ...previous, ...states } : states); } catch (failure) { if (active.current) { if (!cursor) setHearts({}); setHeartError(failure instanceof Error ? failure.message : '하트 상태를 확인하지 못했어요.'); } } finally { if (active.current) setHeartLoading(false); } }
     }
     catch (failure) { if (active.current) setFeedError(failure instanceof Error ? failure.message : '공개된 글을 불러오지 못했어요.'); }
@@ -33,7 +35,7 @@ export function ContentMission({ kind }: { kind: ContentKind }) {
   }
   async function load() {
     setLoading(true); setError('');
-    try { const next = await contentApi.own(kind); if (!active.current) return; setSlot(next); setEditing(!next.id); setInput(empty); pending.current = null; setUncertain(false); setConflict(false); await participation.refresh(); }
+    try { const next = await api.own(kind); if (!active.current) return; setSlot(next); setEditing(!next.id); setInput(empty); pending.current = null; setUncertain(false); setConflict(false); await (runtime?.refresh ?? participation.refresh)(); }
     catch (failure) { if (active.current) setError(failure instanceof Error ? failure.message : '내 글을 확인하지 못했어요.'); }
     finally { if (active.current) setLoading(false); }
     if (active.current) await loadFeed();
@@ -48,14 +50,14 @@ export function ContentMission({ kind }: { kind: ContentKind }) {
     if (!input.content.trim()) { setError(wish ? '호수에 띄울 소원을 적어주세요.' : '동료에게 전할 응원을 적어주세요.'); textarea.current?.focus(); return; }
     if (!pending.current) pending.current = { key: crypto.randomUUID(), editing: !!slot.id, input: { ...input, content: input.content.trim(), expectedVersion: slot.id ? slot.version : null } };
     const attempt = pending.current; setBusy(true); setError('');
-    try { const next = await contentApi.submit(kind, attempt.editing, attempt.key, attempt.input); if (active.current) { setSlot(next); setEditing(false); pending.current = null; setUncertain(false); setInput(empty); await participation.refresh(); await loadFeed(); } }
+    try { const next = await api.submit(kind, attempt.editing, attempt.key, attempt.input); if (active.current) { setSlot(next); setEditing(false); pending.current = null; setUncertain(false); setInput(empty); await (runtime?.refresh ?? participation.refresh)(); await loadFeed(); } }
     catch (failure) { if (active.current) { setError(failure instanceof Error ? failure.message : '제출 응답을 확인하지 못했어요.'); const unknown = !(failure instanceof ApiError) || failure.status >= 500; setUncertain(unknown); setConflict(failure instanceof ApiError && failure.status === 409); if (!unknown) pending.current = null; } }
     finally { if (active.current) setBusy(false); }
   }
   if (loading) return <p role="status">내 글과 검수 상태를 확인하고 있어요.</p>;
   const latest = slot?.latestRevision; const locked = busy || uncertain || conflict;
   return <div className="content-mission">
-    <section className="content-own" aria-labelledby="content-own-heading"><div className="content-section-heading"><h2 id="content-own-heading">{wish ? '호수에 띄울 내 소원' : '동료에게 전할 한마디'}</h2>{slot?.missionCompleted && <span className="content-status">글자 획득 완료</span>}</div>
+    <section className="content-own" aria-labelledby="content-own-heading"><div className="content-section-heading"><h2 id="content-own-heading">{wish ? '호수에 띄울 내 소원' : '동료에게 전할 한마디'}</h2>{slot?.missionCompleted && <span className="content-status">{runtime ? '미리보기 승인 완료' : '글자 획득 완료'}</span>}</div>
       <p className="result-footnote">{wish ? '소원은 익명으로 공개돼요.' : '응원은 익명 또는 닉네임으로 공개할 수 있어요.'} 글 하나를 남기고, 수정할 때마다 다시 검수해요.</p>
       {slot?.approvedRevision && <div className={`content-card tone-${slot.approvedRevision.style.toLowerCase()} template-${slot.approvedRevision.templateId.toLowerCase()}`}><p className="context-label">마지막 승인본</p><p className="content-body">{slot.approvedRevision.content}</p><span className="content-byline">{slot.approvedRevision.anonymous ? '익명' : '내 닉네임으로 공개'}</span>{wish && slot.luckScore !== null && <p className="content-luck">나의 운 점수 <strong>{slot.luckScore}</strong></p>}</div>}
       {latest && latest.id !== slot?.approvedRevision?.id && <div className="content-review-state" role="status"><strong>{labels[latest.status]}</strong><p className="content-body">{latest.content}</p><p>{latest.status === 'REJECTED' ? '공개 기준에 맞게 내용을 다듬어 다시 제출해 주세요.' : latest.reason === 'CONTACT_OR_URL' ? '연락처나 링크가 포함되어 운영자 확인이 필요해요.' : latest.status === 'REVIEW_REQUIRED' ? slot.approvedRevision ? '운영자가 수정본을 확인하고 있어요. 기존 승인본과 이미 받은 글자는 유지돼요.' : '운영자가 내용을 확인하고 있어요. 첫 승인 전에는 공개되거나 글자가 지급되지 않아요.' : slot.approvedRevision ? '수정본이 승인되기 전까지 기존 승인본을 유지해요.' : '내용 확인을 마치면 공개되고 글자가 지급돼요.'}</p></div>}

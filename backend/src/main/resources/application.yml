@@ -58,6 +58,9 @@ management:
 
 # Disabled until an operator provides the real integration credentials.
 tagme:
+  admin:
+    bootstrap-id: ${ADMIN_BOOTSTRAP_ID:}
+    bootstrap-password: ${ADMIN_BOOTSTRAP_PASSWORD:}
   auth:
     enabled: ${AUTH_ENABLED:false}
     base-url: ${MATTERMOST_BASE_URL:https://meeting.ssafy.com}

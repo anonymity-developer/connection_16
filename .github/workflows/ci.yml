@@ -56,6 +56,8 @@ jobs:
         run: npm run test:discovery-ui
       - name: Check operations permissions and review workflow
         run: npm run test:operations-ui
+      - name: Check administrator console and isolated mission previews
+        run: npm run test:admin-ui
       - name: Inspect production app with Taste
         run: |
           npm run preview -- --port 4173 > /tmp/tagme-preview.log 2>&1 &

@@ -1,0 +1,173 @@
+{
+  "title": "우리의 취향 주파수 — 검토용 초안",
+  "axes": [
+    {
+      "id": "conversation",
+      "negative": "L",
+      "positive": "W",
+      "tie": "NEGATIVE"
+    },
+    {
+      "id": "activity",
+      "negative": "D",
+      "positive": "M",
+      "tie": "NEGATIVE"
+    }
+  ],
+  "questions": [
+    {
+      "id": "opening",
+      "text": "처음 만난 동료와 마주쳤을 때 더 편한 쪽은?",
+      "options": [
+        {
+          "id": "a",
+          "label": "상대 이야기를 듣고 자연스럽게 이어간다",
+          "scores": {
+            "conversation": -1,
+            "activity": 0
+          }
+        },
+        {
+          "id": "b",
+          "label": "궁금한 것을 먼저 물으며 말을 건다",
+          "scores": {
+            "conversation": 1,
+            "activity": 0
+          }
+        }
+      ]
+    },
+    {
+      "id": "break",
+      "text": "쉬는 시간에 새로운 대화를 시작한다면?",
+      "options": [
+        {
+          "id": "a",
+          "label": "옆에서 들리는 주제에 공감하며 들어간다",
+          "scores": {
+            "conversation": -1,
+            "activity": 0
+          }
+        },
+        {
+          "id": "b",
+          "label": "같이 이야기할 주제를 먼저 꺼낸다",
+          "scores": {
+            "conversation": 1,
+            "activity": 0
+          }
+        }
+      ]
+    },
+    {
+      "id": "topic",
+      "text": "모임에서 내가 자주 맡는 역할은?",
+      "options": [
+        {
+          "id": "a",
+          "label": "말 속의 공통점을 찾아 연결한다",
+          "scores": {
+            "conversation": -1,
+            "activity": 0
+          }
+        },
+        {
+          "id": "b",
+          "label": "누구나 참여할 수 있도록 말을 건넨다",
+          "scores": {
+            "conversation": 1,
+            "activity": 0
+          }
+        }
+      ]
+    },
+    {
+      "id": "learning",
+      "text": "새로운 기술이 궁금해졌을 때 나는?",
+      "options": [
+        {
+          "id": "a",
+          "label": "원리와 사례를 차근차근 살펴본다",
+          "scores": {
+            "conversation": 0,
+            "activity": -1
+          }
+        },
+        {
+          "id": "b",
+          "label": "작은 결과물을 만들면서 알아간다",
+          "scores": {
+            "conversation": 0,
+            "activity": 1
+          }
+        }
+      ]
+    },
+    {
+      "id": "project",
+      "text": "동료와 짧은 시간을 함께 쓴다면?",
+      "options": [
+        {
+          "id": "a",
+          "label": "서로 고민하는 문제를 깊게 이야기한다",
+          "scores": {
+            "conversation": 0,
+            "activity": -1
+          }
+        },
+        {
+          "id": "b",
+          "label": "작은 아이디어를 같이 만들어 본다",
+          "scores": {
+            "conversation": 0,
+            "activity": 1
+          }
+        }
+      ]
+    },
+    {
+      "id": "session",
+      "text": "마음에 남는 교류의 순간은?",
+      "options": [
+        {
+          "id": "a",
+          "label": "몰랐던 관점을 발견하고 생각이 넓어졌을 때",
+          "scores": {
+            "conversation": 0,
+            "activity": -1
+          }
+        },
+        {
+          "id": "b",
+          "label": "함께 뭔가를 시도하고 결과를 남겼을 때",
+          "scores": {
+            "conversation": 0,
+            "activity": 1
+          }
+        }
+      ]
+    }
+  ],
+  "types": [
+    {
+      "code": "WM",
+      "title": "대화를 여는 메이커",
+      "description": "먼저 건넨 질문을 작은 시도로 이어가는 편이에요. 오늘은 함께 만들어 보고 싶은 것을 동료에게 물어보세요."
+    },
+    {
+      "code": "WD",
+      "title": "대화를 여는 탐험가",
+      "description": "궁금한 질문으로 대화를 열고 새로운 관점을 발견하는 편이에요. 동료가 요즘 빠져 있는 주제를 찾아보세요."
+    },
+    {
+      "code": "LM",
+      "title": "차분히 잇는 메이커",
+      "description": "상대의 이야기를 들으며 같이 시도할 접점을 찾는 편이에요. 관심사가 닮은 동료와 작은 아이디어를 나눠보세요."
+    },
+    {
+      "code": "LD",
+      "title": "깊게 듣는 탐험가",
+      "description": "이야기를 차근차근 듣고 생각을 넓히는 편이에요. 동료의 경험 속에서 기억에 남는 한 가지를 물어보세요."
+    }
+  ]
+}

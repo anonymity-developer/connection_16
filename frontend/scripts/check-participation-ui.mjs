@@ -130,7 +130,7 @@ try {
   signedIn = false; profile = null; agreements = false; unlocked = false; completed = false;
   await visit(`/t/${token}`); await page.getByRole('button', { name: '로그인하고 이어가기', exact: true }).click(); await page.waitForURL('**/auth');
   assert.equal(pending, true); assert.equal(unlocked, false); await page.reload();
-  await page.getByLabel('Mattermost 아이디', { exact: true }).fill('contract-test'); await page.getByLabel('비밀번호', { exact: true }).fill('a long test password');
+  await page.getByLabel(/^(Mattermost )?아이디$/, { exact: true }).fill('contract-test'); await page.getByLabel('비밀번호', { exact: true }).fill('a long test password');
   await page.getByRole('button', { name: '로그인하기', exact: true }).click(); await page.waitForURL('**/me');
   await page.getByRole('link', { name: '프로필 등록하기', exact: true }).click(); await fill(); await agree();
   await page.getByRole('button', { name: '프로필 저장하기', exact: true }).click(); await page.waitForURL('**/t/resume');
@@ -164,6 +164,6 @@ try {
   assert.deepEqual(pageErrors, []); assert.deepEqual(routeErrors, []); assert.ok(resolves >= 3);
   await writeFile(resolve(output, 'participation-contract-checks.json'), JSON.stringify({ kind: 'browser API contract fixtures; no real participants, policies or event tags', checks, pageErrors, routeErrors }, null, 2));
   const inspector = resolve('../.taste-skill/profile-render'); await mkdir(inspector, { recursive: true }); const launcher = resolve(inspector, 'chromium.sh'); await writeFile(launcher, `#!/usr/bin/env bash\nexec "${chromium.executablePath()}" --no-sandbox "$@"\n`); await chmod(launcher, 0o700);
-  await new Promise((done, reject) => { const child = spawn(process.execPath, ['scripts/taste.mjs', 'inspect', 'http://127.0.0.1:4373/me/profile', '--app', '--widths', '1440,768,390', '--out', '.taste-skill/profile-render'], { cwd: resolve('..'), env: { ...process.env, CHROME_PATH: launcher }, stdio: 'inherit' }); child.on('error', reject); child.on('exit', code => code === 0 ? done() : reject(new Error(`Profile render check exited ${code}`))); });
+  await new Promise((done, reject) => { const child = spawn(process.execPath, ['scripts/taste.mjs', 'inspect', 'http://127.0.0.1:4373/me/profile', '--app', '--widths', '1440,768,390', '--out', '.taste-skill/profile-render'], { cwd: resolve('..'), env: { ...process.env, CHROME_PATH: process.platform === 'win32' ? process.env.CHROME_PATH : launcher }, stdio: 'inherit' }); child.on('error', reject); child.on('exit', code => code === 0 ? done() : reject(new Error(`Profile render check exited ${code}`))); });
 
 } finally { await browser?.close(); await server.httpServer.close(); }

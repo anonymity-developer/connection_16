@@ -6,14 +6,16 @@ import { useParticipation } from '../participation/context';
 import { ApiError } from '../auth/api';
 import { resultsApi } from './api';
 import type { SyncQuestions, SyncResult } from './api';
+import { useMissionRuntime } from '../admin/MissionRuntime';
 export function SyncMission() {
+  const runtime = useMissionRuntime(); const api = runtime?.results ?? resultsApi;
   const participation = useParticipation(); const [questions, setQuestions] = useState<SyncQuestions | null>(null); const [result, setResult] = useState<SyncResult | null>(null);
   const [answers, setAnswers] = useState<Record<string, string>>({}); const [loading, setLoading] = useState(true); const [busy, setBusy] = useState(false); const [error, setError] = useState(''); const [changed, setChanged] = useState(false);
   const active = useRef(true); const form = useRef<HTMLFormElement>(null);
   useEffect(() => { active.current = true; void load(); return () => { active.current = false; }; }, []);
   async function load() {
     setLoading(true); setError(''); setChanged(false);
-    try { const saved = await resultsApi.sync(); if (!active.current) return; setResult(saved.result); if (!saved.result) { const next = await resultsApi.questions(); if (active.current) { setQuestions(next); setAnswers({}); } } }
+    try { const saved = await api.sync(); if (!active.current) return; setResult(saved.result); if (!saved.result) { const next = await api.questions(); if (active.current) { setQuestions(next); setAnswers({}); } } }
     catch (failure) { if (active.current) setError(failure instanceof Error ? failure.message : '질문을 불러오지 못했어요.'); }
     finally { if (active.current) setLoading(false); }
   }
@@ -22,7 +24,7 @@ export function SyncMission() {
     const missing = questions.questions.find(q => !answers[q.id]);
     if (missing) { setError('아직 답하지 않은 질문이 있어요.'); form.current?.querySelector<HTMLInputElement>(`input[name="${missing.id}"]`)?.focus(); return; }
     setBusy(true); setError('');
-    try { const saved = await resultsApi.submitSync(questions.version, questions.questions.map(q => ({ questionId: q.id, optionId: answers[q.id] }))); if (active.current) { setResult(saved); await participation.refresh(); } }
+    try { const saved = await api.submitSync(questions.version, questions.questions.map(q => ({ questionId: q.id, optionId: answers[q.id] }))); if (active.current) { setResult(saved); await (runtime?.refresh ?? participation.refresh)(); } }
     catch (failure) { if (active.current) { setError(failure instanceof Error ? failure.message : '결과를 저장하지 못했어요.'); setChanged(failure instanceof ApiError && failure.status === 409); } }
     finally { if (active.current) setBusy(false); }
   }

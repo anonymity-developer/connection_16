@@ -1,5 +1,7 @@
 # 회원가입, 비밀번호 로그인과 DM 인증
 
+Mattermost 인증은 참가자 계정 기준이다. 사전 등록 운영자는 별도의 `admin:` 아이디로 같은 로그인 창에서 인증하며 Mattermost를 호출하지 않는다. V10 계정 등록/접속 시간/권한 계약은 [관리자 콘솔](admin-console.md)을 따른다.
+
 페이즈 2의 서버 API와 프론트 연결을 구현했다. **일반 로그인은 Mattermost 아이디와 TAG ME 비밀번호**를 사용한다. 가입/비밀번호 변경/분실 재설정에만 숫자 6자리 DM 인증을 사용한다. 실제 Mattermost 토큰의 지정 채널 조회·DM 권한과 실제 발송은 아직 검증하지 않았다. 기본 `AUTH_ENABLED=false`이며 자동 테스트의 외부 응답은 테스트용 대역이다.
 
 ## 1. 계정과 비밀번호
@@ -72,7 +74,7 @@ OTP 요청은 미존재/미가입/기존 가입/비적격 계정에 같은 형�
 - 모든 변경 API에 기존 CSRF 쿠키/헤더 검사를 유지한다. 익명 로그인/가입/OTP/재설정도 예외가 아니다.
 - 가입/로그인 시 SessionAuthenticationStrategy로 세션 ID와 CSRF를 갱신하고 HttpSessionSecurityContextRepository에 명시적으로 저장한다.
 - Redis indexed session을 사용한다. principal은 서비스 사용자 ID/version/역할만 포함하며 해시/OTP를 포함하지 않는다.
-- `/api/v1/admin/**`는 서버 ADMIN 역할을 요구한다. 운영 API 자체는 아직 구현하지 않았다.
+- `/api/v1/admin/**`는 서버 ADMIN 역할을 요구한다. 검수와 관리자 콘솔의 현황·회원·순위·미리보기 읽기 API를 제공한다.
 - 인증 요청마다 DB의 ACTIVE/version/역할을 검사한다. 변경/재설정 후 오래된 세션의 version은 거절한다. Redis 세션 삭제가 누락돼도 이 DB 검사가 권한을 막는다.
 - Redis에서 이전 버전의 indexed session도 삭제한다. 새 버전으로 로그인한 세션을 무조건 같이 삭제하지 않는다.
 - DB/Redis 조회 장애는 확인을 생략하지 않고 실패한다. API 응답은 no-store다.

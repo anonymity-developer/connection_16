@@ -1,4 +1,5 @@
 import { OperationsPage } from './pages/Operations';
+import { AdminConsole } from './pages/AdminConsole';
 import { DiscoveryPage } from './pages/Discovery';
 import { DiscoveryGraphPage } from './pages/DiscoveryGraph';
 import { PublicProfilePage } from './pages/PublicProfile';
@@ -58,7 +59,7 @@ export default function App() {
     const id = Number(path.split('/').at(-1));
     page = !auth.ready ? <div className="page"><p role="status">로그인 상태를 확인하고 있어요.</p></div> : !auth.user ? <div className="page secondary-page"><div className="page-heading"><h1>동료 찾기</h1></div><EmptyState title="로그인하고 동료를 만나보세요" action={<Link href="/auth" className="button button--primary">로그인하기</Link>}>공개된 동료의 프로필과 내 발견 관계를 확인할 수 있어요.</EmptyState></div> : path === '/discovery' ? <DiscoveryPage key={auth.user.id} /> : path === '/discovery/graph' ? <DiscoveryGraphPage key={auth.user.id} /> : Number.isSafeInteger(id) && id > 0 ? <PublicProfilePage key={`${auth.user.id}:${id}`} id={id} /> : <div className="page"><h1>프로필을 찾을 수 없어요</h1></div>;
   }
-  else if (path === '/admin') page = !auth.ready ? <div className="page"><p role="status">로그인 상태를 확인하고 있어요.</p></div> : auth.user ? <OperationsPage key={auth.user.id} /> : <div className="page"><h1>운영자 로그인</h1><p>로그인한 계정의 운영 권한을 확인해요.</p><Link href="/auth" className="button button--primary">로그인하기</Link></div>;
+  else if (path === '/admin' || path.startsWith('/admin/')) page = !auth.ready ? <div className="page"><p role="status">로그인 상태를 확인하고 있어요.</p></div> : auth.user ? path.startsWith('/admin/moderation') ? <OperationsPage key={auth.user.id} /> : <AdminConsole key={auth.user.id} /> : <div className="page"><h1>운영자 로그인</h1><p>로그인한 계정의 운영 권한을 확인해요.</p><Link href="/auth" className="button button--primary">로그인하기</Link></div>;
   else if (path === '/me' || path === '/me/password') page = <Account preview={screen.preview} />;
   else if (path.startsWith('/t/')) page = <TagPage key={path} token={path.slice(3)} />;
   else if (path === '/complete' && (screen.preview && Object.values(screen.progress).every((state) => state === 'COMPLETED') || participation.collection?.completion.complete)) page = <div className="page secondary-page completion-page"><p className="context-label">{screen.preview ? '개발용 완성 화면' : '나의 수집 기록'}</p><h1>다섯 글자를 모두 모았어요</h1><div className="completion-letters" aria-label="SSAFY">{missions.map((item) => <span key={item.code}>{item.letter}</span>)}</div><p>{screen.preview ? '전체 완성 화면의 미리보기예요. 실제 기록은 생성되지 않아요.' : `운영상 완료 순번 ${participation.collection?.completion.completionOrder}번으로 기록됐어요. 수상 순위는 아직 확정되지 않았어요.`}</p><Link href="/" className="button button--primary">수집판 돌아가기<Icon name="arrow" /></Link></div>;

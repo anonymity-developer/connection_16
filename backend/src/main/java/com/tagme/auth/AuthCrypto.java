@@ -20,7 +20,8 @@ public class AuthCrypto {
     }
     public String code() { return String.format(Locale.ROOT, "%06d", random.nextInt(1_000_000)); }
     public String digest(String value) {
-        if (!properties.enabled()) throw AuthException.unavailable();
+        // Administrator logins also use the shared limiter when Mattermost auth is disabled.
+        if (properties.hmacKey().isBlank()) throw AuthException.unavailable();
         try {
             var mac = Mac.getInstance("HmacSHA256");
             mac.init(new SecretKeySpec(Base64.getDecoder().decode(properties.hmacKey()), "HmacSHA256"));

@@ -18,23 +18,26 @@ public class AuthRepository {
         @Override public String toString() { return "Account[id=" + id + "]"; }
     }
     private static final String SELECT = """
-            SELECT u.*, c.password_hash, c.credential_version, p.nickname,
-                (p.user_id IS NULL OR u.real_name IS NULL OR u.region IS NULL OR u.class_no IS NULL
+            SELECT u.*, COALESCE(la.login_id,u.mattermost_username) AS login_name, c.password_hash, c.credential_version, p.nickname,
+                (la.user_id IS NULL AND (p.user_id IS NULL OR u.real_name IS NULL OR u.region IS NULL OR u.class_no IS NULL
                  OR TRIM(COALESCE(p.nickname,''))='' OR TRIM(COALESCE(u.real_name,''))=''
                  OR TRIM(COALESCE(u.region,''))='' OR u.class_no<1 OR u.mattermost_profile_synced_at IS NULL OR p.is_public=FALSE
                  OR (SELECT COUNT(*) FROM current_consent_policies) <> 2
                  OR EXISTS (SELECT 1 FROM current_consent_policies cp WHERE NOT EXISTS (
                     SELECT 1 FROM user_consents uc WHERE uc.user_id=u.id AND uc.policy_type=cp.policy_type
-                    AND uc.policy_version=cp.policy_version AND uc.withdrawn_at IS NULL))) AS needs_onboarding
+                    AND uc.policy_version=cp.policy_version AND uc.withdrawn_at IS NULL)))) AS needs_onboarding
             FROM users u LEFT JOIN user_credentials c ON c.user_id=u.id LEFT JOIN profiles p ON p.user_id=u.id
+            LEFT JOIN local_admin_accounts la ON la.user_id=u.id
             """;
     private Account account(ResultSet row, int ignored) throws SQLException {
-        return new Account(row.getLong("id"), row.getString("mattermost_id"), row.getString("mattermost_username"),
+        return new Account(row.getLong("id"), row.getString("mattermost_id"), row.getString("login_name"),
                 row.getString("status"), row.getString("role"), row.getString("password_hash"),
                 row.getObject("credential_version", Long.class), row.getString("nickname"), row.getBoolean("needs_onboarding"));
     }
     public Optional<Account> byExternalId(String id) { return jdbc.query(SELECT + " WHERE u.mattermost_id=?", this::account, id).stream().findFirst(); }
     public Optional<Account> byId(long id) { return jdbc.query(SELECT + " WHERE u.id=?", this::account, id).stream().findFirst(); }
+    public Optional<Account> byAdminLogin(String login) { return jdbc.query(SELECT + " WHERE la.login_id=?",this::account,login).stream().findFirst(); }
+    public boolean localAdminAvailable() { return Boolean.TRUE.equals(jdbc.queryForObject("SELECT EXISTS(SELECT 1 FROM local_admin_accounts a JOIN users u ON u.id=a.user_id JOIN user_credentials c ON c.user_id=u.id WHERE u.status='ACTIVE' AND u.role='ADMIN')",Boolean.class)); }
     public void lockUser(long id) { jdbc.queryForList("SELECT id FROM users WHERE id=? FOR UPDATE", id); }
     public long insertUser(String externalId, String username) {
         var key = new GeneratedKeyHolder();

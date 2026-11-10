@@ -10,7 +10,7 @@ import { validateAuth } from '../features/auth/validation';
 import type { AuthErrors, AuthMode, AuthValues } from '../features/auth/validation';
 
 const copy = {
-  login: { title: '로그인', description: 'Mattermost 아이디와 TAG ME 비밀번호로 시작해요.', submit: '로그인하기' },
+  login: { title: '로그인', description: '참가자 또는 사전 등록된 관리자 계정으로 시작해요.', submit: '로그인하기' },
   signup: { title: '회원가입', description: 'Mattermost 아이디를 그대로 사용하고, 비밀번호는 새로 설정해요.', submit: '가입하기' },
   reset: { title: '비밀번호 재설정', description: 'Mattermost DM으로 본인을 확인한 뒤 새 비밀번호를 설정해요.', submit: '비밀번호 재설정하기' },
   change: { title: '비밀번호 변경', description: '로그인한 본인의 Mattermost DM으로 인증번호를 받아 변경해요.', submit: '비밀번호 변경하기' },
@@ -54,7 +54,7 @@ export function Auth({ mode, preview }: { mode: AuthMode; preview: boolean }) {
   async function requestCode() {
     if (busy) return;
     if (preview) { setStep('verify'); setNotice('개발용 미리보기예요. 실제 DM은 발송되지 않았어요.'); return; }
-    if (!auth.config.available) { setNotice('인증 서비스를 준비하고 있어요. 입력값은 전송되지 않았어요.'); return; }
+    if (!(auth.config.participantAvailable ?? auth.config.available)) { setNotice('참가자 인증 서비스를 준비하고 있어요. 입력값은 전송되지 않았어요.'); return; }
     setBusy(true); setNotice('');
     try {
       const next = await authApi.otp(purpose, mode === 'change' ? undefined : values.username.trim());
@@ -87,7 +87,7 @@ export function Auth({ mode, preview }: { mode: AuthMode; preview: boolean }) {
         const user = mode === 'login' ? await authApi.login(values.username.trim(), values.password)
           : await authApi.signup(challenge!.challengeId, values.code, values.password);
         auth.acceptUser(user); setValues({ username: '', password: '', confirmation: '', code: '' });
-        navigate(user.onboardingRequired ? mode === 'signup' ? '/me/profile' : '/me' : auth.takeReturnPath());
+        navigate(user.admin ? '/admin' : user.onboardingRequired ? mode === 'signup' ? '/me/profile' : '/me' : auth.takeReturnPath());
       } else {
         await authApi.password(mode, challenge!.challengeId, values.code, values.password);
         auth.acceptUser(null); setValues({ username: '', password: '', confirmation: '', code: '' });
@@ -104,10 +104,10 @@ export function Auth({ mode, preview }: { mode: AuthMode; preview: boolean }) {
 
   return <div className="page auth-page"><Link className="back-link" href={mode === 'change' ? '/me' : '/'}><Icon name="arrowLeft" size={16} />{mode === 'change' ? '마이페이지' : '미션 모으기'}</Link>
     <div className="auth-grid"><section className="auth-form-panel" aria-labelledby="auth-heading"><div className="auth-form-heading"><p className="context-label">TAG ME 계정</p><h1 id="auth-heading">{current.title}</h1><p>{current.description}</p></div>
-      <div className="form-boundary"><Icon name={auth.config.available && !preview ? 'lock' : 'clock'} size={17} /><p>{preview ? '개발용 화면 미리보기예요. 실제 인증과 DM 발송은 실행되지 않아요.' : !auth.ready ? '인증 서비스 연결을 확인하고 있어요.' : auth.config.available ? '아이디는 Mattermost와 같아요. 비밀번호는 TAG ME 가입 시 설정한 값을 입력해 주세요.' : '인증 서비스를 준비하고 있어요. 지금은 화면을 둘러볼 수 있어요.'}</p></div>
+      <div className="form-boundary"><Icon name={auth.config.available && !preview ? 'lock' : 'clock'} size={17} /><p>{preview ? '개발용 화면 미리보기예요. 실제 인증과 DM 발송은 실행되지 않아요.' : !auth.ready ? '인증 서비스 연결을 확인하고 있어요.' : auth.config.available ? mode === 'login' ? '참가자는 Mattermost 아이디, 운영자는 사전 등록된 관리자 아이디를 입력해 주세요.' : '아이디는 Mattermost와 같아요. 비밀번호는 TAG ME 가입 시 설정한 값을 입력해 주세요.' : '인증 서비스를 준비하고 있어요. 지금은 화면을 둘러볼 수 있어요.'}</p></div>
       {mode !== 'login' && <ol className="auth-steps" aria-label="본인 확인 단계"><li aria-current={step === 'account' ? 'step' : undefined}>계정 확인</li><li aria-current={step === 'verify' ? 'step' : undefined}>6자리 인증 · 비밀번호 설정</li></ol>}
       <form ref={form} onSubmit={submit} noValidate aria-busy={busy}>
-        {mode !== 'change' && <Field label="Mattermost 아이디" name="username" maxLength={64} autoComplete="username" autoCapitalize="none" spellCheck={false} placeholder="Mattermost에서 사용하는 아이디" value={values.username} error={errors.username} disabled={busy || step === 'verify'} onChange={(event) => set('username', event.target.value)} />}
+        {mode !== 'change' && <Field label={mode === 'login' ? '아이디' : 'Mattermost 아이디'} name="username" maxLength={64} autoComplete="username" autoCapitalize="none" spellCheck={false} placeholder={mode === 'login' ? 'Mattermost 또는 관리자 아이디' : 'Mattermost에서 사용하는 아이디'} value={values.username} error={errors.username} disabled={busy || step === 'verify'} onChange={(event) => set('username', event.target.value)} />}
         {step === 'verify' && <><div className="verify-heading"><p>DM으로 받은 번호를 입력해 주세요.</p>{mode !== 'change' && <button type="button" className="text-button" disabled={busy} onClick={changeAccount}>아이디 변경</button>}</div><Field className="otp-input" label="인증번호" name="code" inputMode="numeric" autoComplete="one-time-code" maxLength={6} placeholder="000000" value={values.code} error={errors.code} disabled={busy} hint={challenge ? expiresRemaining > 0 ? `남은 시간 ${expiresRemaining}초 · 앞자리 0도 그대로 입력해 주세요.` : '인증 시간이 지났어요. 번호를 새로 받아주세요.' : '숫자 6자리 · 앞자리 0도 그대로 입력해 주세요.'} onChange={(event) => set('code', event.target.value)} /></>}
         {showPassword && <Field label={passwordLabel} name="password" password disabled={busy} maxLength={128} hint={mode === 'login' ? undefined : '공백을 포함해 15~64자. 입력한 값을 그대로 사용해요.'} autoComplete={mode === 'login' ? 'current-password' : 'new-password'} placeholder={mode === 'login' ? 'TAG ME 가입 시 설정한 비밀번호' : 'TAG ME에서 사용할 비밀번호'} value={values.password} error={errors.password} onChange={(event) => set('password', event.target.value)} />}
         {showPassword && mode !== 'login' && <Field label={`${passwordLabel} 확인`} name="confirmation" password disabled={busy} maxLength={128} autoComplete="new-password" placeholder="비밀번호를 한 번 더 입력해 주세요" value={values.confirmation} error={errors.confirmation} onChange={(event) => set('confirmation', event.target.value)} />}

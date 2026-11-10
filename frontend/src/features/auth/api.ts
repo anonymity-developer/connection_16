@@ -1,5 +1,5 @@
-export interface SessionUser { id: number; username: string; nickname: string | null; onboardingRequired: boolean }
-export interface AuthConfig { available: boolean; passwordMinLength: number; passwordMaxLength: number }
+export interface SessionUser { id: number; username: string; nickname: string | null; onboardingRequired: boolean; admin?: boolean }
+export interface AuthConfig { available: boolean; passwordMinLength: number; passwordMaxLength: number; participantAvailable?: boolean; adminAvailable?: boolean }
 export interface OtpChallenge { challengeId: string; expiresIn: number; resendAfter: number }
 export type OtpPurpose = 'SIGN_UP' | 'PASSWORD_CHANGE' | 'PASSWORD_RESET';
 export class ApiError extends Error {
