@@ -1,5 +1,13 @@
 # 페이즈별 개발 현황
 
+## 2026-11-11 — PR #16·#17·#18 로컬 테스트 준비
+
+- 최신 main `3f90af5`에서 같은 작업 폴더의 `review/pr-16-18-local`을 만들고 #17 `3433f3c`와 #18 `b6cb527`을 로컬 병합했다. 진행 기록의 충돌은 양쪽을 보존했다. main·원격 PR·운영 서버와 배포 설정은 보존했다.
+- #16 `a0aab1c`는 최신 UI와 5개 파일에서 충돌하며 미발견 배경 등 표현도 달라 별도 개발 서버로 비교한다. #17에는 UI뿐 아니라 비밀번호·소원/응원 지급·시상 근거 정책 변경도 있다.
+- 기존 로컬 DB를 백업·복제한 별도 `tagme-pr-review` Compose 네 서비스가 healthy다. 기존 사용자 11명(더미 포함)을 유지하고 새 DB에만 V10/V11과 기존 관리자 계정을 적용했다. 별도 Git 제외 환경 파일을 사용하며 운영과 기존 볼륨은 변경하지 않았다.
+- frontend lint·단위 104개·build와 UI/탐색/관리자/콘텐츠/결과/체험/인증 브라우저 검사 7개 스크립트를 통과했다. 실제 로컬 관리자 로그인·다섯 미션 미리보기·조회·공식 테이블 건수 불변·로그아웃 후 401을 확인했다. JDK 21 Docker의 백엔드 단위 84개·실제 MySQL/Redis 통합 138개 통과, 옵트인 장애 리허설 1개 제외 및 bootJar 성공을 확인했다. 각 PR head의 GitHub CI도 성공 상태다.
+- 통합본 `localhost:8088`, 태그 없는 개발 체험 `localhost:5173/experience.html`, #16 UI 비교 `localhost:5175`를 실행했다. [재실행·검증·테스트 항목](pr-16-18-local-review.md). 실제 DM 발송·운영 배포·main 병합은 하지 않았다.
+
 ## 2026-11-10 — 최종 운영 도메인 anonymity-developer.site로 변경
 
 - 사용자가 `anonmitydeveloper.site` 대신 **`anonymity-developer.site`로 변경**을 요청했다. 새 가비아 NS와 A=`13.236.85.206`을 확인하고 운영 `.env.production`/SSM SecureString v3에 반영했다. DB dump 후 현재 검증된 이미지로 Caddy만 재적용했으며 API/DB/Redis는 계속 실행됐다.
