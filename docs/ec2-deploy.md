@@ -1,5 +1,7 @@
 # EC2 초기 배포 — 한 달 이내 행사 운영
 
+GitHub Actions/ECR/SSM 배포 구현, `anonymitydeveloper.site`의 가비아 DNS 연결, 운영 환경 파일과 실제 차단 상태는 [배포 연결 문서](github-actions-ec2.md)를 따른다. 아래 초기 준비 기록의 “워크플로 미설정”은 당시 상태이며, 현재는 로컬 구현 후 AWS 변경 승인·OIDC 권한·실제 기동 검증이 남아 있다.
+
 최대 동시 접속 100명 예상, 신규 AWS 계정, 단일 VM의 기존 Docker Compose를 사용한다. `compose.small.yml`은 2GiB 서버용 시작 설정이며 100명 처리 성능을 보증한 결과가 아니다. 실제 AWS 서버·DNS·Mattermost 연결·100명 부하는 서버 생성 후 확인한다. AI 검수 추가 연동과 구조 재작성은 이번 초기 배포 범위에서 제외한다.
 
 2026-11-10 현재 프로젝트는 새로운 AWS 경험을 사용하며, 사용자가 시드니 `ap-southeast-2`에서 진행하기로 선택했다. 새로운 AWS 경험은 프로젝트에 지정된 리전에서 리소스를 생성하므로 이전 서울 제안보다 이 선택을 따른다. 프로젝트 지정 리전은 AWS Settings → View all projects → Overview → Additional Info → Region에서 확인한다. [공식 새 AWS 경험 규칙](https://raw.githubusercontent.com/aws/agent-toolkit-for-aws/refs/heads/main/rules/aws-starter-rules.md).

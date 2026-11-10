@@ -1,0 +1,10 @@
+# Append to common + small (private rehearsal), or common + prod + small (HTTPS).
+# Always pass --no-build: the VM only runs images built on the workstation/CI.
+services:
+  api:
+    image: ${TAGME_REGISTRY:?Set TAGME_REGISTRY}/tagme/api:${TAGME_IMAGE_TAG:?Set TAGME_IMAGE_TAG}
+    environment:
+      APP_SESSION_SECURE: "true"
+      SERVER_FORWARD_HEADERS_STRATEGY: framework
+  web:
+    image: ${TAGME_REGISTRY:?Set TAGME_REGISTRY}/tagme/web:${TAGME_IMAGE_TAG:?Set TAGME_IMAGE_TAG}

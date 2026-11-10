@@ -66,6 +66,8 @@ Vite의 loopback 바인딩은 로컬 개발용이다. 실기기 테스트 시 �
 
 CI는 pull request, main push 및 수동 실행으로 동작한다. 외부 Mattermost/AI 비밀키가 없어도 초기 검증은 가능하다. 서버 배포는 자동 실행하지 않는다.
 
+별도 `Deploy Sydney EC2` 워크플로는 main의 성공한 CI를 확인한 뒤 OIDC/ECR/SSM으로 배포한다. `AWS_ROLE_ARN`/`EC2_INSTANCE_ID` 미설정 시 실행하지 않으며 자동 배포는 최초 검증 후 `AUTO_DEPLOY=true`로 명시적으로 켠다. 실제 연결 상태와 환경 파일은 [배포 연결 문서](github-actions-ec2.md)를 따른다.
+
 2026-11-03 초기 구성 검증: 프론트 lint/프로덕션 빌드, 백엔드 단위 테스트 4개와 bootJar, 개발/운영 Compose config 및 셸 문법 검사를 통과했다. 작업 환경에는 Docker 데몬이 없어 Testcontainers와 전체 스택 smoke는 실행하지 못했다. CI 파일을 추가한 것과 CI 실행 성공은 구분한다.
 
 ## 5. 운영 구동

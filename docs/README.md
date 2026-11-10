@@ -4,6 +4,8 @@
 
 신규 AWS 계정과 한 달 이내 행사 운영을 위한 [EC2 가입·서버 생성·2GiB 메모리 설정](ec2-deploy.md)을 준비했다. 실제 클라우드 배포·DNS·100명 부하 검증은 서버 생성 후 진행한다.
 
+GitHub Actions → ECR → SSM → Sydney EC2 구현과 `anonymitydeveloper.site` 가비아 DNS/운영 환경변수, AWS 승인/권한 차단 상태는 [배포 연결](github-actions-ec2.md)에 기록한다.
+
 이 폴더는 이전 대화를 보지 않은 개발자와 운영자가 TAG ME를 이해하기 위한 기준서다. 서비스 정책, 화면 흐름, 서버 구조, 데이터 관계, API, 장애 및 행사 운영을 함께 다룬다. 문서에 나오는 **설계는 구현 완료를 뜻하지 않는다.**
 
 Codex로 구현을 이어갈 때는 먼저 [현재 페이즈](progress.md)와 [스킬/개발 환경](codex-setup.md)을 읽고 해당 작업의 문서만 선택한다. 저장소 루트와 frontend/backend/infra의 AGENTS.md가 작업별 규칙을 제공한다.

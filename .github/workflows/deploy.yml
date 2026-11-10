@@ -1,0 +1,86 @@
+name: Deploy Sydney EC2
+
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# A running migration must finish. The host also holds a deployment lock.
+concurrency:
+  group: tagme-sydney-production
+  cancel-in-progress: false
+
+jobs:
+  release:
+    if: >-
+      github.ref == 'refs/heads/main' &&
+      vars.AWS_ROLE_ARN != '' && vars.EC2_INSTANCE_ID != '' &&
+      (github.event_name == 'workflow_dispatch' ||
+       (vars.AUTO_DEPLOY == 'true' && github.event.workflow_run.conclusion == 'success' &&
+        github.event.workflow_run.event == 'push' &&
+        github.event.workflow_run.head_repository.full_name == github.repository))
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    permissions:
+      contents: read
+      actions: read
+      id-token: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      AWS_REGION: ap-southeast-2
+      AWS_ROLE_ARN: ${{ vars.AWS_ROLE_ARN }}
+      EC2_INSTANCE_ID: ${{ vars.EC2_INSTANCE_ID }}
+      EVENT_SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
+    steps:
+      - name: Require successful CI for the current main commit
+        id: source
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          [[ "$EVENT_SHA" =~ ^[a-f0-9]{40}$ ]]
+          main_sha="$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq .object.sha)"
+          [[ "$EVENT_SHA" == "$main_sha" ]] || { echo 'Superseded commit: no deployment.'; exit 1; }
+          gh api "repos/$GITHUB_REPOSITORY/actions/workflows/ci.yml/runs?branch=main&head_sha=$EVENT_SHA&status=success&per_page=100" \
+            | jq -e --arg sha "$EVENT_SHA" '.workflow_runs | any(.head_sha == $sha and .event == "push" and .conclusion == "success")' >/dev/null
+          echo "sha=$EVENT_SHA" >> "$GITHUB_OUTPUT"
+          echo "tag=$EVENT_SHA-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT" >> "$GITHUB_OUTPUT"
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ steps.source.outputs.sha }}
+          persist-credentials: false
+      - name: Use short-lived AWS credentials
+        uses: aws-actions/configure-aws-credentials@cabfdba3510de1431bac9dba27511d97497fc100 # v5
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_ARN }}
+          aws-region: ap-southeast-2
+          role-session-name: tagme-${{ github.run_id }}
+      - name: Authenticate to private ECR
+        id: ecr
+        uses: aws-actions/amazon-ecr-login@03f1aad4c6c7ffd436567f42f9384779290529bd # v2
+      - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
+      - name: Build API image on GitHub runner
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
+        with:
+          context: backend
+          platforms: linux/amd64
+          push: true
+          tags: ${{ steps.ecr.outputs.registry }}/tagme/api:${{ steps.source.outputs.tag }}
+      - name: Build web image on GitHub runner
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
+        with:
+          context: frontend
+          platforms: linux/amd64
+          push: true
+          tags: ${{ steps.ecr.outputs.registry }}/tagme/web:${{ steps.source.outputs.tag }}
+      - name: Deploy via SSM without an SSH key or runtime secrets in GitHub
+        env:
+          ECR_REGISTRY: ${{ steps.ecr.outputs.registry }}
+          IMAGE_TAG: ${{ steps.source.outputs.tag }}
+        run: |
+          python3 scripts/deploy/send-release.py \
+            --instance-id "$EC2_INSTANCE_ID" --registry "$ECR_REGISTRY" --image-tag "$IMAGE_TAG"
