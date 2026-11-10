@@ -1,5 +1,14 @@
 # 페이즈별 개발 현황
 
+## 2026-11-10 — 실제 HTTPS 배포·관리자 인증·자동 배포 활성화 완료
+
+- PR [#15](https://github.com/anonymity-developer/connection_16/pull/15)의 최종 Frontend/Backend/Docker CI와 병합 후 main CI가 모두 통과했다. 사용자 승인대로 `d0dcbb37542ead25252a43941774b7af1ab2ebfd`로 main에 병합했다. [첫 배포 Actions](https://github.com/anonymity-developer/connection_16/actions/runs/42788902331)가 성공해 공개 runtime 릴리스를 발행했고 EC2가 main/CI/실행/파일·이미지·체크섬 검증 후 적용했다.
+- 실제 등록 도메인은 사용자가 확인한 **`anonmitydeveloper.site`**다. 초기 전달 철자 `anonymitydeveloper.site`는 등록/DNS에 없었다. 새로 확인한 주소로 운영 `.env.production`과 SSM SecureString v2를 맞췄고 A=`13.236.85.206`, 유효 HTTPS 인증서, Caddy HTTP→HTTPS/웹→API smoke, 네 컨테이너 healthy를 확인했다.
+- 실제 HTTPS에서 관리자 인증, CSRF 없는 로그인 403, TAGME_SESSION Secure/HttpOnly, 관리자/본인 조회 200, 로그아웃 후 관리자 401을 확인했다. EC2에서 승인된 Mattermost 발신 계정 로그인·채널 멤버십·임시 세션 종료도 통과했다. DM은 보내지 않았다. 참가자/공식 미션/행사 설정을 임의 생성하지 않았다.
+- `AUTO_DEPLOY=true`와 5분 간격 EC2 타이머를 활성화했다. 이후 main push CI 성공 시 GitHub Actions 이미지 빌드/릴리스 발행과 EC2 반영을 수행한다. GitHub/서버에 AWS 장기 키·SSH 키·GitHub 토큰을 두지 않았다. API/DB/Redis는 외부 publish하지 않고 SG는 TCP 80/443만 허용한다.
+- 로컬 두 스택은 중지하고 기존 볼륨은 보존했다. 사용자가 만든 환경 파일 ZIP은 보존한 채 로컬 Git exclude에 추가해 우발적인 공개 업로드를 막았다. 운영 비밀값은 출력/커밋하지 않았다. 운영자 아이디는 `admin:tagme`, 비밀번호는 별도 Git 제외 `.env.production`에서 확인한다.
+- 남은 별도 운영 검증은 서버 밖 암호화 백업/복원·주기 실행, 실제 DM·휴대전화/NFC·행사/정책 설정·100명 부하다. 초기 ECR 두 저장소는 비어 있고 현재 경로에서는 사용하지 않는다. [배포 운영 문서](github-actions-ec2.md).
+
 ## 2026-11-10 — 배포 승인 후 EC2 생성·무료 플랜 연결 변경
 
 - 사용자가 인프라 구성·CI 통과 후 main 병합/배포·기존 발신 계정 운영 사용·로컬 스택 종료를 명시 승인했다. 운영 환경에 기존 승인된 Mattermost 발신 계정/채널을 반영하고 암호화 SSM에 올렸다. 기존 로컬 두 스택은 중지했으며 DB 볼륨은 보존했다.

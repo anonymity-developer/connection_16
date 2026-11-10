@@ -10,7 +10,7 @@
 
 | 항목 | 값 |
 | --- | --- |
-| 운영 도메인 | 가비아 `anonymitydeveloper.site` |
+| 운영 도메인 | 가비아 `anonmitydeveloper.site` |
 | EC2 | `i-0faa77905f491ab31`, `tagme-event` |
 | 리전 / IP | Sydney `ap-southeast-2` / `13.236.85.206` |
 | OS / 인스턴스 | Ubuntu 24.04 / `t3.small`, 2 vCPU, 2GiB |
@@ -21,6 +21,10 @@
 | 운영 비밀값 | SSM SecureString `/tagme/production/env`, EC2 root 전용 파일 |
 
 AWS CLI는 Ubuntu 저장소에 설치 후보가 없어 공식 2.39.7 ZIP과 PGP 서명을 검증해 설치했다. [bootstrap.sh](../infra/ec2/bootstrap.sh)는 공식 키 지문 `FB5DB77FD5C118B80511ADA8A6310ACC4672475C`를 확인한다. 실제 EC2에서 Docker/Compose/AWS CLI 설치 성공을 확인했다. 최초 cloud-init 실패 기록은 이력이며 같은 서버에서 SSM으로 수정 설치했다.
+
+PR [#15](https://github.com/anonymity-developer/connection_16/pull/15)의 최종 Frontend/Backend/Docker와 병합 후 main CI가 모두 성공했다. 첫 [배포 실행](https://github.com/anonymity-developer/connection_16/actions/runs/42788902331)의 main `d0dcbb37542ead25252a43941774b7af1ab2ebfd` 릴리스를 EC2에 적용해 네 컨테이너 healthy, HTTPS 웹/API smoke를 확인했다. 실제 HTTPS에서 CSRF 없는 로그인 403, 관리자 로그인, `TAGME_SESSION` Secure/HttpOnly, 관리자 조회, 로그아웃 후 401을 통과했다. `AUTO_DEPLOY=true`를 설정했고 이후 main push CI 성공 시 자동 릴리스 발행/EC2 반영이 활성화돼 있다.
+
+실제 등록 주소에는 `anonymity`의 `y`가 없는 `anonmitydeveloper.site`를 사용한다. 초기에 전달된 다른 철자는 공용 등록/DNS에 없었으며, 사용자 등록 정보 확인 후 운영 파라미터를 수정했다. 정식 주소의 A 레코드가 서버 IP를 가리키고 HTTPS가 유효한 것을 확인했다.
 
 2026-11-10 Price List 조회 기준 서버+30GiB+IPv4는 730시간당 약 **$25.80**, 전송/백업 등은 별도다. 당시 Free ACTIVE, 잔액 $100을 확인했다. CPU 크레딧 소진 시 성능이 제한될 수 있다. IP는 stop/start 시 바뀔 수 있으므로 재시작 전 DNS 영향을 확인한다. 종료해도 보존 EBS는 자동 삭제되지 않는다.
 
@@ -69,12 +73,12 @@ aws ssm put-parameter --profile tagme --region ap-southeast-2 --name /tagme/prod
 | --- | --- | --- |
 | A | `@` | `13.236.85.206` |
 
-기본 주소는 apex 하나다. 불필요한 AAAA/포워딩을 추가하지 않는다. DNS가 연결되면 Caddy가 인증서를 발급하고 HTTP를 HTTPS로 전환한다. 정상 HTTPS·Secure 쿠키·CSRF·관리자 로그인은 실제 배포 후 검증한다.
+기본 주소는 apex 하나다. 불필요한 AAAA/포워딩을 추가하지 않는다. Caddy가 인증서를 발급하고 HTTP를 HTTPS로 전환한다. 실제 HTTPS·Secure 쿠키·CSRF·관리자 로그인을 검증했다.
 
 ## GitHub 설정과 복구
 
-main 반영 후 CI가 성공하면 `Deploy Sydney EC2`를 main에서 수동 실행한다. 실제 배포가 정상일 때 저장소 Actions **Variable** `AUTO_DEPLOY=true`를 지정하면 이후 main push CI 성공 때 릴리스를 자동 발행한다. AWS_ROLE_ARN/EC2_INSTANCE_ID나 GitHub Secrets는 필요 없다. 기존 Git credential helper의 인증을 비밀값 출력 없이 CLI에서도 확인했다.
+첫 배포는 main CI 성공 뒤 `Deploy Sydney EC2`를 main에서 수동 실행해 검증했다. 저장소 Actions **Variable** `AUTO_DEPLOY=true`를 지정했으므로 이후 main push CI 성공 때 릴리스를 자동 발행한다. AWS_ROLE_ARN/EC2_INSTANCE_ID나 GitHub Secrets는 필요 없다. 기존 Git credential helper의 인증을 비밀값 출력 없이 CLI에서도 확인했다.
 
 배포 실패 때 `/opt/tagme/current`와 실제 컨테이너 상태를 함께 확인한다. 이전 release의 `images.env` 태그/이미지를 보관하고 migration 호환성을 검토한 후 명시적으로 복구한다. 파괴적 migration을 이미지 롤백으로 복구했다고 가정하지 않는다. 릴리스 이미지/서버 다운로드/DB dump가 누적되므로 디스크 사용량을 확인하고 현재·이전 정상 배포를 보존하며 정리한다.
 
-`/opt/tagme/backups`의 dump는 서버 내부 백업이다. 서버 밖 암호화 보관·주기 실행·복원 검증은 아직 완료하지 않았다. 공개 행사 전 완료해야 한다. 실제 Mattermost DM·NFC/휴대전화·행사/정책 설정·100명 부하도 초기 인프라 배포와 별도 검증한다. 실제 최종 기동/CI/HTTPS 결과는 [진행 기록](progress.md)의 최신 항목을 따른다.
+`/opt/tagme/backups`의 dump는 서버 내부 백업이다. 서버 밖 암호화 보관·주기 실행·복원 검증은 아직 완료하지 않았다. 공개 행사 전 완료해야 한다. 승인된 Mattermost 발신 계정의 로그인·채널 멤버십은 실제 EC2에서 확인하고 임시 세션을 종료했다. 실제 DM 발송·NFC/휴대전화·행사/정책 설정·100명 부하는 별도 미검증이다. 실제 최종 기동/CI/HTTPS 결과는 [진행 기록](progress.md)의 최신 항목을 따른다.
