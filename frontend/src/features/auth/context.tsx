@@ -4,6 +4,7 @@ import type { ReactNode } from 'react';
 import { useLocation } from '../../app/navigation';
 import { authApi } from './api';
 import type { AuthConfig, SessionUser } from './api';
+import { passwordPolicy } from './validation';
 
 interface AuthState {
   ready: boolean; config: AuthConfig; user: SessionUser | null; flash: string;
@@ -13,7 +14,8 @@ interface AuthState {
   takeReturnPath: () => string;
 }
 const AuthContext = createContext<AuthState | null>(null);
-const unavailable = { available: false, passwordMinLength: 15, passwordMaxLength: 64 };
+
+const unavailable = { available: false, ...passwordPolicy };
 export function AuthProvider({ children }: { children: ReactNode }) {
   const location = useLocation();
   const preview = import.meta.env.DEV && new URLSearchParams(location.split('?')[1]).has('preview');

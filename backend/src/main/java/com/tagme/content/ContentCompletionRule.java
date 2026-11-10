@@ -12,9 +12,12 @@ public class ContentCompletionRule {
             public MissionCode code() { return kind.mission(); }
             public boolean accepts(long user,Mission mission,Receipt receipt) {
                 if(!kind.source().equals(receipt.sourceKind()))return false;
-                var revision=repository.revision(receipt.sourceId());if(revision==null||!"APPROVED".equals(revision.status()))return false;
+                var revision=repository.revision(receipt.sourceId());if(revision==null)return false;
                 var item=repository.item(revision.itemId(),false);
-                return item.authorId()==user&&item.kind()==kind&&"VISIBLE".equals(item.visibility())&&Long.valueOf(revision.id()).equals(item.approvedId());
+                if(item.authorId()!=user||item.kind()!=kind||!"VISIBLE".equals(item.visibility()))return false;
+                var id=Long.valueOf(revision.id());
+                return ("QUEUED".equals(revision.status())&&id.equals(item.pendingId()))
+                    || ("APPROVED".equals(revision.status())&&id.equals(item.approvedId()));
             }
         };
     }

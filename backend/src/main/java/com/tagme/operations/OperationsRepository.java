@@ -69,7 +69,9 @@ public class OperationsRepository {
         var users=queryAt(AWARD_BASE+" SELECT id,nickname,published_at FROM eligible ORDER BY id",
             (r,n)->new AwardModels.User(r.getLong("id"),r.getString("nickname"),at(r,"published_at")),observedAt);
         var proofs=queryAt(AWARD_BASE+"""
-          SELECT p.user_id,m.code,e.source_kind,e.source_id,e.receipt_order,e.accepted_received_at,
+          SELECT p.user_id,m.code,e.source_kind,COALESCE(qualified_receipt.source_id,e.source_id) source_id,
+            COALESCE(qualified_receipt.id,e.receipt_order) receipt_order,
+            COALESCE(qualified_receipt.received_at,e.accepted_received_at) accepted_received_at,
             (p.status='COMPLETED' AND p.completed_at IS NOT NULL AND p.completed_at<=ev.moderation_closes_at AND p.completed_at<=UTC_TIMESTAMP(6)
              AND e.accepted_received_at<=UTC_TIMESTAMP(6) AND e.accepted_received_at>=ev.opens_at AND e.accepted_received_at<ev.submit_closes_at
              AND e.accepted_received_at>=receipt.received_at AND p.completed_at>=e.accepted_received_at
@@ -87,12 +89,14 @@ public class OperationsRepository {
                  AND tap.ends_at<ev.submit_closes_at AND tap.submitted_at=receipt.received_at
                  AND tap.tap_count=(SELECT COUNT(*) FROM tap_attempt_events t WHERE t.attempt_id=tap.id AND t.event_type='TAP')
                  AND NOT EXISTS (SELECT 1 FROM tap_attempt_events t WHERE t.attempt_id=tap.id AND (t.event_type<>'TAP' OR t.relative_time_ms<0 OR t.relative_time_ms>=TIMESTAMPDIFF(MICROSECOND,tap.starts_at,tap.ends_at)/1000))
-               WHEN 'MAKE_A_WISH' THEN e.source_kind='WISH_REVISION' AND original.moderation_status='APPROVED' AND original_job.status='APPROVED'
+               WHEN 'MAKE_A_WISH' THEN e.source_kind='WISH_REVISION' AND original_job.id IS NOT NULL
                  AND original.submitted_at=receipt.received_at AND original.submitted_at>=ev.opens_at AND original.submitted_at<ev.submit_closes_at
                  AND item.author_id=e.user_id AND item.kind='WISH' AND live.id IS NOT NULL
-               WHEN 'SAY_SOMETHING' THEN e.source_kind='CHEER_REVISION' AND original.moderation_status='APPROVED' AND original_job.status='APPROVED'
+                 AND qualified_receipt.received_at>=receipt.received_at AND qualified_receipt.received_at<ev.submit_closes_at
+               WHEN 'SAY_SOMETHING' THEN e.source_kind='CHEER_REVISION' AND original_job.id IS NOT NULL
                  AND original.submitted_at=receipt.received_at AND original.submitted_at>=ev.opens_at AND original.submitted_at<ev.submit_closes_at
                  AND item.author_id=e.user_id AND item.kind='CHEER' AND live.id IS NOT NULL
+                 AND qualified_receipt.received_at>=receipt.received_at AND qualified_receipt.received_at<ev.submit_closes_at
                ELSE FALSE END) valid
           FROM mission_progress p JOIN eligible u ON u.id=p.user_id JOIN missions m ON m.id=p.mission_id
           LEFT JOIN mission_completion_evidence e ON e.user_id=p.user_id AND e.mission_id=m.id
@@ -106,6 +110,15 @@ public class OperationsRepository {
           LEFT JOIN moderation_jobs original_job ON original_job.revision_id=original.id
           LEFT JOIN content_items item ON item.id=original.item_id
           LEFT JOIN public_items live ON live.id=item.id
+          LEFT JOIN content_revisions qualified ON qualified.id=(
+            SELECT r.id FROM content_revisions r
+            JOIN moderation_jobs j ON j.revision_id=r.id AND j.status='APPROVED'
+            WHERE r.item_id=live.id AND r.moderation_status='APPROVED'
+            ORDER BY r.revision_no LIMIT 1
+          )
+          LEFT JOIN submission_receipts qualified_receipt ON qualified_receipt.source_id=qualified.id
+            AND qualified_receipt.user_id=e.user_id AND qualified_receipt.source_kind=e.source_kind
+            AND qualified_receipt.received_at=qualified.submitted_at AND qualified_receipt.received_at<=UTC_TIMESTAMP(6)
           WHERE p.status='COMPLETED' ORDER BY p.user_id,m.code
           """,(r,n)->new AwardModels.Proof(r.getLong("user_id"),r.getString("code"),r.getString("source_kind"),r.getLong("source_id"),r.getLong("receipt_order"),at(r,"accepted_received_at"),r.getBoolean("valid")),observedAt);
         var comments=queryAt(AWARD_BASE+"""

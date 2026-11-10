@@ -3,28 +3,28 @@
 .fountain-art > svg { width:100%; height:100%; }
 .fountain-letter { position:absolute; left:50%; top:6%; transform:translateX(-50%); width:32%; height:31%; object-fit:contain; filter:drop-shadow(0 8px 6px #547d9318); }
 .wish-lake-scene:has(.fountain-art) { height:500px; }
-.fountain-scene .wish-lake-coins { inset:59% 12% 10%; gap:8px 4px; }
+.wish-lake-scene.fountain-scene { height:580px; }
 .fountain-scene .wish-lake-invitation { inset:65% 15% auto; }
 .fountain-scene.has-receipt { margin-bottom:70px; }
 .participant-shell .wish-gallery .fountain-scene .wish-toss--in-lake p { bottom:-62px; }
-.wish-lake-coin .wish-coin-tooltip { visibility:hidden; opacity:0; position:absolute; top:auto; bottom:calc(100% + 8px); right:auto; left:50%; transform:translateX(-50%); z-index:10; width:160px; max-height:100px; overflow:hidden; background:#fff; color:var(--ink); font-size:13px; font-weight:400; line-height:1.6; padding:10px 12px; border:1px solid var(--border); border-radius:16px; box-shadow:0 3px 12px #23566d12; pointer-events:none; }
-.wish-lake-coin:hover .wish-coin-tooltip,.wish-lake-coin:focus-visible .wish-coin-tooltip { visibility:visible; opacity:1; }
-.fountain-scene .wish-lake-coins li:first-child .wish-coin-tooltip { left:0; transform:none; }
-.fountain-scene .wish-lake-coins li:nth-child(3n) .wish-coin-tooltip { left:auto; right:0; transform:none; }
-.wish-clouds { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); align-items:start; gap:24px 18px; padding:16px 0; margin:0; list-style:none; }
-.wish-clouds button { position:relative; width:100%; min-height:120px; padding:22px 24px; text-align:left; color:var(--ink); background:#f0f8fc; border:1px solid #d0e7f1; border-radius:32px 38px 34px 14px; }
-.wish-clouds li:nth-child(even) button { background:#f4f1fc; border-color:#e2daef; border-radius:38px 24px 14px 36px; }
-.wish-clouds button::after { content:''; position:absolute; left:28px; bottom:-7px; width:14px; height:14px; border-radius:0 0 5px 0; background:inherit; transform:rotate(45deg); }
-.wish-clouds button > span { display:block; }
-.wish-clouds button > span:last-child { display:-webkit-box; -webkit-line-clamp:4; -webkit-box-orient:vertical; overflow:hidden; line-height:1.8; font-size:15px; }
-.wish-clouds button:hover,.wish-clouds button:focus-visible { border-color:var(--accent); }
+.wish-sky { margin-top: 10px; padding: 12px clamp(10px, 3vw, 22px) 22px; background: linear-gradient(180deg, #e6f5fd, #f5fbff 420px); border: 1px solid #d4eaf6; border-radius: 24px; }
+.wish-sky-heading { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 60px; padding-inline: 10px; color: var(--accent-ink); font-size: 14px; font-weight: 700; }
+.wish-sky-flight { flex: 0 1 170px; min-width: 0; width: 51%; color: #73abc9; overflow: visible; }
+.wish-clouds { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: start; gap: 12px 16px; padding: 0; margin: 0; list-style: none; }
+.wish-clouds button { position: relative; isolation: isolate; display: grid; align-content: center; gap: 4px; width: 100%; min-height: 144px; padding: 42px 14% 27px; text-align: left; overflow-wrap: anywhere; color: var(--ink); background: transparent; border: 0; border-radius: 28px; }
+.wish-cloud-shape { position: absolute; z-index: -1; inset: 0; width: 100%; height: 100%; pointer-events: none; fill: #fff; stroke: #a9d2e9; stroke-width: 1.2; filter: drop-shadow(0 4px 4px #35789b1a); }
+.wish-clouds li:nth-child(even) .wish-cloud-shape { fill: #f7f3ff; stroke: #d8cbea; }
+.wish-clouds button:hover .wish-cloud-shape, .wish-clouds button[aria-expanded='true'] .wish-cloud-shape { stroke: var(--accent); stroke-width: 2; }
+.wish-cloud-text { display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden; white-space: pre-wrap; line-height: 1.7; font-size: 15px; }
+.wish-sky > .button { margin-top: 12px; }
+@container (max-width: 520px) { .wish-clouds { grid-template-columns: 1fr; } }
 .participant-shell .tap-area { border-radius:42px; background:#dff3ff; border:2px solid #b5dced; color:#166186; min-height:220px; box-shadow:0 6px 0 #accfe0; transition:transform 70ms,box-shadow 70ms; touch-action:none; user-select:none; }
 .participant-shell .tap-area:active { transform:translateY(4px) scale(.99); box-shadow:0 2px 0 #accfe0; background:#c9eafa; }
 .participant-shell .tap-metrics strong { font-variant-numeric:tabular-nums; }
 .sync-question-list fieldset[hidden] { display:none !important; }
 .sync-panel progress { display:block; accent-color:var(--accent); width:100%; height:8px; margin:16px 0; }
 .event-encouragement { display:flex; justify-content:space-between; align-items:center; gap:12px; margin:20px 0; font-size:14px; color:var(--accent-ink); }
-@media(max-width:600px) { .wish-clouds{grid-template-columns:1fr;gap:20px;} .wish-lake-scene:has(.fountain-art){height:470px;} .fountain-scene .wish-lake-coins{inset-inline:8%;} }
+@media(max-width:600px) { .wish-clouds{grid-template-columns:1fr;} .wish-lake-scene:has(.fountain-art):not(.fountain-scene){height:410px;} }
 @media(prefers-reduced-motion:reduce) { .participant-shell .tap-area{transition:none;}.fountain-streams{animation:none;}.fountain-letter{filter:none;} }
 .mission-encouragement { color:var(--muted); font-size:14px; margin:8px 0 20px; }
 .fountain-streams path:nth-child(2) { stroke-dasharray:12 18; animation:fountain-flow 2200ms linear infinite; }

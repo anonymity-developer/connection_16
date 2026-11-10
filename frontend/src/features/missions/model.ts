@@ -26,7 +26,7 @@ export const lockedProgress: Record<MissionCode, MissionState> = {
 };
 
 export const stateLabels: Record<MissionState, string> = {
-  LOCKED: '태그를 찾아주세요', UNLOCKED: '참여할 수 있어요', PENDING: '검수 중이에요', COMPLETED: '글자 획득 완료',
+  LOCKED: '태그를 찾아주세요', UNLOCKED: '참여할 수 있어요', PENDING: '진행 중이에요', COMPLETED: '글자 획득 완료',
 };
 
 export interface ScreenData {

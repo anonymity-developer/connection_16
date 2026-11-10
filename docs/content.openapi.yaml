@@ -34,7 +34,7 @@ paths:
       - session: []
       responses:
         '202':
-          description: 검수 요청 저장; 승인/완료 아님
+          description: 접수 및 글자 획득 기록 저장. 공개 승인은 별도.
           content:
             application/json:
               schema:
@@ -81,7 +81,7 @@ paths:
       - session: []
       responses:
         '202':
-          description: 검수 요청 저장; 승인/완료 아님
+          description: 접수 및 글자 획득 기록 저장. 공개 승인은 별도.
           content:
             application/json:
               schema:
@@ -119,7 +119,7 @@ paths:
       - session: []
       responses:
         '202':
-          description: 검수 요청 저장; 승인/완료 아님
+          description: 접수 및 글자 획득 기록 저장. 공개 승인은 별도.
           content:
             application/json:
               schema:
@@ -155,7 +155,7 @@ paths:
       - session: []
       responses:
         '202':
-          description: 검수 요청 저장; 승인/완료 아님
+          description: 접수 및 글자 획득 기록 저장. 공개 승인은 별도.
           content:
             application/json:
               schema:

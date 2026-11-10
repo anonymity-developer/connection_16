@@ -554,7 +554,7 @@ components:
           description: '독립 관리자 계정이 준비됨. admin: 아이디는 Mattermost를 호출하지 않는다.'
         passwordMinLength:
           type: integer
-          const: 15
+          const: 8
         passwordMaxLength:
           type: integer
           const: 64
@@ -674,7 +674,7 @@ components:
           description: 숫자 타입으로 변환하지 않고 선행 0을 유지한다.
         password:
           type: string
-          minLength: 15
+          minLength: 8
           maxLength: 64
           description: Unicode code point 기준, 공백 포함. 공백만 있는 값은 거절하며 원문은 trim/정규화하지 않는다.
     PasswordRequest:
@@ -696,6 +696,6 @@ components:
           description: 숫자 타입으로 변환하지 않고 선행 0을 유지한다.
         newPassword:
           type: string
-          minLength: 15
+          minLength: 8
           maxLength: 64
           description: Unicode code point 기준, 공백 포함. 공백만 있는 값은 거절하며 원문은 trim/정규화하지 않는다.

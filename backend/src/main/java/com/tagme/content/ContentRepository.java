@@ -73,7 +73,6 @@ public class ContentRepository {
             """,(r,n)->new PublicContent(r.getLong("id"),r.getString("content_text"),r.getString("template_id"),r.getString("style"),r.getBoolean("anonymous"),r.getBoolean("anonymous")?null:r.getString("nickname"),r.getObject("luck_score",Integer.class),r.getObject("landing_zone",Integer.class),r.getBoolean("anonymous")?null:r.getLong("author_id")),kind.name(),cursor);
         boolean more=rows.size()>20;var items=rows.stream().limit(20).toList();return new Feed(items,more?items.getLast().id():null);
     }
-    public void markInProgress(long user,String mission) { db.update("UPDATE mission_progress p JOIN missions m ON m.id=p.mission_id SET p.status='IN_PROGRESS' WHERE p.user_id=? AND m.code=? AND p.status='UNLOCKED'",user,mission); }
     public long receiptId(long user,String kind,long revision) { return db.queryForObject("SELECT id FROM submission_receipts WHERE user_id=? AND source_kind=? AND source_id=?",Long.class,user,kind,revision); }
     public void hide(long item,String visibility) { db.update("UPDATE content_items SET visibility_status=?,version=version+1,updated_at=UTC_TIMESTAMP(6) WHERE id=?",visibility,item); }
 }

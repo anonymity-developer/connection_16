@@ -7,9 +7,9 @@ class PasswordPolicyTest {
     @Test void policyCountsUnicodeCodePointsAndDoesNotTrim() {
         assertThatCode(() -> PasswordPolicy.validate(" a sufficiently long password ")).doesNotThrowAnyException();
         assertThatCode(() -> PasswordPolicy.validate("가".repeat(64))).doesNotThrowAnyException();
-        assertThatCode(() -> PasswordPolicy.validate("😀".repeat(15))).doesNotThrowAnyException();
-        assertThatThrownBy(() -> PasswordPolicy.validate(" ".repeat(15))).isInstanceOf(AuthException.class);
-        assertThatThrownBy(() -> PasswordPolicy.validate("a".repeat(14))).isInstanceOf(AuthException.class);
+        assertThatCode(() -> PasswordPolicy.validate("😀".repeat(8))).doesNotThrowAnyException();
+        assertThatThrownBy(() -> PasswordPolicy.validate(" ".repeat(8))).isInstanceOf(AuthException.class);
+        assertThatThrownBy(() -> PasswordPolicy.validate("a".repeat(7))).isInstanceOf(AuthException.class);
         assertThatThrownBy(() -> PasswordPolicy.validate("가".repeat(65))).isInstanceOf(AuthException.class);
     }
     @Test void hashesAreSaltedAndSupportKoreanBeyondBcryptByteLimit() {

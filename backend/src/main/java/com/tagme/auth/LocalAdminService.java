@@ -30,7 +30,7 @@ public class LocalAdminService implements ApplicationRunner {
         String password=environment.getProperty("tagme.admin.bootstrap-password","");
         if(name.isBlank()&&password.isBlank())return;
         if(!name.matches("admin:[a-z0-9._-]{1,48}"))throw new IllegalArgumentException("ADMIN_BOOTSTRAP_ID must be admin: followed by 1-48 lowercase letters, digits, '.', '_' or '-'");
-        PasswordPolicy.validate(password);
+        PasswordPolicy.validateAdmin(password);
         try {if(Base64.getDecoder().decode(properties.hmacKey()).length<32)throw new IllegalArgumentException();}
         catch(IllegalArgumentException invalid){throw new IllegalArgumentException("Set AUTH_HMAC_KEY to at least 32 random bytes encoded as Base64 for administrator login");}
         String hash=passwords.encode(password);
