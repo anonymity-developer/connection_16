@@ -15,7 +15,7 @@
 .participant-shell .brand { color: var(--accent-ink); }
 .participant-shell .header-login { border-radius: 999px; background: var(--accent-soft); border-color: transparent; }
 .participant-shell .button { border-radius: 999px; min-height: 48px; }
-.participant-shell .button--primary { box-shadow: 0 3px 9px rgb(8 119 185 / .14); }
+.participant-shell .button--primary { box-shadow: none; }
 .participant-shell .button--secondary { border-color: var(--accent-track); background: var(--surface); }
 .participant-shell .button:disabled { box-shadow: none; }
 .participant-shell .button--quiet { box-shadow: none; }

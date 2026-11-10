@@ -52,6 +52,8 @@ try {
         if (collectionFailure) return reply(503, { code: 'UNAVAILABLE', message: '참여 기록을 불러오지 못했어요.' });
         return reply(200, { missions: ['SHOW_ME', 'SYNC_ME', 'MAKE_A_WISH', 'FAST_TAP', 'SAY_SOMETHING'].map((code, i) => ({ id: i + 1, code, active: true, state: i === 0 ? completed ? 'COMPLETED' : 'LOCKED' : i === 1 && unlocked ? 'UNLOCKED' : 'LOCKED', unlockedAt: null, completedAt: null })), completedCount: completed ? 1 : 0, completion: { complete: false, completionOrder: null, completedAt: null, awardConfirmed: false } });
       }
+      // Only the tag/profile contract is exercised here, not the destination's survey.
+      if (method === 'GET' && path === '/sync/me') return reply(503, { code: 'TEST_OUT_OF_SCOPE', message: '설문은 결과 미션 검사에서 확인해요.' });
       assert.equal(req.headers()['x-xsrf-token'], 'contract-csrf');
       const body = req.postDataJSON();
       if (path === '/auth/login') { signedIn = true; return reply(200, user()); }
@@ -77,7 +79,7 @@ try {
       }
 
       throw new Error(`Unexpected contract request ${method} ${path}`);
-    } catch (error) { routeErrors.push(error.message); await route.fulfill({ status: 500, contentType: 'application/json', body: JSON.stringify({ message: '계약 검사 오류' }) }); }
+    } catch (error) { routeErrors.push(`${route.request().method()} ${new URL(route.request().url()).pathname}: ${error.message}`); await route.fulfill({ status: 500, contentType: 'application/json', body: JSON.stringify({ message: '계약 검사 오류' }) }); }
   });
   const visit = path => page.goto(`http://127.0.0.1:4373${path}`);
   const record = name => { checks.push(name); console.log(`PASS ${name}`); };
@@ -101,7 +103,8 @@ try {
   assert.equal(await checklist.locator('.is-ready').count(), 0);
   await fill();
   assert.equal(await checklist.locator('.is-ready').count(), 2);
-  assert.equal(await checklist.getByText('현장에서 태그해 주세요', { exact: true }).count(), 1);
+  assert.equal(await checklist.getByText('현장에서 태그해 주세요', { exact: true }).count(), 0);
+  assert.ok((await checklist.locator('.checklist-footnote').innerText()).includes('프로필을 완성하면 첫 번째 S'));
   assert.equal(await page.getByRole('heading', { name: '첫 번째 S를 모았어요', exact: true }).count(), 0);
   assert.equal(completed, false);
   await page.getByRole('button', { name: '프로필 저장하기', exact: true }).click(); assert.equal(saves, 0);
@@ -171,9 +174,10 @@ try {
   assert.equal(await page.getByRole('progressbar').count(), 0);
   assert.equal(await page.locator('meta[name="referrer"]').getAttribute('content'), 'no-referrer');
   record('expired tag, unconfigured policies and collection failure never advance or display fake counts');
-  assert.deepEqual(pageErrors, []); assert.deepEqual(routeErrors, []); assert.ok(resolves >= 3);
+  assert.deepEqual(pageErrors, []); assert.deepEqual(routeErrors, []);
+  assert.equal(resolves, 2, 'one SYNC resume and one expired resume; automatic SHOW ME never resolves a tag');
   await writeFile(resolve(output, 'participation-contract-checks.json'), JSON.stringify({ kind: 'browser API contract fixtures; no real participants, policies or event tags', checks, pageErrors, routeErrors }, null, 2));
-  const inspector = resolve('../.taste-skill/profile-render'); await mkdir(inspector, { recursive: true }); const launcher = resolve(inspector, 'chromium.sh'); await writeFile(launcher, `#!/usr/bin/env bash\nexec "${chromium.executablePath()}" --no-sandbox "$@"\n`); await chmod(launcher, 0o700);
+  const inspector = resolve('../.taste-skill/profile-render'); await mkdir(inspector, { recursive: true }); const launcher = process.platform === 'win32' ? chromium.executablePath() : resolve(inspector, 'chromium.sh'); if (process.platform !== 'win32') { await writeFile(launcher, `#!/usr/bin/env bash\nexec "${chromium.executablePath()}" --no-sandbox "$@"\n`); await chmod(launcher, 0o700); }
   await new Promise((done, reject) => { const child = spawn(process.execPath, ['scripts/taste.mjs', 'inspect', 'http://127.0.0.1:4373/me/profile', '--app', '--widths', '1440,768,390', '--out', '.taste-skill/profile-render'], { cwd: resolve('..'), env: { ...process.env, CHROME_PATH: launcher }, stdio: 'inherit' }); child.on('error', reject); child.on('exit', code => code === 0 ? done() : reject(new Error(`Profile render check exited ${code}`))); });
 
 } finally { await browser?.close(); await server.httpServer.close(); }

@@ -1,3 +1,4 @@
+// Offline development fixture; never registered as the live questionnaire.
 import draft from './sync-questionnaire.proposal.json';
 import type { resultsApi, SyncResult, TapAttempt } from '../features/results/api';
 import type { contentApi, ContentKind, OwnSlot, PublicContent, Revision } from '../features/content/api';

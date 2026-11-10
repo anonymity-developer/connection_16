@@ -22,7 +22,7 @@ export function AwardsPanel({ onDenied }: { onDenied: (message: string) => void 
   useEffect(() => { void load(); return () => { generation.current++; }; }, [location]);
   return <section className="ops-awards" aria-labelledby="award-heading" aria-busy={loading}>
     <div className="ops-toolbar"><div><h2 id="award-heading">잠정 시상 후보</h2><p className="ops-meta">경쟁 4부문 · 각 1명 기준 · 다섯 미션 유효 완료자 대상</p></div><Button variant="secondary" onClick={load} disabled={loading}>후보 다시 조회</Button></div>
-    <label className="award-category">시상 부문<select value={category} onChange={e => navigate(`/admin?tab=awards&category=${e.target.value}`)}>{labels.map(c => <option key={c} value={c}>{awardLabels[c]}</option>)}</select></label>
+    <div className="award-category"><label htmlFor="award-category">시상 부문</label><select id="award-category" value={category} onChange={e => navigate(`/admin?tab=awards&category=${e.target.value}`)}>{labels.map(c => <option key={c} value={c}>{awardLabels[c]}</option>)}</select></div>
     {loading && <p role="status">서버 근거를 같은 조회 시점으로 집계하고 있어요.</p>}
     {error && <p role="alert" className="form-notice is-error">{error}</p>}
     {report && <AwardReportView report={report} />}

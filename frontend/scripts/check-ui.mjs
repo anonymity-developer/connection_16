@@ -20,6 +20,16 @@ try {
   await development.listen();
   browser = await chromium.launch();
   const context = await browser.newContext({ permissions: ['clipboard-read', 'clipboard-write'] });
+  // Isolate this visual/validation suite from any developer API proxy.
+  // Dedicated auth contracts exercise successful requests with their own fixtures.
+  await context.route('**/api/v1/**', async route => {
+    const path = new URL(route.request().url()).pathname.slice(7);
+    if (route.request().method() !== 'GET') return route.abort();
+    const data = path === '/auth/config' ? { available: false, passwordMinLength: 15, passwordMaxLength: 64 }
+      : path === '/users/me' ? { code: 'UNAUTHENTICATED', message: '로그인이 필요해요.' }
+      : path === '/tags/pending' ? { present: false } : { code: 'FIXTURE_ONLY', message: '화면 검사 범위 밖이에요.' };
+    return route.fulfill({ status: path === '/users/me' ? 401 : ['/auth/config','/tags/pending'].includes(path) ? 200 : 503, json: data });
+  });
   const page = await context.newPage();
   const failures = [];
   const writes = [];
@@ -55,7 +65,9 @@ try {
     await visit(`${productionUrl}/?preview=complete`);
     assert.equal(await page.getByRole('complementary', { name: '개발용 상태 미리보기' }).count(), 0);
     assert.equal(await page.getByRole('progressbar').count(), 0);
-    assert.equal(await page.locator('.collection-count').count(), 0, 'no fake count before server data');
+    assert.equal(await page.locator('.collection-count').count(), 0, 'unknown progress has no invented count');
+    assert.equal(await page.locator('.letter-slots .letter-slot').count(), 5);
+    assert.equal(await page.locator('.letter-slots .is-collected').count(), 0, 'preview query cannot grant letters in production');
     await visit(`${productionUrl}/me/password?preview=unlocked`);
     assert.equal(await page.locator('input[name="password"]').count(), 0);
     await visit(`${productionUrl}/complete?preview=complete`);
@@ -105,7 +117,7 @@ try {
     await page.waitForFunction(() => document.querySelector('[role="progressbar"]')?.getAttribute('aria-valuenow') === '2');
     await page.goForward();
     await page.waitForFunction(() => document.querySelector('[role="progressbar"]')?.getAttribute('aria-valuenow') === '5');
-    assert.equal(new URL(await page.locator('.collection-complete-link').getAttribute('href'), developmentUrl).pathname, '/complete');
+    assert.equal(await page.locator('.collection-complete-link').getAttribute('href'), '/complete?preview=complete');
     await page.screenshot({ path: resolve(output, 'home-preview-complete-390.png'), fullPage: true });
     await page.getByRole('link', { name: '완성 기록 보기', exact: true }).click();
     await page.getByRole('heading', { name: '다섯 글자를 모두 모았어요', exact: true }).waitFor();

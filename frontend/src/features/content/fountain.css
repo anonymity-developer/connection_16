@@ -18,7 +18,7 @@
 .wish-clouds button > span { display:block; }
 .wish-clouds button > span:last-child { display:-webkit-box; -webkit-line-clamp:4; -webkit-box-orient:vertical; overflow:hidden; line-height:1.8; font-size:15px; }
 .wish-clouds button:hover,.wish-clouds button:focus-visible { border-color:var(--accent); }
-.participant-shell .tap-area { border-radius:42px; background:#dff3ff; border:2px solid #b5dced; color:#166186; min-height:220px; box-shadow:0 6px 0 #accfe0; transition:transform 70ms,box-shadow 70ms; touch-action:manipulation; user-select:none; }
+.participant-shell .tap-area { border-radius:42px; background:#dff3ff; border:2px solid #b5dced; color:#166186; min-height:220px; box-shadow:0 6px 0 #accfe0; transition:transform 70ms,box-shadow 70ms; touch-action:none; user-select:none; }
 .participant-shell .tap-area:active { transform:translateY(4px) scale(.99); box-shadow:0 2px 0 #accfe0; background:#c9eafa; }
 .participant-shell .tap-metrics strong { font-variant-numeric:tabular-nums; }
 .sync-question-list fieldset[hidden] { display:none !important; }

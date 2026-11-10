@@ -11,7 +11,7 @@
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview --host 127.0.0.1",
-    "test:unit": "node --test tests/*.test.mjs ../scripts/*.test.mjs",
+    "test:unit": "node --test --test-concurrency=1 tests/*.test.mjs ../scripts/*.test.mjs",
     "test:ui": "node scripts/check-ui.mjs",
     "test:auth-ui": "node scripts/check-auth-ui.mjs",
     "test:participation-ui": "node scripts/check-participation-ui.mjs",
@@ -20,7 +20,9 @@
     "test:reactions-ui": "node scripts/check-reactions-ui.mjs",
     "test:discovery-ui": "node scripts/check-discovery-ui.mjs",
     "test:operations-ui": "node scripts/check-operations-ui.mjs",
-    "test:auth-nfc-ui": "node scripts/check-auth-nfc-ui.mjs"
+    "test:auth-nfc-ui": "node scripts/check-auth-nfc-ui.mjs",
+    "test:awards-ui": "node scripts/check-awards-ui.mjs",
+    "test:post-event-ui": "node scripts/check-post-event-ui.mjs"
   },
   "dependencies": {
     "react": "19.3.1",

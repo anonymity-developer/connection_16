@@ -25,7 +25,7 @@ export function FountainExperience({store}:{store:Experience}) {
       {phase==='issued'&&<button type="button" className={`throw-coin ${dragging?'is-dragging':''}`} aria-label="소원 동전 던지기" disabled={busy} style={dragging?{left:point.x+'%',top:point.y+'%'}:undefined} onPointerDown={e=>{e.preventDefault();pointer.current=e.pointerId;e.currentTarget.setPointerCapture(e.pointerId);setDragging(true);move(e);}} onPointerMove={move} onPointerUp={release} onPointerCancel={()=>{pointer.current=null;setDragging(false);}} onClick={e=>{if(e.detail===0)void toss('water');}}>A<span>던져봐요</span></button>}
       {phase==='flying'&&<div className={`throw-flight landing-${landing}`} style={{'--landing-y':landing==='statue'?'34%':'69%'} as CSSProperties} aria-hidden="true"><span>A</span></div>}
       {phase==='pending'&&privateStatue&&<span className="private-landing" aria-label="내 동전 · 비공개 검수 대기">A<small>내 동전 · 비공개</small></span>}
-      {phase==='flying'&&landing==='statue'&&<span className="fountain-twinkle" aria-hidden="true">✦</span>}
+      {phase==='flying'&&landing==='statue'&&<span className="fountain-twinkle" aria-hidden="true"><svg viewBox="0 0 24 24" width="24" height="24"><path d="m12 0 3 9 9 3-9 3-3 9-3-9-9-3 9-3Z" fill="currentColor" /></svg></span>}
       {phase==='flying'&&landing==='water'&&<span className="fountain-splash" aria-hidden="true"/>}
   </>;
   return <section className="demo-fountain">

@@ -9,6 +9,14 @@ const {chooseLanding}=await server.ssrLoadModule('/src/dev/FountainExperience.ts
 const {missions}=await server.ssrLoadModule('/src/features/missions/model.ts');
 const {localPhase}=await server.ssrLoadModule('/src/features/results/timing.ts');
 const input={content:'가상 소원',templateId:'PLAIN',style:'ROSE',anonymous:true,expectedVersion:null};
+
+test('Docker-local development questionnaire stays identical to the review-only proposal',async()=>{
+ const [fixture,proposal]=await Promise.all([
+  readFile(new URL('../src/dev/sync-questionnaire.proposal.json',import.meta.url),'utf8'),
+  readFile(new URL('../../docs/sync-questionnaire.proposal.json',import.meta.url),'utf8'),
+ ]);
+ assert.deepEqual(JSON.parse(fixture),JSON.parse(proposal));
+});
 test('approved display copy changes only names while mission codes, order and routes remain stable',()=>{
  assert.deepEqual(missions.map(m=>m.name),['SHOW ME','SYNC ME','A WISH COME TRUE','FAST TAP','YOU GOT THIS']);assert.deepEqual(missions.map(m=>m.code),['SHOW_ME','SYNC_ME','MAKE_A_WISH','FAST_TAP','SAY_SOMETHING']);assert.equal(missions[4].slug,'say-something');assert.equal(missions[2].slug,'make-a-wish');assert.deepEqual(missions.map(m=>m.description),['나를 소개하는 프로필을 완성해요!','나와 잘 맞는 동료를 찾아봐요!','나의 소원을 남기고, 다른 소원을 댓글로 응원해봐요!','10초 동안 최고 탭 기록에 도전해요!','SSAFY 16기 모두를 향한 응원의 메시지를 남겨요!']);for(const m of missions)assert.ok(m.encouragement);
 });
