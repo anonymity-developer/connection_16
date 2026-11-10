@@ -1,5 +1,12 @@
 # 페이즈별 개발 현황
 
+## 2026-11-10 — PR #12 리뷰, main 병합 보류
+
+- 원래 `connection_16` 폴더에서 `review/pr-12-integration`으로 PR #12의 `88caf86`을 가져왔다. 관리자 `feat/admin-page`의 `64a0ad7`과 main의 `5a63599`, 기존 환경설정/DB는 보존했다.
+- PR은 `feat/network-graph` 대상이다. main과 Git 텍스트 충돌은 없지만, Docker web 빌드 실패와 기존 SHOW ME 태그 이동 오류를 각각 로컬 Docker/실제 브라우저에서 재현하여 병합하지 않았다. 앱/DB 완료 시각 정합성과 CI/시상 테스트 문제도 기록했다.
+- 프론트 lint/로컬 build, 순차 단위 94개, 네 NFC의 인증 복귀 12종, 결과·내보내기 브라우저 검사 및 Compose 두 구성은 통과했다. GitHub Backend job은 성공했으나 Frontend/Docker job은 실패했다. 전체 시각 검수/실제 MM·실물 NFC는 수행하지 않았다.
+- 코드 수정·원격 push/댓글·병합/배포는 없으며 상세 근거와 재검증 순서는 [PR #12 리뷰](pr-12-review.md)를 따른다. 결함 해결 후 main에 반영한 다음 보존한 관리자 브랜치 작업을 이어간다.
+
 ## 2026-11-06 — v5 STEP 0·1: Mattermost·4시간 세션
 
 - 범위: STEP 0·1만 수행. 기존 React/Java 21/Spring Boot/MySQL/Redis와 인증·NFC 복귀 구현을 유지했다. [인증 검증 상세](auth.md#2026-11-06--v5-step-1-검증).
