@@ -105,20 +105,20 @@ test('public collection has five Korean labels, no invented participation count 
 });
 
 
-test('home cards retain five distinct accessible detail links and only two moderation notes', () => {
+test('home cards expose only five accessible detail links without repeated review notes', () => {
   const previous = globalThis.window;
   globalThis.window = { location: { href: 'http://localhost/', origin: 'http://localhost' } };
   try {
     const html = renderToStaticMarkup(createElement(MissionCards, { data: { preview: false, progress: lockedProgress, nickname: null } }));
     assert.equal((html.match(/class="mission-row"/g)||[]).length, 5);
-    assert.equal((html.match(/mission-overview-card/g)||[]).length, 1);
+    assert.equal((html.match(/mission-overview-card/g)||[]).length, 0);
     assert.doesNotMatch(html, /미션 알아보기|state-badge/);
     for (const mission of missions) {
       const card = [...html.matchAll(/<a[^>]*data-mission="([^"]+)"[^>]*>[\s\S]*?<\/a>/g)].find(m=>m[1]===mission.code)?.[0];
       assert.ok(card && card.includes(`href="/missions/${mission.slug}"`) && card.includes('aria-label='));
-      assert.equal(card.includes('mission-moderation-note'), ['MAKE_A_WISH','SAY_SOMETHING'].includes(mission.code));
+      assert.equal(card.includes('mission-moderation-note'), false);
     }
-    assert.match(html, /href="\/missions"/);
+    assert.doesNotMatch(html, /href="\/missions"/);
   } finally { if(previous===undefined)delete globalThis.window;else globalThis.window=previous; }
 });
 test('location hints preserve future configured text without inventing a floor', () => {
@@ -138,6 +138,7 @@ test('collection invitation stays singular through locked, unlocked and moderati
       assert.equal((html.match(/class="collection-bubble"/g) || []).length, 1);
       assert.match(html, /aria-hidden="true">우리를 찾아봐!/);
       assert.equal((html.match(/is-uncollected/g) || []).length, 5);
+      assert.deepEqual([...html.matchAll(/data-visual="([^"]+)"/g)].map(m => m[1]), missions.map(m => state === 'LOCKED' || m.code === 'SHOW_ME' ? 'unrevealed' : 'unlocked'));
       assert.doesNotMatch(html, /letter-sparkle|완성 기록 보기/);
       for (const m of missions) assert.ok(html.includes(m.name), 'existing accessible mission/state names remain');
     }
@@ -149,9 +150,11 @@ test('collection invitation stays singular through locked, unlocked and moderati
     const complete = render(all);
     assert.doesNotMatch(complete, /collection-bubble|is-uncollected/);
     assert.equal((complete.match(/letter-sparkle/g) || []).length, 5);
+    assert.equal((complete.match(/data-visual="collected"/g) || []).length, 5);
     assert.match(complete, /완성 기록 보기/);
     const unknown = render(all, false);
     assert.match(unknown, /collection-bubble/);
+    assert.equal((unknown.match(/data-visual="unrevealed"/g) || []).length, 5);
     assert.doesNotMatch(unknown, /letter-sparkle|완성 기록 보기|collection-count|글자 획득 완료/);
   } finally { if (previous === undefined) delete globalThis.window; else globalThis.window = previous; }
 });
