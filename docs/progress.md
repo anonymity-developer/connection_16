@@ -1,5 +1,38 @@
 # 페이즈별 개발 현황
 
+## 2026-11-10 — 배포 승인 후 EC2 생성·무료 플랜 연결 변경
+
+- 사용자가 인프라 구성·CI 통과 후 main 병합/배포·기존 발신 계정 운영 사용·로컬 스택 종료를 명시 승인했다. 운영 환경에 기존 승인된 Mattermost 발신 계정/채널을 반영하고 암호화 SSM에 올렸다. 기존 로컬 두 스택은 중지했으며 DB 볼륨은 보존했다.
+- Sydney `i-0faa77905f491ab31` / `13.236.85.206` / t3.small / 암호화 gp3 30GiB를 생성했다. SSM Online, IMDSv2 필수/hop 1, 종료 보호/볼륨 보존, 웹 TCP 80/443 외 인바운드 없음이다. Ubuntu awscli 후보 부재로 cloud-init 초기 설치가 실패했으나 공식 ZIP 서명/지문 검증 방식으로 수정하고 같은 EC2에 Docker/Compose/AWS CLI 설치 성공을 확인했다.
+- OIDC Create 요청이 실제 AWS SCP에 거부됐다. 사용자는 무료 플랜 유지·다른 연결 방식 검토를 선택했다. GitHub Actions가 공개 runtime 릴리스를 만들고 EC2가 성공한 현재 main/CI/워크플로/해시/파일·이미지 허용 목록을 검증해 받는 방식으로 변경했다. AWS 키·SSH 키·GitHub 토큰을 CI/서버에 복사하지 않는다. EC2 확인 타이머는 5분 간격이다.
+- PR #15를 생성했고 기존 커밋의 Frontend/Backend/Docker CI는 모두 통과했다. 무료 플랜 방식 변경의 최종 CI/병합/실제 배포는 후속 확인한다. 가비아 A 레코드 저장 완료를 사용자에게 받았으며 공용 DNS/HTTPS 발급은 계속 확인한다. [현재 배포 연결](github-actions-ec2.md).
+
+## 2026-11-10 — Sydney EC2·GitHub Actions 배포 연결 구현, 실제 변경 승인 대기
+
+- `infra/ec2-deploy`에서 기존 단일 VM/Compose를 유지해 main의 성공한 CI → private ECR 불변 이미지 → SSM Run Command → EC2 기동/readiness/HTTPS smoke를 구현했다. main/저장소/커밋을 확인하고 SSH·장기 AWS 키 없이 OIDC로 연결한다. Actions SHA를 고정했고 이미지 빌드는 EC2에서 수행하지 않는다. 역할/인스턴스 변수 미설정 시 배포하지 않으며 자동 배포는 명시적으로 켠다.
+- 사용자가 가비아에서 `anonymitydeveloper.site`를 구입했다. 별도 Git 제외 `.env.production`에 해당 도메인과 새 DB/관리자/HMAC 비밀값을 생성했다. 기존 `.env`/`.env.pr-review`는 보존했다. Mattermost 발신 계정은 자동 복사하지 않았으며 참가자 인증은 비활성이다. 당시 공용 DNS A/NS는 NXDOMAIN이었다.
+- 실제 AWS 로그인·Free ACTIVE/잔액 $100·시드니 AMI/기존 VPC/t3.small을 확인했다. `tagme-ec2` **빈 역할만 생성**됐다. OIDC 조회는 SCP explicit deny이며 제공자 생성과 역할 정책/프로필·ECR·SG·SSM 설정은 자동 승인 검토가 거부해 실행되지 않았다. EC2 생성·OIDC 연결·원격 배포는 완료되지 않았다. 고급 기능/유료 전환·SCP 변경은 수행하지 않았다.
+- 배포 안전성 8개와 격리된 호스트 셸 검사 6개, Actions actionlint, 셸 구문/ShellCheck, 개발/운영/작은 설정/이미지 전용 Compose 구성, 실제 분리된 임시 스택 이미지 빌드·4 healthy·웹→API 메타 smoke를 통과했다. 호스트 검사는 AWS/Docker 대역이며 실제 클라우드 배포가 아니다. 이미지 전용 비공개 구성도 4 healthy/게시 포트 0개/웹→API smoke를 확인했고, 빌드 소스 없는 실제 릴리스 묶음에서 `--no-build` 생성도 통과했다. Caddy의 실제 도메인 설정은 유효하며 기존 들여쓰기 포맷 경고는 남는다. 실제 HTTPS 발급·Mattermost·100명 부하/서버 밖 백업 복원은 미검증이다.
+- SSM 기본 관리 정책이 모든 파라미터 읽기를 포함함을 확인해 운영 파일 한 개 외 읽기를 막는 명시적 Deny를 runtime 템플릿에 넣었다. 배포 전 dump 실패 시 기동을 중단하고 성공한 배포만 current 포인터를 갱신한다. 서버 내부 dump를 외부 백업/자동 DB 롤백으로 기록하지 않는다.
+- 실행 설정·실제 AWS 비용 조회(서버+30GiB+IPv4 약 $25.80/730시간, 기타 별도)·가비아 DNS·환경변수·승인 및 권한 차단/후속 순서는 [배포 연결](github-actions-ec2.md)에 기록했다. 실제 리소스 구성은 사용자 명시 승인 후 계속한다.
+- 작업 브랜치를 원격에 push했다. draft PR 생성은 자동 승인 검토가 별도 승인 없는 외부 GitHub 작업으로 거부했으므로 생성되지 않았다. main 병합·원격 CI/배포 실행은 없다. 이번에 만든 임시 Docker 검증 프로젝트/볼륨만 정리하고 기존 두 로컬 스택은 유지했다.
+
+## 2026-11-10 — AWS Agent Toolkit 설치·인증·MCP 검증
+
+- 사용자 제공 공식 setup.md를 따라 Windows에 uv 0.13.7과 AWS CLI 2.39.7을 설치했다. AWS 설치 스크립트/패키지 서명 확인을 유지하고 사용자 영역에 설치했다. `tagme` 프로필의 브라우저 로그인과 STS 확인을 통과했다.
+- 사용자는 새로운 AWS 경험이며 원래 지정한 시드니 `ap-southeast-2`를 사용하기로 했다. 프로젝트 지정 리전 제약을 공식 규칙에서 확인했고 이전 서울 제안을 현재 안내에서 수정했다. 설명 수준은 사용자의 최종 선택인 MEDIUM이다.
+- 기본 스킬 25개와 감지된 Codex/Claude MCP 설정을 설치했다. Codex의 기존 설정과 타 MCP 항목을 보존하고, 생성된 command/args는 바꾸지 않은 채 `AWS_MCP_PROXY_PROFILES=tagme`를 추가했다. 카탈로그 121개 조회와 실제 MCP initialize·도구 목록·스킬 검색/가져오기까지 성공했다. cp949 출력 문제는 UTF-8 지정으로 해결했다.
+- 기존 프로젝트 AGENTS 내용을 보존해 구분된 AWS 규칙 블록을 추가했고 Claude용 규칙에도 반영했다. [EC2 준비 문서](ec2-deploy.md)에 현재 설정·재인증·새 세션 적용을 기록했다. 비밀키/로그인 캐시/전역 MCP 설정은 Git에 넣지 않는다.
+- GitHub Actions 이미지 빌드 → EC2 실행을 배포 선호로 기록했다. 실제 AWS 리소스 생성/삭제, 앱 배포, CI/CD 배포 연결은 아직 수행하지 않았다. IDE/Codex 새 세션에서 설치된 MCP·스킬을 사용할 수 있다.
+
+## 2026-11-10 — EC2 초기 배포 준비·작은 서버 메모리 검증
+
+- 관리자 PR #14는 Frontend/Backend/Docker CI 성공 후 `db71a13`으로 main에 병합했다. 그 main에서 원래 작업 폴더의 `infra/ec2-deploy`를 분기했다. 사용자는 신규 AWS 계정 가입 전이며 최대 100명 예상·한 달 이내 행사·무료 크레딧 범위 운영을 선택했다.
+- 선택 적용 파일 `compose.small.yml`에 API 힙/컨테이너·DB 풀, MySQL 버퍼/연결/임시 테이블/진단 기능과 Redis/Caddy 메모리 상한을 지정했다. 기존 공통·개발·운영 구성을 보존하며 작은 설정 합산 RAM 상한은 1696MiB다. MySQL Performance Schema는 작은 설정에서 끈다.
+- 개발/운영 두 구성과 각각의 작은 설정 조합을 `config --quiet`로 통과했다. 기존 관리자 DB를 Git 제외 백업 후 볼륨을 유지해 8089 스택에 적용하고 전체 이미지 빌드/healthy·실제 관리자 로그인·다섯 미리보기·공식 테이블 무변경·로그아웃·웹→API smoke를 통과했다. Node smoke는 기존 shell/Python 검사와 같은 메타/코드/SSAFY 조건을 확인했다.
+- 적용 전 관리자 스택 약 1057MiB에서 기동·브라우저 smoke 후 약 623MiB(API 423, MySQL 165, Redis 7, Caddy 29)로 감소했다. 네 컨테이너는 OOM 종료 없음·재시작 0회다. 로컬 Docker 호스트에서의 제한별·저부하 스냅샷이며 실제 2GiB EC2/100명 부하 성공을 뜻하지 않는다. 기존 8088 검토 스택은 보존했다.
+- CI에 작은 설정 두 조합의 구문 검사를 추가하고 [EC2 초기 배포](ec2-deploy.md)에 계정/서버/DNS/이미지 전달/백업/부하 검증 순서를 기록했다. 클라우드 계정·서버 생성·접속 권한과 DNS는 미준비이며 실제 AWS 생성/배포·원격 push/PR은 수행하지 않았다. AI 검수 추가 연동·구조 재작성은 후순위다.
+
 ## 2026-11-10 — 관리자 PR 제출·자동 검사 후 병합 승인
 
 - 사용자 확인 후 관리자 브랜치의 PR 생성과 문제 없는 경우 main 병합을 승인받았다. 기존 로컬 검증을 기준으로 최종 diff·원격 main과의 충돌·민감정보 제외를 확인하고 PR 자동 검사를 실행한다. 최종 원격 검사와 병합 여부는 해당 PR의 Checks/병합 기록을 따른다.

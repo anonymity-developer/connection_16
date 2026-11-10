@@ -1,0 +1,82 @@
+name: Deploy Sydney EC2
+
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# A running migration must finish. The host also holds a deployment lock.
+concurrency:
+  group: tagme-sydney-production
+  cancel-in-progress: false
+
+jobs:
+  release:
+    if: >-
+      github.ref == 'refs/heads/main' &&
+      (github.event_name == 'workflow_dispatch' ||
+       (vars.AUTO_DEPLOY == 'true' && github.event.workflow_run.conclusion == 'success' &&
+        github.event.workflow_run.event == 'push' &&
+        github.event.workflow_run.head_repository.full_name == github.repository))
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: write
+      actions: read
+    env:
+      GH_TOKEN: ${{ github.token }}
+      EVENT_SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
+    steps:
+      - name: Require successful CI for the current main commit
+        id: source
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          [[ "$EVENT_SHA" =~ ^[a-f0-9]{40}$ ]]
+          main_sha="$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq .object.sha)"
+          [[ "$EVENT_SHA" == "$main_sha" ]] || { echo 'Superseded commit: no deployment.'; exit 1; }
+          gh api "repos/$GITHUB_REPOSITORY/actions/workflows/ci.yml/runs?branch=main&head_sha=$EVENT_SHA&status=success&per_page=100" \
+            | jq -e --arg sha "$EVENT_SHA" '.workflow_runs | any(.head_sha == $sha and .event == "push" and .conclusion == "success")' >/dev/null
+          echo "sha=$EVENT_SHA" >> "$GITHUB_OUTPUT"
+          echo "tag=$EVENT_SHA-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT" >> "$GITHUB_OUTPUT"
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ steps.source.outputs.sha }}
+          persist-credentials: false
+      - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
+      - name: Build API image on GitHub runner
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
+        with:
+          context: backend
+          platforms: linux/amd64
+          load: true
+          provenance: false
+          tags: tagme-api:${{ steps.source.outputs.tag }}
+      - name: Build web image on GitHub runner
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
+        with:
+          context: frontend
+          platforms: linux/amd64
+          load: true
+          provenance: false
+          tags: tagme-web:${{ steps.source.outputs.tag }}
+      - name: Publish the public runtime release without credentials or participant data
+        env:
+          IMAGE_TAG: ${{ steps.source.outputs.tag }}
+          SOURCE_SHA: ${{ steps.source.outputs.sha }}
+        run: |
+          set -Eeuo pipefail
+          release_dir="$RUNNER_TEMP/tagme-release"
+          mkdir -p "$release_dir"
+          docker save "tagme-api:$IMAGE_TAG" "tagme-web:$IMAGE_TAG" | gzip -1 > "$release_dir/images.tar.gz"
+          python3 scripts/deploy/package-release.py --image-tag "$IMAGE_TAG" \
+            --run-id "$GITHUB_RUN_ID" --run-attempt "$GITHUB_RUN_ATTEMPT" --output "$release_dir"
+          gh release create "tagme-deploy-$IMAGE_TAG" \
+            "$release_dir/images.tar.gz" "$release_dir/runtime.tar.gz" "$release_dir/release.json" \
+            --repo "$GITHUB_REPOSITORY" --target "$SOURCE_SHA" --title "TAG ME $SOURCE_SHA" \
+            --notes-file "$release_dir/notes.md" --latest

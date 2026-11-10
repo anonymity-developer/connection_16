@@ -1,0 +1,25 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {"Effect": "Allow", "Action": "ecr:GetAuthorizationToken", "Resource": "*"},
+    {
+      "Effect": "Allow",
+      "Action": ["ecr:BatchCheckLayerAvailability", "ecr:GetDownloadUrlForLayer", "ecr:BatchGetImage"],
+      "Resource": [
+        "arn:aws:ecr:ap-southeast-2:ACCOUNT_ID:repository/tagme/api",
+        "arn:aws:ecr:ap-southeast-2:ACCOUNT_ID:repository/tagme/web"
+      ]
+    },
+    {
+      "Effect": "Allow",
+      "Action": "ssm:GetParameter",
+      "Resource": "arn:aws:ssm:ap-southeast-2:ACCOUNT_ID:parameter/tagme/production/env"
+    },
+    {
+      "Sid": "ConstrainManagedSSMParameterReads",
+      "Effect": "Deny",
+      "Action": ["ssm:GetParameter", "ssm:GetParameters", "ssm:GetParametersByPath"],
+      "NotResource": "arn:aws:ssm:ap-southeast-2:ACCOUNT_ID:parameter/tagme/production/env"
+    }
+  ]
+}

@@ -123,6 +123,24 @@ jobs:
         run: |
           docker compose -f compose.yml -f compose.dev.yml --profile app config --quiet
           docker compose -f compose.yml -f compose.prod.yml --profile app config --quiet
+          docker compose -f compose.yml -f compose.dev.yml -f compose.small.yml --profile app config --quiet
+          docker compose -f compose.yml -f compose.prod.yml -f compose.small.yml --profile app config --quiet
+      - name: Check deployment boundaries and private/public image configurations
+        env:
+          TAGME_IMAGE_TAG: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa-1-1
+        run: |
+          python3 -m unittest discover -s scripts/deploy -p '*_test.py' -v
+          bash -n infra/ec2/bootstrap.sh
+          bash -n infra/ec2/deploy.sh
+          docker compose -f compose.yml -f compose.small.yml -f compose.images.yml --profile app config --quiet
+          docker compose -f compose.yml -f compose.prod.yml -f compose.small.yml -f compose.images.yml --profile app config --quiet
+      - name: Check deploy failure handling in a disposable host
+        run: >-
+          docker run --rm
+          -v "$PWD/infra/ec2:/source/infra/ec2:ro"
+          -v "$PWD/scripts/deploy:/source/scripts/deploy:ro"
+          -v "$PWD/.env.production.example:/source/.env.production.example:ro"
+          -w /source python:3.12-slim python3 scripts/deploy/host_checks.py
       - name: Build and start full development stack
         run: docker compose -f compose.yml -f compose.dev.yml --profile app up -d --build --wait --wait-timeout 180
       - name: Check browser proxy and API metadata

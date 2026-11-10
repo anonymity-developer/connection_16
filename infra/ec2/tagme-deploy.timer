@@ -1,0 +1,11 @@
+[Unit]
+Description=Check TAG ME deployment releases every five minutes
+
+[Timer]
+OnBootSec=45s
+OnUnitActiveSec=5min
+RandomizedDelaySec=20s
+Unit=tagme-deploy.service
+
+[Install]
+WantedBy=timers.target
