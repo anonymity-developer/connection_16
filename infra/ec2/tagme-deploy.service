@@ -1,0 +1,14 @@
+[Unit]
+Description=Deploy a verified TAG ME GitHub release
+After=network-online.target docker.service
+Wants=network-online.target
+Requires=docker.service
+
+[Service]
+Type=oneshot
+User=root
+UMask=0077
+Environment=AWS_DEFAULT_REGION=ap-southeast-2
+ExecStart=/usr/bin/python3 /opt/tagme/poll-release.py
+TimeoutStartSec=1500
+MemoryMax=192M

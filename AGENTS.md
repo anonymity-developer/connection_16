@@ -130,6 +130,6 @@ Constraints for each level:
 - Selected Region: `ap-southeast-2` (Sydney); the user accepts Sydney for this project. Confirm the assigned project Region before provisioning if a conflict arises.
 - `help_level`: `MEDIUM`, explicitly chosen by the user. Keep explanations moderate and do not ask for this preference again.
 - Agent Toolkit/MCP endpoint uses `us-east-1` only as required by the official setup; application resources use the selected Region.
-- Deployment preference: GitHub Actions builds images and EC2 runs them. A deployment pipeline has not yet been configured.
+- Deployment preference: GitHub Actions builds images and EC2 runs them. The user approved provisioning, CI-verified merge/deployment, production reuse of the approved sender, and closing local stacks. OIDC creation is denied by the managed SCP; keep the FREE plan and use public GitHub deployment releases polled by EC2. Do not activate paid/advanced features or weaken SCPs.
 
 <!-- END AWS Agent Toolkit rules -->

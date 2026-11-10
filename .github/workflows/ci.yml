@@ -127,7 +127,6 @@ jobs:
           docker compose -f compose.yml -f compose.prod.yml -f compose.small.yml --profile app config --quiet
       - name: Check deployment boundaries and private/public image configurations
         env:
-          TAGME_REGISTRY: 123456789012.dkr.ecr.ap-southeast-2.amazonaws.com
           TAGME_IMAGE_TAG: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa-1-1
         run: |
           python3 -m unittest discover -s scripts/deploy -p '*_test.py' -v

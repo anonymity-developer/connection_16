@@ -3,9 +3,7 @@ set -Eeuo pipefail
 umask 077
 
 release_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-registry="${1:?ECR registry required}"
-image_tag="${2:?Immutable image tag required}"
-[[ "$registry" =~ ^[0-9]{12}\.dkr\.ecr\.ap-southeast-2\.amazonaws\.com$ ]] || exit 2
+image_tag="${1:?Immutable image tag required}"
 [[ "$image_tag" =~ ^[a-f0-9]{40}-[0-9]+-[0-9]+$ ]] || exit 2
 [[ "$release_dir" == "/opt/tagme/releases/$image_tag" ]] || exit 2
 install -d -m 0700 /opt/tagme/backups
@@ -13,11 +11,9 @@ exec 9>/opt/tagme/deploy.lock
 flock -n 9 || { echo 'Another deployment holds the host lock.' >&2; exit 1; }
 
 export AWS_DEFAULT_REGION=ap-southeast-2
-export TAGME_REGISTRY="$registry" TAGME_IMAGE_TAG="$image_tag"
-export DOCKER_CONFIG
-DOCKER_CONFIG="$(mktemp -d)"
+export TAGME_IMAGE_TAG="$image_tag"
 env_tmp="$(mktemp /opt/tagme/.env.XXXXXX)"
-trap 'rm -f "$env_tmp"; rm -rf "$DOCKER_CONFIG"' EXIT
+trap 'rm -f "$env_tmp"' EXIT
 # Never echo/source the dotenv file or put its contents in Run Command parameters.
 aws ssm get-parameter --name /tagme/production/env --with-decryption \
   --query Parameter.Value --output text > "$env_tmp"
@@ -30,9 +26,9 @@ if [[ -n "$domain" ]]; then
 fi
 compose+=(-f "$release_dir/compose.small.yml" -f "$release_dir/compose.images.yml" --profile app)
 "${compose[@]}" config --quiet
-aws ecr get-login-password | docker login --username AWS --password-stdin "$registry" >/dev/null
-# Finish pulls before touching running services.
-"${compose[@]}" pull
+# Application images were verified and loaded from the GitHub Actions release.
+docker image inspect "tagme-api:$image_tag" "tagme-web:$image_tag" >/dev/null
+"${compose[@]}" pull mysql redis
 
 mysql_id="$(docker ps -q --filter label=com.docker.compose.project=tagme-prod --filter label=com.docker.compose.service=mysql)"
 existing_mysql="$(docker ps -aq --filter label=com.docker.compose.project=tagme-prod --filter label=com.docker.compose.service=mysql)"
@@ -67,7 +63,7 @@ else
 fi
 
 mv "$env_tmp" /opt/tagme/.env.production
-printf 'TAGME_REGISTRY=%s\nTAGME_IMAGE_TAG=%s\n' "$registry" "$image_tag" > "$release_dir/images.env"
+printf 'TAGME_IMAGE_TAG=%s\n' "$image_tag" > "$release_dir/images.env"
 ln -sfn "$release_dir" /opt/tagme/current.next
 mv -Tf /opt/tagme/current.next /opt/tagme/current
 echo "Healthy release: $image_tag"

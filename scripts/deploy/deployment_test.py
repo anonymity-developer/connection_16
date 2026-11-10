@@ -18,7 +18,8 @@ def module(name, path):
 
 
 env = module('validate_env', ROOT / 'infra/ec2/validate-env.py')
-release = module('send_release', ROOT / 'scripts/deploy/send-release.py')
+release = module('package_release', ROOT / 'scripts/deploy/package-release.py')
+controller = module('poll_release', ROOT / 'infra/ec2/poll-release.py')
 
 
 class DeploymentSafetyTest(unittest.TestCase):
@@ -75,25 +76,61 @@ class DeploymentSafetyTest(unittest.TestCase):
             env.validate(self.settings(**settings, MATTERMOST_LOGIN_ID='sender'))
 
     def test_release_bundle_excludes_all_runtime_secrets(self):
-        tag = 'a' * 40 + '-1-1'
-        result = release.parameters(ROOT, '123456789012.dkr.ecr.ap-southeast-2.amazonaws.com', tag)
-        command = result['commands'][0]
-        encoded = command.split("printf '%s' '", 1)[1].split("'", 1)[0]
-        with tarfile.open(fileobj=io.BytesIO(base64.b64decode(encoded)), mode='r:gz') as archive:
+        with tarfile.open(fileobj=io.BytesIO(release.bundle(ROOT)), mode='r:gz') as archive:
             self.assertEqual(set(archive.getnames()), set(release.FILES))
             self.assertFalse(any(name in archive.getnames() for name in ('.env', '.env.pr-review', '.env.production')))
             for member in archive.getmembers():
                 self.assertTrue(member.isfile())
                 self.assertNotIn(b'\r\n', archive.extractfile(member).read())
 
-    def test_shell_injection_in_registry_or_release_tag_never_reaches_ssm(self):
-        for registry, tag in (
-            ('123456789012.dkr.ecr.ap-southeast-2.amazonaws.com;id', 'a' * 40 + '-1-1'),
-            ('123456789012.dkr.ecr.ap-southeast-2.amazonaws.com', '../current;id'),
-            ('123456789012.dkr.ecr.us-east-1.amazonaws.com', 'a' * 40 + '-1-1'),
-        ):
-            with self.subTest(registry=registry, tag=tag), self.assertRaises(ValueError):
-                release.parameters(ROOT, registry, tag)
+    def metadata(self):
+        sha = 'a' * 40
+        tag = sha + '-1-1'
+        manifest = dict(schema=1, commit_sha=sha, image_tag=tag, workflow_run_id=1,
+                        workflow_run_attempt=1, runtime_sha256='b' * 64, images_sha256='c' * 64)
+        published = dict(tag_name='tagme-deploy-' + tag, target_commitish=sha,
+                         author={'login': 'github-actions[bot]'}, draft=False, prerelease=False)
+        return manifest, published
+
+    def test_manual_or_mismatched_release_cannot_be_deployed(self):
+        manifest, published = self.metadata()
+        self.assertEqual(controller.validate_manifest(manifest, published), manifest['image_tag'])
+        for change in ({'author': {'login': 'someone'}}, {'target_commitish': 'main'}, {'draft': True}):
+            with self.subTest(change=change), self.assertRaises(ValueError):
+                controller.validate_manifest(manifest, dict(published, **change))
+        for tag in ('../current;id', 'a' * 40 + '-2-1'):
+            with self.subTest(tag=tag), self.assertRaises(ValueError):
+                controller.validate_manifest(dict(manifest, image_tag=tag), published)
+
+    def test_foreign_downloads_are_rejected(self):
+        _, published = self.metadata()
+        published['assets'] = [dict(name='images.tar.gz', size=100,
+                                    browser_download_url='https://attacker.invalid/images.tar.gz',
+                                    uploader={'login': 'github-actions[bot]'})]
+        with self.assertRaises(ValueError):
+            controller.asset(published, 'images.tar.gz', 1000)
+
+    def test_tar_symlinks_and_traversal_are_rejected_before_extraction(self):
+        import tempfile
+        with tempfile.TemporaryDirectory() as temp:
+            path = Path(temp) / 'bad.tar.gz'
+            with tarfile.open(path, 'w:gz') as archive:
+                entry = tarfile.TarInfo('../outside')
+                archive.addfile(entry, io.BytesIO(b''))
+            with self.assertRaises(ValueError):
+                controller.extract_runtime(path, Path(temp) / 'runtime')
+            self.assertFalse((Path(temp) / 'outside').exists())
+
+    def test_image_archive_cannot_replace_unrelated_images(self):
+        import tempfile, json
+        with tempfile.TemporaryDirectory() as temp:
+            path = Path(temp) / 'images.tar.gz'
+            with tarfile.open(path, 'w:gz') as archive:
+                data = json.dumps([{'RepoTags': ['mysql:8.4']}]).encode()
+                entry = tarfile.TarInfo('manifest.json'); entry.size = len(data)
+                archive.addfile(entry, io.BytesIO(data))
+            with self.assertRaises(ValueError):
+                controller.verify_images(path, 'a' * 40 + '-1-1')
 
 
 if __name__ == '__main__':

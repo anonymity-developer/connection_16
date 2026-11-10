@@ -54,7 +54,7 @@ if [[ "$1" == exec ]]; then
   exit 0
 fi
 case "$*" in
-  *" pull") [[ "$CHECK_MODE" != pull-failure ]] || exit 32 ;;
+  *" pull mysql redis") [[ "$CHECK_MODE" != pull-failure ]] || exit 32 ;;
   *" up "*) [[ "$CHECK_MODE" != health-failure ]] || exit 33 ;;
 esac
 ''')
@@ -65,8 +65,7 @@ esac
 
     def run_deploy(self, mode):
         self.environment['CHECK_MODE'] = mode
-        result = subprocess.run(['bash', str(self.release / 'infra/ec2/deploy.sh'),
-                                 '123456789012.dkr.ecr.ap-southeast-2.amazonaws.com', TAG],
+        result = subprocess.run(['bash', str(self.release / 'infra/ec2/deploy.sh'), TAG],
                                 env=self.environment, capture_output=True, text=True)
         self.assertNotIn(self.secret, result.stdout + result.stderr)
         return result

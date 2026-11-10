@@ -1,5 +1,12 @@
 # 페이즈별 개발 현황
 
+## 2026-11-10 — 배포 승인 후 EC2 생성·무료 플랜 연결 변경
+
+- 사용자가 인프라 구성·CI 통과 후 main 병합/배포·기존 발신 계정 운영 사용·로컬 스택 종료를 명시 승인했다. 운영 환경에 기존 승인된 Mattermost 발신 계정/채널을 반영하고 암호화 SSM에 올렸다. 기존 로컬 두 스택은 중지했으며 DB 볼륨은 보존했다.
+- Sydney `i-0faa77905f491ab31` / `13.236.85.206` / t3.small / 암호화 gp3 30GiB를 생성했다. SSM Online, IMDSv2 필수/hop 1, 종료 보호/볼륨 보존, 웹 TCP 80/443 외 인바운드 없음이다. Ubuntu awscli 후보 부재로 cloud-init 초기 설치가 실패했으나 공식 ZIP 서명/지문 검증 방식으로 수정하고 같은 EC2에 Docker/Compose/AWS CLI 설치 성공을 확인했다.
+- OIDC Create 요청이 실제 AWS SCP에 거부됐다. 사용자는 무료 플랜 유지·다른 연결 방식 검토를 선택했다. GitHub Actions가 공개 runtime 릴리스를 만들고 EC2가 성공한 현재 main/CI/워크플로/해시/파일·이미지 허용 목록을 검증해 받는 방식으로 변경했다. AWS 키·SSH 키·GitHub 토큰을 CI/서버에 복사하지 않는다. EC2 확인 타이머는 5분 간격이다.
+- PR #15를 생성했고 기존 커밋의 Frontend/Backend/Docker CI는 모두 통과했다. 무료 플랜 방식 변경의 최종 CI/병합/실제 배포는 후속 확인한다. 가비아 A 레코드 저장 완료를 사용자에게 받았으며 공용 DNS/HTTPS 발급은 계속 확인한다. [현재 배포 연결](github-actions-ec2.md).
+
 ## 2026-11-10 — Sydney EC2·GitHub Actions 배포 연결 구현, 실제 변경 승인 대기
 
 - `infra/ec2-deploy`에서 기존 단일 VM/Compose를 유지해 main의 성공한 CI → private ECR 불변 이미지 → SSM Run Command → EC2 기동/readiness/HTTPS smoke를 구현했다. main/저장소/커밋을 확인하고 SSH·장기 AWS 키 없이 OIDC로 연결한다. Actions SHA를 고정했고 이미지 빌드는 EC2에서 수행하지 않는다. 역할/인스턴스 변수 미설정 시 배포하지 않으며 자동 배포는 명시적으로 켠다.
