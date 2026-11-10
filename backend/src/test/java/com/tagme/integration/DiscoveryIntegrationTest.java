@@ -86,6 +86,23 @@ class DiscoveryIntegrationTest {
     @Test void hidingAndPolicyChangesFilterEveryReadWithoutDeletingHistory(){service.open(actor,bob.userId());service.open(bob,actor.userId());db.update("UPDATE profiles SET is_public=FALSE WHERE user_id=?",bob.userId());assertThat(people().items()).noneMatch(p->p.id()==bob.userId());assertThat(service.recommended(actor)).noneMatch(p->p.id()==bob.userId());assertThat(service.graph(actor,30).nodes()).isEmpty();assertThat(service.stats(actor).mutualCount()).isZero();assertThatThrownBy(()->service.open(actor,bob.userId())).isInstanceOf(AuthException.class);assertThat(db.queryForObject("SELECT COUNT(*) FROM profile_views",Integer.class)).isEqualTo(2);db.update("INSERT INTO consent_policies VALUES ('PROFILE_PUBLICATION','test-v2','새 테스트','테스트 전용')");db.update("UPDATE current_consent_policies SET policy_version='test-v2' WHERE policy_type='PROFILE_PUBLICATION'");assertThatThrownBy(()->people()).isInstanceOf(AuthException.class);}
     @Test void suspendedWithdrawnOrIncompleteProfilesAreNotDiscoverable(){db.update("UPDATE users SET status='SUSPENDED' WHERE id=?",bob.userId());db.update("UPDATE profiles SET nickname='' WHERE user_id=?",charlie.userId());assertThat(people().items()).isEmpty();db.update("UPDATE users SET status='WITHDRAWN' WHERE id=?",bob.userId());assertThatThrownBy(()->service.open(actor,bob.userId())).isInstanceOf(AuthException.class);}
     @Test void cursorAndLiteralNicknameFiltersAreBoundedAndNeverSearchRealNames(){db.update("UPDATE profiles SET nickname='동료_%!' WHERE user_id=?",bob.userId());var found=service.people(actor,null,1,"_%!",interest,null,null);assertThat(found.items()).hasSize(1);assertThat(found.items().getFirst().id()).isEqualTo(bob.userId());assertThat(service.people(actor,null,20,"비공개실명",null,null,null).items()).isEmpty();var first=service.people(actor,null,1,null,null,null,null);var second=service.people(actor,first.nextCursor(),1,null,null,null,null);assertThat(first.items().getFirst().id()).isNotEqualTo(second.items().getFirst().id());assertThat(second.nextCursor()).isNull();assertThatThrownBy(()->service.people(actor,null,31,null,null,null,null)).isInstanceOf(AuthException.class);assertThatThrownBy(()->service.people(actor,null,20,null,null,"X",null)).isInstanceOf(AuthException.class);}
+    @Test void stableRecommendationsPreferAnotherClassOnlyOnAffinityTies() {
+        db.update("UPDATE users SET class_no=4 WHERE id=?",bob.userId());
+        assertThat(service.recommended(actor)).extracting(DiscoveryModels.Person::id)
+            .containsExactly(bob.userId(),charlie.userId());
+        assertThat(service.recommended(actor)).isEqualTo(service.recommended(actor));
+        db.update("DELETE FROM user_interests WHERE user_id=?",bob.userId());
+        assertThat(service.recommended(actor).getFirst().id()).isEqualTo(charlie.userId());
+    }
+    @Test void strongOlderRelationshipSurvivesLimitAndNextPageIsReachable() {
+        service.open(actor,bob.userId());
+        service.open(bob,actor.userId());
+        service.open(actor,charlie.userId());
+        assertThat(service.graph(actor,1).nodes().getFirst().id()).isEqualTo(bob.userId());
+        var next=service.graph(actor,1,1);
+        assertThat(next.nodes().getFirst().id()).isEqualTo(charlie.userId());
+        assertThat(next.truncated()).isFalse();
+    }
     @Test void recommendationsUsePublicSharedInterestsAndUnvisitedOrdering(){service.open(actor,charlie.userId());var rows=service.recommended(actor);assertThat(rows.getFirst().id()).isEqualTo(bob.userId());assertThat(rows.getFirst().sharedInterests()).hasSize(1);assertThat(rows.getFirst().sameType()).isFalse();assertThat(rows.getFirst().type()).isNull();}
     @Test void typeExplanationsRequireAStoredResultAndTheSameQuestionnaireVersion(){
         String def="""
