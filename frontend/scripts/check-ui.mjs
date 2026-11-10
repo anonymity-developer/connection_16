@@ -20,14 +20,15 @@ try {
   await development.listen();
   browser = await chromium.launch();
   const context = await browser.newContext({ permissions: ['clipboard-read', 'clipboard-write'] });
-  // This layout/validation suite expects unavailable auth. Do not inherit a developer's live API proxy or send its sample credentials externally.
-  await context.route('**/api/v1/**', route => {
+  // Isolate this visual/validation suite from any developer API proxy.
+  // Dedicated auth contracts exercise successful requests with their own fixtures.
+  await context.route('**/api/v1/**', async route => {
+    const path = new URL(route.request().url()).pathname.slice(7);
     if (route.request().method() !== 'GET') return route.abort();
-    const path = new URL(route.request().url()).pathname;
-    if (path.endsWith('/auth/config')) return route.fulfill({ status: 200, json: { available: false, participantAvailable: false, adminAvailable: false, passwordMinLength: 15, passwordMaxLength: 64 } });
-    if (path.endsWith('/users/me')) return route.fulfill({ status: 401, json: { code: 'UNAUTHENTICATED', message: '로그인이 필요해요.' } });
-    if (path.endsWith('/tags/pending')) return route.fulfill({ status: 200, json: { present: false } });
-    return route.fulfill({ status: 503, json: { code: 'TEST_UNAVAILABLE', message: 'UI 검사에서 실제 서버를 호출하지 않아요.' } });
+    const data = path === '/auth/config' ? { available: false, passwordMinLength: 15, passwordMaxLength: 64 }
+      : path === '/users/me' ? { code: 'UNAUTHENTICATED', message: '로그인이 필요해요.' }
+      : path === '/tags/pending' ? { present: false } : { code: 'FIXTURE_ONLY', message: '화면 검사 범위 밖이에요.' };
+    return route.fulfill({ status: path === '/users/me' ? 401 : ['/auth/config','/tags/pending'].includes(path) ? 200 : 503, json: data });
   });
   const page = await context.newPage();
   const failures = [];
@@ -64,7 +65,9 @@ try {
     await visit(`${productionUrl}/?preview=complete`);
     assert.equal(await page.getByRole('complementary', { name: '개발용 상태 미리보기' }).count(), 0);
     assert.equal(await page.getByRole('progressbar').count(), 0);
-    assert.ok((await page.locator('.collection-count').innerText()).includes('로그인 후'));
+    assert.equal(await page.locator('.collection-count').count(), 0, 'unknown progress has no invented count');
+    assert.equal(await page.locator('.letter-slots .letter-slot').count(), 5);
+    assert.equal(await page.locator('.letter-slots .is-collected').count(), 0, 'preview query cannot grant letters in production');
     await visit(`${productionUrl}/me/password?preview=unlocked`);
     assert.equal(await page.locator('input[name="password"]').count(), 0);
     await visit(`${productionUrl}/complete?preview=complete`);
@@ -81,7 +84,7 @@ try {
     assert.equal(await page.evaluate(() => document.activeElement?.id), 'main-content');
     await page.getByRole('button', { name: '로그인하기', exact: true }).click();
     assert.equal(await page.locator('input[name="username"]').evaluate((element) => document.activeElement === element), true);
-    await page.getByLabel(/^(Mattermost )?아이디$/, { exact: true }).fill('ui_test');
+    await page.getByLabel('아이디', { exact: true }).fill('ui_test');
     await page.getByLabel('비밀번호', { exact: true }).fill('example-only-password');
     await page.getByRole('button', { name: '비밀번호 표시', exact: true }).click();
     assert.equal(await page.getByLabel('비밀번호', { exact: true }).getAttribute('type'), 'text');
@@ -114,15 +117,15 @@ try {
     await page.waitForFunction(() => document.querySelector('[role="progressbar"]')?.getAttribute('aria-valuenow') === '2');
     await page.goForward();
     await page.waitForFunction(() => document.querySelector('[role="progressbar"]')?.getAttribute('aria-valuenow') === '5');
-    assert.ok((await page.locator('.next-panel a').getAttribute('href')).startsWith('/complete'));
+    assert.equal(await page.locator('.collection-complete-link').getAttribute('href'), '/complete?preview=complete');
     await page.screenshot({ path: resolve(output, 'home-preview-complete-390.png'), fullPage: true });
-    await page.getByRole('link', { name: '완성 화면 보기', exact: true }).click();
+    await page.getByRole('link', { name: '완성 기록 보기', exact: true }).click();
     await page.getByRole('heading', { name: '다섯 글자를 모두 모았어요', exact: true }).waitFor();
   });
   await check('leading-zero OTP paste, mismatch focus, dialog Escape/focus and account change', async () => {
     await visit(`${developmentUrl}/auth/signup?preview=unlocked`);
     await page.getByRole('complementary', { name: '개발용 상태 미리보기' }).waitFor();
-    await page.getByLabel(/^(Mattermost )?아이디$/, { exact: true }).fill('ui_test');
+    await page.getByLabel('Mattermost 아이디', { exact: true }).fill('ui_test');
     await page.getByRole('button', { name: '인증번호 받기', exact: true }).click();
     const code = page.getByLabel('인증번호', { exact: true });
     await code.waitFor();

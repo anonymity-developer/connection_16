@@ -2,14 +2,14 @@ import { Link } from '../../app/navigation';
 import { useEffect, useId, useRef, useState } from 'react';
 import { Button } from '../../components/ui';
 import { ApiError } from '../auth/api';
-import { reactionsApi } from './reactions-api';
+import { reactionsApi as serverApi } from './reactions-api';
 import type { CommentPage, OwnComment, PublicComment } from './reactions-api';
 const statusLabels: Record<OwnComment['status'], string> = { QUEUED: '검수 대기', PROCESSING: '검수 중', APPROVED: '승인됨', REJECTED: '공개되지 않았어요', REVIEW_REQUIRED: '운영자 확인 중', SUPERSEDED: '이전 댓글' };
-export function WishComments({ id }: { id: number }) {
+export function WishComments({ id, api = serverApi }: { id: number; api?: typeof serverApi }) {
   const uid = useId(); const [open, setOpen] = useState(false);
-  return <div className="wish-comments"><Button type="button" variant="quiet" aria-expanded={open} aria-controls={uid} onClick={() => setOpen(!open)}>{open ? '댓글 접기' : '댓글 보기'}</Button>{open && <div id={uid}><CommentThread id={id} /></div>}</div>;
+  return <div className="wish-comments"><Button type="button" variant="quiet" aria-expanded={open} aria-controls={uid} onClick={() => setOpen(!open)}>{open ? '댓글 접기' : '댓글 보기'}</Button>{open && <div id={uid}><CommentThread id={id} api={api} /></div>}</div>;
 }
-function CommentThread({ id }: { id: number }) {
+function CommentThread({ id, api: reactionsApi }: { id: number; api: typeof serverApi }) {
   const uid = useId(); const active = useRef(true); const input = useRef<HTMLTextAreaElement>(null);
   const [comments, setComments] = useState<CommentPage<PublicComment> | null>(null); const [own, setOwn] = useState<CommentPage<OwnComment> | null>(null);
   const [loading, setLoading] = useState(true); const [busy, setBusy] = useState(false); const [text, setText] = useState(''); const [reveal, setReveal] = useState(false);

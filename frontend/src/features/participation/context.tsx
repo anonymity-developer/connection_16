@@ -2,6 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useRef, useState } f
 import type { ReactNode } from 'react';
 import { useAuth } from '../auth/context';
 import { useLocation } from '../../app/navigation';
+import { loadParticipation } from './refresh';
 import { participationApi } from './api';
 import type { Collection, EventState } from './api';
 interface ParticipationState { collection: Collection | null; event: EventState | null; loading: boolean; error: string; refresh: () => Promise<void> }
@@ -19,7 +20,7 @@ export function ParticipationProvider({ children }: { children: ReactNode }) {
     if (preview || !userId) { setCollection(null); setEvent(null); setLoading(false); setError(''); return; }
     setLoading(true); setError('');
     try {
-      const [next, schedule] = await Promise.all([participationApi.collection(), participationApi.event()]);
+      const { collection: next, event: schedule } = await loadParticipation(participationApi, () => version === revision.current);
       if (version === revision.current) { setCollection(next); setCollectionOwner(userId); setEvent(schedule); }
     } catch (failure) {
       if (version === revision.current) { setCollection(null); setError(failure instanceof Error ? failure.message : '참여 기록을 불러오지 못했어요.'); }

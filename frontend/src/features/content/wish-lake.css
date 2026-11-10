@@ -1,0 +1,63 @@
+@import './fountain.css';
+/* Scoped to MAKE A WISH. Water is illustration, never an input or reward state. */
+.wish-gallery, .wish-lake-intro {
+  --lake-shore: #e7f3eb;
+  --lake-line: #62aabf;
+  --lake-ink: #28576c;
+  --lake-coin: #ffedb3;
+  --lake-gold: #9a742a;
+  --lake-leaf: #a4d7c5;
+}
+.content-mission.content-mission--wish { display: flex; flex-direction: column; }
+.wish-lake-intro { margin: 16px 0 24px; text-align: center; }
+.wish-lake-intro figcaption { font-size: 13px; color: var(--muted); margin-top: 8px; }
+.wish-lake-scene { position: relative; isolation: isolate; width: 100%; min-width: 0; height: clamp(300px, 48vw, 380px); }
+.wish-lake-art { position: absolute; width: 100%; height: 100%; inset: 0; pointer-events: none; }
+.lake-shore { fill: var(--lake-shore); }
+.lake-contours { fill: none; stroke: var(--lake-line); stroke-width: 1.5; opacity: .4; }
+.lake-reflections { fill: none; stroke: #fff; stroke-linecap: round; stroke-width: 4; opacity: .8; }
+.lake-plants { fill: var(--lake-leaf); stroke: #7eb8a6; stroke-width: 1.2; }
+.lake-sparkles { fill: #fff; }
+.wish-view-switch { display: flex; justify-content: flex-end; flex-wrap: wrap; gap: 4px; margin-top: 8px; }
+.wish-view-switch .button { min-height: 44px; padding: 8px 14px; font-size: 13px; }
+.wish-view-switch [aria-pressed="true"] { color: var(--accent-ink); background: var(--accent-soft); box-shadow: inset 0 0 0 1px var(--accent-track); }
+.wish-lake-help { font-size: 13px; line-height: 1.6; color: var(--muted); margin-top: 12px; text-align: center; }
+/* At 360px: a >=250px stage, 72% =180px; 3 columns of 56px + gaps fit.
+   Fixed 3x2 grid rather than random absolute positions: no collisions as records grow. */
+.wish-lake-coins { position: absolute; inset: 25% 14% 28%; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); grid-template-rows: repeat(2, 1fr); gap: 10px 4px; padding: 0; margin: 0; list-style: none; }
+.wish-lake-coins li { min-width: 0; display: grid; place-items: center; }
+.wish-lake-coin { display: grid; place-items: center; position: relative; width: 56px; min-height: 56px; padding: 0; border: 0; border-radius: 50%; background: transparent; color: var(--lake-ink); cursor: pointer; touch-action: manipulation; }
+.wish-lake-coin svg { width: 52px; height: 52px; filter: drop-shadow(0 3px 1px #367d931a); }
+.wish-lake-coin circle { fill: var(--lake-coin); stroke: var(--lake-gold); stroke-width: 1.5; }
+.wish-lake-coin path { fill: #d6b66d; stroke: #fff5d6; stroke-width: 1; }
+.wish-lake-coin span { position: absolute; bottom: -3px; right: 0; padding: 1px 5px; border-radius: 8px; background: #fff; font-size: 12px; line-height: 18px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.wish-lake-coin:hover circle, .wish-lake-coin[aria-expanded="true"] circle { fill: #ffe08a; stroke-width: 2.5; }
+.wish-lake-coin:focus-visible, .wish-detail-heading h3:focus-visible { outline: 3px solid var(--accent); outline-offset: 3px; }
+.wish-lake-invitation { position: absolute; inset: 40% 18% auto; text-align: center; color: var(--lake-ink); font-size: 14px; line-height: 1.7; margin: 0; pointer-events: none; }
+.wish-lake-paging, .wish-detail-heading { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.wish-lake-paging { margin-top: 4px; font-size: 13px; color: var(--muted); }
+.wish-lake-paging .button, .wish-detail-heading .button { min-height: 44px; font-size: 13px; padding: 8px; }
+.wish-lake-detail { margin-top: 12px; }
+.wish-detail-heading { margin-bottom: 8px; }
+.wish-detail-heading h3 { font-size: 16px; scroll-margin-top: 100px; }
+.content-card.wish-discovery-card { background: var(--surface); overflow-wrap: anywhere; text-align: left; }
+.wish-discovery-card .content-byline { margin-top: 0; margin-bottom: 8px; }
+.participant-shell .wish-gallery .wish-toss--in-lake { position: absolute; inset: 0; padding: 0; margin: 0; border: 0; background: none; border-radius: 0; pointer-events: none; }
+.participant-shell .wish-gallery .wish-toss--in-lake > svg { position: absolute; inset: 0; width: 100%; max-width: none; height: 100%; }
+.wish-toss--in-lake .toss-lake { display: none; }
+.participant-shell .wish-gallery .wish-toss--in-lake p { position: absolute; bottom: 0; left: 0; right: 0; margin: 0; font-size: 12px; padding: 6px; color: var(--lake-ink); background: #fff; border-radius: 12px; }
+.wish-toss--in-lake .toss-coin { animation-duration: 1000ms; }
+.wish-toss--in-lake .toss-ripple { animation-delay: 750ms; }
+@media (min-width: 900px) {
+  .content-mission--wish .wish-lake-coins { inset-inline: 22%; }
+}
+@media (max-width: 430px) {
+  .content-mission--wish > .content-feed, .content-mission--wish > .content-own { padding-inline: 12px; }
+  .wish-lake-scene { height: 300px; }
+  .wish-lake-coins { inset-inline: 12%; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .wish-gallery .toss-coin, .wish-gallery .toss-ripple { animation: none !important; }
+  .wish-gallery .toss-coin { opacity: 0; }
+  .wish-gallery .toss-ripple { opacity: .6; }
+}

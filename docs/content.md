@@ -83,3 +83,7 @@ MAKE A WISH와 SAY SOMETHING의 최초 작성, 내 슬롯, 수정, 승인된 공
 ## V7 댓글 확장
 
 kind=COMMENT와 다중 댓글은 V7 generated slot key로 추가한다. 승인/거절 포인터와 job은 재사용하지만 댓글에는 미션 완료를 호출하지 않는다. 댓글과 부모 작성자, 관리자를 정렬해 먼저 잠그며 부모의 현재 공개 조건을 함께 확인한다. V6 자체를 수정하지 않았고 상세 계약은 [반응 계약](reactions.md)이다.
+
+## 외부 어댑터 추가 (feat/network-graph)
+
+GMS/OpenAI 선택 설정과 실패 시 REVIEW_REQUIRED 처리, 실연동 미검증 경계는 [작업 보고](network-moderation-handoff.md)를 따른다. 기본 NONE은 기존 수동 검수를 유지한다. OpenAI 단독 unflagged는 자동 승인이 아니며 추가 정책 검증이 필요하다.

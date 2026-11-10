@@ -1,0 +1,250 @@
+/* Set --winter-display: none, or html[data-winter='off'], to reuse outside winter. */
+:root { --winter-display: block; }
+:root[data-winter='off'] { --winter-display: none; }
+.letter-sticker { position: relative; display: inline-block; width: 76px; height: 95px; flex: none; vertical-align: middle; }
+.letter-sticker img { display: block; width: 100%; height: 100%; object-fit: contain; }
+.letter-sticker.is-uncollected img { filter: none; opacity: .88; }
+.letter-sparkle { position: absolute; top: 0; right: 0; color: #8a6818; font-size: 20px; line-height: 1; }
+.letter-sticker.celebrate { animation: sticker-pop .55s ease-out 1; }
+.letter-sticker.celebrate .letter-sparkle { animation: sticker-glint .7s ease-out 1; }
+@keyframes sticker-pop { 0% { transform: scale(.94); } 55% { transform: scale(1.05); } 100% { transform: scale(1); } }
+@keyframes sticker-glint { 0%,100% { opacity: 1; } 45% { opacity: .35; transform: scale(1.2); } }
+.participant-shell .sticker-board { position: relative; }
+.participant-shell .home-artwork { position: relative; justify-self: end; }
+.winter-decor { display: var(--winter-display, block); position: absolute; pointer-events: none; color: #9bcadd; width: 100px; height: 58px; }
+.winter-star { fill: #c8e4ee; }
+.home-artwork > .winter-decor { right: -8px; top: -18px; }
+.sticker-board > .winter-decor { right: 24px; top: -25px; width: 76px; height: 44px; }
+.participant-shell .letter-slot { padding: 12px 4px 10px; gap: 6px; }
+.participant-shell .letter-slot .letter-sticker { width: clamp(50px, 6.4vw, 80px); height: clamp(63px, 8vw, 100px); max-width: 100%; }
+.participant-shell .letter-slot.is-collected { background: var(--mission-tint); }
+.participant-shell .letter-slot .slot-name { font-size: 13px; }
+.participant-shell .mission-row .mission-letter, .participant-shell .mission-detail-heading .mission-letter { width: 64px; height: 80px; padding: 0; background: transparent; border: 0; transform: none; }
+.participant-shell .mission-row .mission-letter .letter-sticker,
+.participant-shell .mission-detail-heading .mission-letter .letter-sticker { width: 64px; height: 80px; }
+.participant-shell .mission-row-state { padding-left: 80px; }
+.participant-shell .earned-letter { width: 144px; height: 180px; background: transparent; box-shadow: none; border: 0; transform: none; }
+.participant-shell .earned-letter .letter-sticker { width: 144px; height: 180px; }
+.participant-shell .quest-letter { width: 68px; height: 98px; background: transparent; border: 0; transform: none; }
+.participant-shell .quest-letter .letter-sticker { width: 64px; height: 80px; }
+.participant-shell .quest-letter small { color: var(--event-yellow-ink); margin-top: 0; }
+.participant-shell .person-reason { display: flex; flex-wrap: wrap; gap: 6px; }
+.participant-shell .reason-chip { max-width: 100%; border-radius: 10px; padding: 4px 8px; background: var(--accent-soft); color: var(--accent-ink); overflow-wrap: anywhere; font-size: 13px; }
+@media (max-width: 640px) {
+  .participant-shell .letter-slots { gap: 5px; }
+  .participant-shell .letter-slot { padding: 10px 1px 8px; border-radius: 12px; }
+  .participant-shell .letter-slot .letter-sticker { width: 100%; height: auto; aspect-ratio: 4 / 5; }
+  .participant-shell .letter-slot .slot-name { font-size: 12px; }
+  .participant-shell .mission-row { gap: 12px; }
+  .participant-shell .mission-row .mission-letter, .participant-shell .mission-detail-heading .mission-letter,
+  .participant-shell .mission-row .mission-letter .letter-sticker, .participant-shell .mission-detail-heading .mission-letter .letter-sticker { width: 56px; height: 70px; }
+  .participant-shell .mission-row-state { padding-left: 68px; }
+  .participant-shell .mission-detail-heading .state-badge { margin-left: 68px; }
+  .home-artwork > .winter-decor { width: 64px; height: 38px; right: 0; top: -10px; }
+  .participant-shell .quest-letter { width: 58px; height: 92px; }
+  .participant-shell .quest-letter .letter-sticker { width: 56px; height: 70px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .letter-sticker, .letter-sticker .letter-sparkle { animation: none !important; transition: none !important; }
+}
+
+/* Fifth pass: compact navigation, shared progress and operations presentation. */
+.participant-shell .home-page { padding-top: 24px; }
+.participant-shell .home-welcome { grid-template-columns: minmax(0, 1fr) 140px; margin-bottom: 18px; padding: 0; gap: 16px; }
+.participant-shell .welcome-stickers { width: 140px; }
+.participant-shell .home-welcome h1 { margin: 4px 0 6px; }
+.participant-shell .home-overview { grid-template-columns: minmax(0, 1fr); gap: 16px; }
+.participant-shell .sticker-board { padding: 20px; }
+.participant-shell .panel-heading { margin-bottom: 12px; flex-wrap: wrap; gap: 6px 12px; }
+.participant-shell .letter-slots { padding-block: 2px; }
+.participant-shell .letter-slot { padding: 6px 2px; gap: 3px; }
+.participant-shell .letter-slot .slot-name { font-size: 13px; line-height: 1.2; font-weight: 700; white-space: nowrap; }
+.participant-shell .collection-caption { margin-top: 12px; font-size: 13px; }
+.participant-shell .next-panel { padding: 20px; }
+.participant-shell .next-panel h2 { font-size: 18px; }
+.participant-shell .next-panel > p { margin-bottom: 12px; }
+.participant-shell .mission-section { margin-top: 24px; }
+.participant-shell .mission-row { padding: 20px; }
+.participant-shell .site-footer { flex-direction: column; align-items: flex-start; justify-content: center; gap: 4px; line-height: 1.6; font-size: 12px; }
+.participant-shell .mission-progress-guide { padding: 0; overflow: hidden; }
+.participant-shell .mission-progress-summary, .participant-shell .mission-hint { padding: 20px; min-width: 0; }
+.participant-shell .mission-progress-summary .mission-reward { margin-block: 12px; padding: 0; gap: 12px; }
+.participant-shell .mission-reward > .letter-sticker { display: inline-block; border: 0; width: 56px; height: 70px; transform: none; background: transparent; }
+.participant-shell .mission-hint { border-top: 1px solid var(--border); background: var(--surface); }
+.participant-shell .mission-hint > p { color: var(--muted); font-size: 13px; }
+.participant-shell .mission-hint summary { cursor: pointer; min-height: 44px; padding: 10px 0; color: var(--accent-ink); font-weight: 600; }
+.participant-shell .mission-hint details p { font-size: 14px; margin: 8px 0; }
+.participant-shell .letter-celebration { background: transparent; }
+.participant-shell .letter-celebration .letter-sticker { width: 112px; height: 140px; }
+.participant-shell .completion-letters > span { width: auto; height: auto; background: transparent; border: 0; box-shadow: none; padding: 0; }
+.participant-shell .completion-letters .letter-sticker { width: clamp(42px, 12vw, 90px); height: auto; aspect-ratio: 4 / 5; }
+.participant-shell .auth-empty-page { max-width: 720px; }
+.participant-shell .auth-empty-page .empty-state { padding: 28px; border-radius: 24px; box-shadow: var(--event-shadow); }
+.participant-shell .auth-empty-page .empty-symbol { display: grid; place-items: center; width: 52px; height: 52px; margin: 0 auto 16px; border-radius: 18px; background: var(--accent-soft); color: var(--accent-ink); }
+.participant-shell .auth-empty-page .empty-state h2 { font-size: 20px; }
+.participant-shell .auth-empty-page .empty-state > p { max-width: 42ch; margin: 12px auto 20px; }
+.participant-shell .ops-login > .context-label { margin-bottom: 12px; }
+.operations-shell .ops-tabs { gap: 8px; padding: 4px; border: 1px solid var(--border); background: var(--surface); border-radius: 16px; }
+.operations-shell .ops-tabs a { padding: 10px 16px; border: 0; border-radius: 12px; min-height: 44px; }
+.operations-shell .ops-tabs a[aria-current] { color: var(--accent-ink); background: var(--accent-soft); }
+.operations-shell .ops-state { border: 1px solid var(--border); border-radius: 999px; padding: 2px 8px; color: var(--ink); background: var(--raised); }
+.operations-shell .ops-toolbar { flex-wrap: wrap; padding: 16px; border: 1px solid var(--border); border-radius: 18px; background: var(--surface); }
+.operations-shell .ops-filters { flex-wrap: wrap; }
+.operations-shell .ops-sheet { border-radius: 20px; }
+.operations-shell .ops-detail-pane, .operations-shell .ops-title > div { min-width: 0; }
+.operations-shell .ops-title, .operations-shell .ops-list-heading { flex-wrap: wrap; }
+.operations-shell .ops-revision { padding: 16px; border-radius: 14px; background: var(--ground); }
+.operations-shell .ops-revision + .ops-revision { margin-top: 16px; }
+.operations-shell .ops-message { background: var(--surface); border: 1px solid var(--border); border-radius: 18px; }
+.operations-shell .ops-audit-list pre { max-width: 100%; white-space: pre-wrap; overflow-wrap: anywhere; }
+@media (min-width: 1100px) {
+  .participant-shell .home-overview { grid-template-columns: minmax(0, 1.8fr) minmax(280px, 1fr); align-items: stretch; }
+  .participant-shell .next-panel { display: flex; flex-direction: column; }
+  .participant-shell .next-panel .button { grid-column: auto; grid-row: auto; margin-top: auto; align-self: stretch; }
+}
+@media (min-width: 641px) and (max-width: 1099px) {
+  .participant-shell .mission-progress-guide { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+  .participant-shell .mission-hint { border-top: 0; border-left: 1px solid var(--border); }
+}
+@media (max-width: 640px) {
+  body:has(.participant-shell) { padding-bottom: 0; }
+  .participant-shell { padding-bottom: calc(76px + env(safe-area-inset-bottom, 0px)); }
+  .participant-shell .mobile-nav { padding: 4px 12px calc(4px + env(safe-area-inset-bottom, 0px)); }
+  .participant-shell .mobile-nav a { min-height: 56px; }
+  .participant-shell .home-page { padding-top: 16px; }
+  .participant-shell .home-welcome { grid-template-columns: minmax(0, 1fr) 72px; gap: 8px; margin-bottom: 14px; }
+  .participant-shell .home-welcome h1 { font-size: clamp(20px, 5.6vw, 24px); }
+  .participant-shell .welcome-stickers { width: 72px; }
+  .participant-shell .home-welcome .context-label { font-size: 12px; }
+  .participant-shell .sticker-board { padding: 14px 12px; border-radius: 22px; }
+  .participant-shell .panel-heading h2 { font-size: 15px; }
+  .participant-shell .collection-count { font-size: 11px; padding: 3px 8px; }
+  .participant-shell .letter-slots { gap: 5px; }
+  .participant-shell .letter-slot { padding: 4px 1px; gap: 2px; }
+  .participant-shell .letter-slot .letter-sticker { width: 100%; height: auto; max-height: 80px; aspect-ratio: 4 / 5; }
+  .participant-shell .slot-state { min-width: 20px; min-height: 20px; }
+  .participant-shell .collection-caption { margin-top: 10px; font-size: 12px; }
+  .participant-shell .next-panel { padding: 14px 16px; }
+  .participant-shell .next-panel.is-login-cta { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px 12px; align-items: center; }
+  .participant-shell .next-panel.is-login-cta h2 { font-size: 15px; margin: 0; }
+  .participant-shell .next-panel.is-login-cta > p { font-size: 12px; margin: 0; }
+  .participant-shell .next-panel.is-login-cta .button { grid-column: 2; grid-row: 1 / 3; width: auto; margin: 0; padding: 10px 14px; min-height: 44px; font-size: 13px; }
+  .participant-shell .next-panel.is-login-cta .next-footnote { grid-column: 1 / -1; margin: 4px 0 0; font-size: 11px; }
+  .participant-shell .mission-section { margin-top: 22px; }
+  .participant-shell .mission-section .section-heading { gap: 4px; flex-wrap: wrap; margin-bottom: 12px; }
+  .participant-shell .mission-section .section-heading > span { font-size: 12px; }
+  .participant-shell .mission-row { padding: 16px; }
+  .participant-shell .auth-empty-page .empty-state { padding: 24px 20px; }
+  .participant-shell .auth-empty-page .page-heading { margin-bottom: 16px; }
+  .participant-shell .auth-empty-page .empty-state h2 { font-size: 18px; }
+  .operations-shell .ops-toolbar { align-items: stretch; }
+  .operations-shell .ops-filters { width: 100%; }
+  .operations-shell .ops-filters label { flex: 1 1 120px; min-width: 0; }
+  .operations-shell .ops-filters select { width: 100%; max-width: 100%; }
+  .operations-shell .ops-toolbar > button { min-height: 44px; }
+}
+
+.participant-shell .completion-letters .letter-sparkle { display: inline; width: auto; height: auto; border: 0; background: transparent; border-radius: 0; font-size: 20px; }
+.operations-shell .ops-state[data-state='APPROVED'], .operations-shell .ops-state[data-state='VISIBLE'] { color: var(--positive); background: #edf7f1; border-color: #cde4d5; }
+.operations-shell .ops-state[data-state='REJECTED'], .operations-shell .ops-state[data-state='HIDDEN'] { color: var(--negative); background: #fff1f2; border-color: #f0d0d5; }
+.operations-shell .ops-state[data-state='REVIEW_REQUIRED'] { color: var(--warning); background: #fff7df; border-color: #eaddb1; }
+
+/* V5 follow-up: six balanced cards and concise participant copy. */
+.participant-shell .mission-row:last-child { grid-column: auto; }
+.participant-shell .mission-overview-card { background: var(--accent-soft); border-color: var(--accent-track); }
+.participant-shell .mission-overview-card > svg { margin: 20px; color: var(--accent-ink); }
+.participant-shell .mission-row-state { justify-content: flex-start; flex-wrap: wrap; gap: 8px; }
+.participant-shell .mission-row-state > svg { margin-left: auto; }
+.participant-shell .mission-row-state .state-badge { font-size: 12px; }
+.participant-shell .mission-row-state .mission-link-label { font-size: 13px; white-space: nowrap; }
+.participant-shell .slot-label { font-size: 12px; color: var(--muted); line-height: 1.4; white-space: nowrap; }
+.participant-shell .home-overview .next-panel .button { margin-top: 8px; }
+.participant-shell .next-panel.is-login-cta { justify-content: center; }
+.participant-shell .home-policy-note { margin-top: 16px; color: var(--muted); font-size: 13px; }
+.participant-shell .mission-overview-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; }
+.participant-shell .mission-overview-item { min-width: 0; }
+.participant-shell .mission-overview-page .mission-progress-guide { display: block; }
+.participant-shell .mission-overview-page .mission-hint { border-left: 0; border-top: 1px solid var(--border); }
+.participant-shell .overview-mission-link { margin: 12px 4px 0; min-height: 44px; }
+@media (max-width: 640px) {
+  .participant-shell .mission-overview-list { grid-template-columns: minmax(0, 1fr); gap: 16px; }
+  .participant-shell .mission-overview-card > svg { margin: 16px; }
+  .participant-shell .home-overview .next-panel.is-login-cta { display: flex; flex-direction: column; align-items: stretch; gap: 6px; }
+  .participant-shell .home-overview .next-panel.is-login-cta .button { width: 100%; margin-top: 4px; }
+  .participant-shell .slot-name { font-size: 12px; }
+}
+
+.participant-shell .home-overview .next-panel > p { margin-bottom: 4px; }
+
+/* Final integration: collection-led home within the existing event palette. */
+.participant-shell .home-page .home-overview { grid-template-columns: minmax(0, 1fr); }
+.participant-shell .home-page .sticker-board { width: 100%; }
+.participant-shell .home-page .letter-slot .letter-sticker { width: clamp(54px, 9vw, 104px); height: auto; aspect-ratio: 4 / 5; max-width: 100%; }
+.participant-shell .home-page .letter-slot { gap: 3px; padding: 8px 4px; }
+.participant-shell .collection-complete-link { min-height: 44px; margin-top: 8px; }
+.participant-shell .mission-moderation-note { display: block; margin-top: 8px; color: var(--accent-ink); font-size: 12px; line-height: 1.5; }
+.participant-shell .mission-overview-card { background: #e7eeff; border-color: #9cb5e0; color: #294c82; }
+.participant-shell .mission-overview-card:hover { background: #dce7ff; border-color: #6b8fc8; }
+.participant-shell .mission-overview-card .mission-row-copy p, .participant-shell .mission-overview-card .mission-link-label { color: #365d92; }
+.participant-shell .mission-overview-card > .guide-sticker { display: block; flex: none; margin: 0; width: 64px; height: 80px; }
+.participant-shell .mission-detail-heading { margin-bottom: 18px; padding-bottom: 18px; }
+.participant-shell .mission-access-note { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; padding: 14px 16px; margin-top: 16px; background: var(--accent-soft); border-radius: 16px; }
+.participant-shell .mission-access-note p { flex: 1 1 180px; color: var(--muted); font-size: 14px; }
+.participant-shell .mission-access-note .text-link { min-height: 44px; }
+@media (max-width: 640px) {
+  .participant-shell .home-welcome .context-label { font-size: 12px; line-height: 1.6; }
+  .participant-shell .home-page .letter-slot .letter-sticker { width: 100%; max-height: 88px; }
+  .participant-shell .home-page .letter-slot { padding: 5px 1px; }
+  .participant-shell .mission-row { padding: 16px; }
+  .participant-shell .mission-row-state { margin-top: 0; }
+  .participant-shell .mission-overview-card > .guide-sticker { width: 56px; height: 70px; margin: 0; }
+}
+
+/* One static invitation for the board; never covers a character or status. */
+.participant-shell .collection-invitation { display: flex; justify-content: center; margin: 4px 0 12px; padding: 0 8px; }
+.participant-shell .collection-bubble { position: relative; display: inline-block; max-width: 100%; padding: 7px 13px; border: 1px solid #bad7e7; border-radius: 16px; background: #f3faff; color: #36576d; font-size: 13px; font-weight: 600; line-height: 1.5; box-shadow: 0 2px 5px #36576d0a; overflow-wrap: anywhere; }
+.participant-shell .collection-bubble::after { content: ''; position: absolute; bottom: -5px; left: calc(50% - 4px); width: 8px; height: 8px; background: #f3faff; border-right: 1px solid #bad7e7; border-bottom: 1px solid #bad7e7; transform: rotate(45deg); }
+@media (max-width: 640px) {
+  .participant-shell .collection-invitation { margin: 0 0 10px; }
+  .participant-shell .collection-bubble { padding: 5px 11px; font-size: 12px; }
+}
+
+/* Wish receipt is presentation only: one short toss after a fulfilled submission. */
+.participant-shell .wish-toss { margin: 16px 0; padding: 12px 16px; background: #f0f9ff; border: 1px solid #d3e7f2; border-radius: 20px; text-align: center; }
+.participant-shell .wish-toss > svg { display: block; width: min(100%, 320px); height: auto; margin: auto; overflow: hidden; }
+.participant-shell .wish-toss p { color: #36576d; font-size: 13px; line-height: 1.6; }
+.participant-shell .toss-lake { fill: #d0ecf8; }
+.participant-shell .toss-coin { transform-origin: 70px 34px; animation: wish-coin-toss 900ms ease-in forwards; }
+.participant-shell .toss-coin circle { fill: #ffe9a0; stroke: #bf9133; stroke-width: 2; }
+.participant-shell .toss-coin path { fill: #bf9133; }
+.participant-shell .toss-ripple { fill: none; stroke: #65a8c6; stroke-width: 2; opacity: 0; transform-origin: 190px 102px; animation: wish-ripple 500ms 650ms ease-out forwards; }
+.participant-shell .ripple-two { animation-delay: 780ms; }
+@keyframes wish-coin-toss { 0% { transform: translate(0,0) rotate(-20deg); opacity: 1; } 45% { transform: translate(65px,-18px) rotate(160deg); opacity: 1; } 80% { transform: translate(120px,60px) rotate(300deg); opacity: 1; } 100% { transform: translate(120px,70px) rotate(360deg) scale(.2); opacity: 0; } }
+@keyframes wish-ripple { 0% { transform: scale(.4); opacity: .9; } 100% { transform: scale(1.6); opacity: 0; } }
+@media (prefers-reduced-motion: reduce) {
+  .participant-shell .toss-coin { animation: none; transform: translate(120px,60px); }
+  .participant-shell .toss-ripple { animation: none; opacity: .7; }
+}
+
+/* Candidate review reuses the operations shell, with no public winner treatment. */
+.operations-shell .award-basis, .operations-shell .award-review { padding: 16px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface); margin: 16px 0; overflow-wrap: anywhere; }
+.operations-shell .award-basis p, .operations-shell .award-review p { margin-top: 8px; line-height: 1.6; font-size: 13px; }
+.operations-shell .award-category { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
+.operations-shell .award-category select { min-height: 44px; max-width: 100%; }
+.operations-shell .award-candidates { list-style: none; padding: 0; }
+.operations-shell .award-candidates > li { padding: 16px 0; border-bottom: 1px solid var(--border); overflow-wrap: anywhere; }
+.operations-shell .award-row { display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.operations-shell .award-row > span { font-variant-numeric: tabular-nums; font-size: 13px; }
+.operations-shell .award-candidates details { margin-top: 8px; font-size: 13px; }
+.operations-shell .award-candidates summary { cursor: pointer; padding: 12px 0; min-height: 44px; }
+.operations-shell .award-candidates details li { margin: 8px 0; }
+.operations-shell .award-warning { margin-top: 8px; color: var(--warning); font-size: 13px; }
+.operations-shell .award-pagination { display: flex; gap: 20px; flex-wrap: wrap; }
+.operations-shell .award-pagination a { min-height: 44px; }
+@media (max-width: 640px) { .operations-shell .ops-tabs { flex-wrap: wrap; } .operations-shell .award-row { display: block; } .operations-shell .award-row > span { display: block; margin-top: 8px; } }
+
+/* Uncollected artwork keeps its color; only server completion gets the check/sparkle. */
+.participant-shell .letter-slot:not(.is-collected) { border-style: dashed; }
+.participant-shell .mission-row:focus-visible, .participant-shell .mission-row:hover { border-color: var(--accent); outline-offset: 3px; }
+@media (hover: hover) { .participant-shell .letter-slot:hover { transform: translateY(-2px); } }
+@media (prefers-reduced-motion: reduce) { .participant-shell .letter-slot:hover { transform: none; } }

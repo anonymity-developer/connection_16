@@ -21,7 +21,7 @@ spring:
       repositories:
         enabled: false
   session:
-    timeout: 2h
+    timeout: 4h
     redis:
       namespace: tagme:session
       repository-type: indexed
@@ -61,11 +61,20 @@ tagme:
   admin:
     bootstrap-id: ${ADMIN_BOOTSTRAP_ID:}
     bootstrap-password: ${ADMIN_BOOTSTRAP_PASSWORD:}
+  moderation:
+    provider: ${TAGME_MODERATION_PROVIDER:NONE}
+    gms-base-url: ${TAGME_GMS_BASE_URL:}
+    gms-key: ${GMS_KEY:}
+    openai-key: ${OPENAI_API_KEY:}
   auth:
     enabled: ${AUTH_ENABLED:false}
     base-url: ${MATTERMOST_BASE_URL:https://meeting.ssafy.com}
     token: ${MATTERMOST_TOKEN:}
+    login-id: ${MATTERMOST_LOGIN_ID:}
+    login-password: ${MATTERMOST_LOGIN_PASSWORD:}
     channel-id: ${MATTERMOST_CHANNEL_ID:}
+    team-name: ${MATTERMOST_TEAM_NAME:}
+    channel-name: ${MATTERMOST_CHANNEL_NAME:}
     hmac-key: ${AUTH_HMAC_KEY:}
     otp-ttl-seconds: ${AUTH_OTP_TTL_SECONDS:180}
     resend-seconds: ${AUTH_RESEND_SECONDS:60}

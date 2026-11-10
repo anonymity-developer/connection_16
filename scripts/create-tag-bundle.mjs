@@ -4,7 +4,7 @@ import { mkdir, realpath, writeFile, rm } from 'node:fs/promises';
 import { dirname, relative, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-const codes = ['SHOW_ME', 'SYNC_ME', 'MAKE_A_WISH', 'FAST_TAP', 'SAY_SOMETHING'];
+const codes = ['SYNC_ME', 'MAKE_A_WISH', 'FAST_TAP', 'SAY_SOMETHING'];
 export function createBundle(origin) {
   const url = new URL(origin);
   if (url.protocol !== 'https:' || url.username || url.password || url.search || url.hash || url.pathname !== '/' || url.port && url.port !== '443') throw new Error('Use an HTTPS origin without credentials, path, query or fragment.');
@@ -33,6 +33,6 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
   try {
     if (args.length !== 4 || args[0] !== '--origin' || args[2] !== '--out') throw new Error('Usage: node scripts/create-tag-bundle.mjs --origin https://your-domain --out /private/new-directory');
     await writeBundle(args[1], args[3]);
-    console.log('Created five private tag URLs and hash-only SQL. No database changes were made.');
+    console.log('Created four private tag URLs and hash-only SQL. No database changes were made.');
   } catch (error) { console.error(error.message); process.exitCode = 1; }
 }

@@ -110,20 +110,82 @@ class ParticipationIntegrationTest {
     ResponseEntity<Map> get(String path){return raw(HttpMethod.GET,path,null,null);}
     ResponseEntity<Map> send(HttpMethod method,String path,Object body){var csrf=get("/csrf");return raw(method,path,body,(String)csrf.getBody().get("token"));}
     void login(){assertThat(send(HttpMethod.POST,"/auth/login",Map.of("username","alice","password",PASSWORD)).getStatusCode().value()).isEqualTo(200);}
-    @Test void profileBeforeTagAndTagBeforeProfileOnlyCompleteAfterBothConditions() {
-        service.save(principal,request(true,0)); assertThat(repository.mission(alice,MissionCode.SHOW_ME).state()).isEqualTo("LOCKED");
-        assertThat(accounts.byId(alice).orElseThrow().onboardingRequired()).isFalse();
-        var result=service.resolve(principal,ParticipationService.tokenHash(token)); assertThat(result.newlyCompleted()).isTrue();
+    @Test void completeProfileAutomaticallyGrantsShowMeWithoutTagAndKeepsHistory() {
+        service.save(principal,request(true,0));
+        assertThat(repository.mission(alice,MissionCode.SHOW_ME).state()).isEqualTo("COMPLETED");
         var first=repository.mission(alice,MissionCode.SHOW_ME).completedAt();
-        assertThat(db.queryForObject("SELECT source_kind FROM mission_completion_evidence WHERE user_id=?",String.class,alice)).isEqualTo("TAG_UNLOCK");
-        service.save(principal,request(true,1)); service.resolve(principal,ParticipationService.tokenHash(token));
-        assertThat(repository.mission(alice,MissionCode.SHOW_ME).completedAt()).isEqualTo(first);
-        assertThat(db.queryForObject("SELECT COUNT(*) FROM user_consent_events",Integer.class)).isEqualTo(2);
-        db.update("DELETE FROM mission_completion_evidence");db.update("DELETE FROM submission_receipts");db.update("DELETE FROM profiles");db.update("UPDATE mission_progress SET status='UNLOCKED',completed_at=NULL");
-        service.save(principal,request(true,0)); assertThat(repository.mission(alice,MissionCode.SHOW_ME).state()).isEqualTo("COMPLETED");
         assertThat(db.queryForObject("SELECT source_kind FROM mission_completion_evidence WHERE user_id=?",String.class,alice)).isEqualTo("PROFILE");
+        service.save(principal,request(true,1));
+        assertThat(service.reconcileShowMe(principal)).isFalse();
+        login(); assertThat(get("/missions/collection").getStatusCode().value()).isEqualTo(200);
+        assertThat(repository.mission(alice,MissionCode.SHOW_ME).completedAt()).isEqualTo(first);
+        assertThat(db.queryForObject("SELECT COUNT(*) FROM mission_completion_evidence WHERE user_id=?",Integer.class,alice)).isEqualTo(1);
+        assertThat(db.queryForObject("SELECT COUNT(*) FROM submission_receipts WHERE source_kind='TAG_UNLOCK'",Integer.class)).isZero();
+        assertThat(repository.mission(alice,MissionCode.SYNC_ME).state()).isEqualTo("LOCKED");
+    }
+    @Test void preRegistrationReconcilesOnlyAfterOpenWithoutBackdatingOrGetWrites() {
+        db.update("UPDATE event_settings SET opens_at=UTC_TIMESTAMP(6)+INTERVAL 1 HOUR,submit_closes_at=UTC_TIMESTAMP(6)+INTERVAL 2 HOUR,moderation_closes_at=UTC_TIMESTAMP(6)+INTERVAL 3 HOUR,profile_preparation_enabled=FALSE");
+        assertThatThrownBy(() -> service.save(principal,request(true,0))).isInstanceOf(AuthException.class);
+        assertThat(repository.profile(alice)).isNull();
+        db.update("UPDATE event_settings SET profile_preparation_enabled=TRUE");
+        service.save(principal,request(true,0));
+        assertThat(repository.mission(alice,MissionCode.SHOW_ME).state()).isEqualTo("LOCKED");
+        assertThat(service.reconcileShowMe(principal)).isFalse();
+        db.update("UPDATE event_settings SET opens_at=UTC_TIMESTAMP(6)-INTERVAL 1 MINUTE");
+        login(); get("/missions/collection");
+        assertThat(repository.mission(alice,MissionCode.SHOW_ME).state()).isEqualTo("LOCKED");
+        assertThat(raw(HttpMethod.POST,"/missions/show-me/reconcile",Map.of(),null).getStatusCode().value()).isEqualTo(403);
+        Instant processing=repository.now();
+        assertThat(send(HttpMethod.POST,"/missions/show-me/reconcile",Map.of()).getBody()).containsEntry("newlyCompleted",true);
+        var accepted=db.queryForObject("SELECT accepted_received_at FROM mission_completion_evidence WHERE user_id=?",Timestamp.class,alice).toInstant();
+        assertThat(accepted).isAfterOrEqualTo(processing);
+        assertThat(repository.completion(alice).complete()).isFalse();
+        assertThat(send(HttpMethod.POST,"/missions/show-me/reconcile",Map.of()).getBody()).containsEntry("newlyCompleted",false);
+    }
+    <T> T withDatabaseTime(Instant time,java.util.function.Supplier<T> action) {
+        return new TransactionTemplate(manager).execute(status -> {
+            db.execute("SET timestamp="+time.getEpochSecond());
+            try { return action.get(); } finally { db.execute("SET timestamp=0"); }
+        });
+    }
+    @Test void showMeUsesDatabaseTimeEvenWhenJvmClockDiffersAndHonoursOpenBoundary() {
+        Instant opens=Instant.parse("2026-01-01T00:00:00Z"),closes=opens.plusSeconds(60);
+        db.update("UPDATE event_settings SET opens_at=?,submit_closes_at=?,moderation_closes_at=?,profile_preparation_enabled=TRUE",Timestamp.from(opens),Timestamp.from(closes),Timestamp.from(closes.plusSeconds(60)));
+        withDatabaseTime(opens.minusSeconds(1),() -> service.save(principal,request(true,0)));
+        assertThat(repository.mission(alice,MissionCode.SHOW_ME).state()).isEqualTo("LOCKED");
+        assertThat(withDatabaseTime(opens,() -> service.reconcileShowMe(principal))).isTrue();
+        var granted=db.queryForObject("SELECT e.accepted_received_at,p.completed_at,p.unlocked_at,r.received_at FROM mission_completion_evidence e JOIN mission_progress p ON p.user_id=e.user_id AND p.mission_id=e.mission_id JOIN submission_receipts r ON r.id=e.receipt_order WHERE e.user_id=?",
+            (row,n) -> new Instant[]{row.getTimestamp(1).toInstant(),row.getTimestamp(2).toInstant(),row.getTimestamp(3).toInstant(),row.getTimestamp(4).toInstant()},alice);
+        assertThat(granted[0]).isEqualTo(opens);
+        assertThat(granted[1]).isEqualTo(granted[0]);
+        assertThat(granted[3]).isEqualTo(opens.minusSeconds(1));
+        assertThat(granted[2]).isEqualTo(opens);
+    }
+    @Test void showMeCannotGrantAtTheExclusiveCloseBoundary() {
+        Instant closes=Instant.parse("2026-01-01T00:01:00Z");
+        db.update("UPDATE event_settings SET opens_at=?,submit_closes_at=?,moderation_closes_at=?,profile_preparation_enabled=TRUE",Timestamp.from(closes.minusSeconds(60)),Timestamp.from(closes),Timestamp.from(closes.plusSeconds(60)));
+        withDatabaseTime(closes.minusSeconds(61),() -> service.save(principal,request(true,0)));
+        assertThat(withDatabaseTime(closes,() -> service.reconcileShowMe(principal))).isFalse();
+        assertThat(repository.mission(alice,MissionCode.SHOW_ME).state()).isEqualTo("LOCKED");
+        assertThat(db.queryForObject("SELECT COUNT(*) FROM mission_completion_evidence",Integer.class)).isZero();
+    }
+    @Test void crossingCloseDuringShowMeRollsBackProfileUnlockAndEvidenceTogether() {
+        Instant opens=Instant.parse("2026-01-01T00:00:00Z"),closes=opens.plusSeconds(60);
+        db.update("UPDATE event_settings SET opens_at=?,submit_closes_at=?,moderation_closes_at=?",Timestamp.from(opens),Timestamp.from(closes),Timestamp.from(closes.plusSeconds(60)));
+        var reads=new java.util.concurrent.atomic.AtomicInteger();
+        doAnswer(invocation -> {
+            if(reads.incrementAndGet()==2)db.execute("SET timestamp="+closes.getEpochSecond());
+            return invocation.callRealMethod();
+        }).when(repository).requireOpenTime();
+        assertThatThrownBy(() -> withDatabaseTime(opens.plusSeconds(59),() -> service.save(principal,request(true,0))))
+            .isInstanceOf(AuthException.class).hasMessageContaining("참여 가능한 시간");
+        assertThat(repository.profile(alice)).isNull();
+        assertThat(db.queryForObject("SELECT COUNT(*) FROM mission_progress",Integer.class)).isZero();
+        assertThat(db.queryForObject("SELECT COUNT(*) FROM submission_receipts",Integer.class)).isZero();
+        assertThat(db.queryForObject("SELECT COUNT(*) FROM mission_completion_evidence",Integer.class)).isZero();
     }
     @Test void csrfOwnershipFormatsMissingPolicyAndClosedEventFailWithoutProgress() {
+        assertThat(send(HttpMethod.POST,"/missions/show-me/reconcile",Map.of()).getStatusCode().value()).isEqualTo(401);
         assertThat(send(HttpMethod.POST,"/tags/resolve",Map.of("token",token)).getStatusCode().value()).isEqualTo(401); login();
         assertThat(raw(HttpMethod.POST,"/tags/resolve",Map.of("token",token),null).getStatusCode().value()).isEqualTo(403);
         assertThat(send(HttpMethod.POST,"/tags/resolve",Map.of("token","SHOW_ME")).getStatusCode().value()).isEqualTo(400);
@@ -166,15 +228,18 @@ class ParticipationIntegrationTest {
         bad=payload(true,1);bad.put("interestIds",List.of(999999));assertThat(send(HttpMethod.PUT,"/users/me/profile",bad).getStatusCode().value()).isEqualTo(400);
         assertThat(repository.profile(alice).version()).isEqualTo(1);
     }
-    @Test void twentyConcurrentUnlocksHaveOneReceiptAndOneCompletion() throws Exception {
+    @Test void twentyConcurrentProfileReconciliationsGrantExactlyOneLetter() throws Exception {
+        db.update("UPDATE event_settings SET opens_at=UTC_TIMESTAMP(6)+INTERVAL 1 HOUR,submit_closes_at=UTC_TIMESTAMP(6)+INTERVAL 2 HOUR,moderation_closes_at=UTC_TIMESTAMP(6)+INTERVAL 3 HOUR,profile_preparation_enabled=TRUE");
         service.save(principal,request(true,0));
-        try(var pool=Executors.newFixedThreadPool(8)){
-            List<Future<TagResult>> results=new ArrayList<>();for(int i=0;i<20;i++)results.add(pool.submit(() -> service.resolve(principal,ParticipationService.tokenHash(token))));
-            int unlocked=0,completed=0;for(var future:results){var value=future.get(30,TimeUnit.SECONDS);if(value.newlyUnlocked())unlocked++;if(value.newlyCompleted())completed++;}
-            assertThat(unlocked).isEqualTo(1);assertThat(completed).isEqualTo(1);
+        db.update("UPDATE event_settings SET opens_at=UTC_TIMESTAMP(6)-INTERVAL 1 MINUTE");
+        try(var pool=Executors.newFixedThreadPool(8)) {
+            List<Future<Boolean>> results=new ArrayList<>();
+            for(int i=0;i<20;i++) results.add(pool.submit(() -> service.reconcileShowMe(principal)));
+            int completed=0;for(var future:results)if(future.get(30,TimeUnit.SECONDS))completed++;
+            assertThat(completed).isEqualTo(1);
         }
         assertThat(db.queryForObject("SELECT COUNT(*) FROM mission_completion_evidence",Integer.class)).isEqualTo(1);
-        assertThat(db.queryForObject("SELECT COUNT(*) FROM submission_receipts WHERE source_kind='TAG_UNLOCK'",Integer.class)).isEqualTo(1);
+        assertThat(db.queryForObject("SELECT COUNT(*) FROM submission_receipts WHERE source_kind='TAG_UNLOCK'",Integer.class)).isZero();
     }
     Receipt fixture(long userId,MissionCode code) {
         return new TransactionTemplate(manager).execute(status -> {
@@ -219,8 +284,10 @@ class ParticipationIntegrationTest {
         assertThatThrownBy(() -> service.resolve(principal,ParticipationService.tokenHash(token))).isInstanceOf(AuthException.class).satisfies(e -> assertThat(((AuthException)e).status()).isEqualTo(404));
         db.update("UPDATE tags SET active=TRUE");db.update("UPDATE missions SET active=FALSE WHERE code='SHOW_ME'");
         assertThatThrownBy(() -> service.resolve(principal,ParticipationService.tokenHash(token))).isInstanceOf(AuthException.class).satisfies(e -> assertThat(((AuthException)e).status()).isEqualTo(403));
-        db.update("UPDATE missions SET active=TRUE");service.save(principal,request(true,0));
-        var receipt=repository.profileReceipt(alice,1);
+        db.update("UPDATE missions SET active=TRUE");
+        service.save(principal,new ParticipationController.ProfileRequest("테스트별명",null,null,null,List.of(),request(true,0).acceptPolicies(),0));
+        var created = new TransactionTemplate(manager).execute(status -> repository.receipt(alice,"PROFILE",1,Instant.now()));
+        var receipt=created;
         assertThatThrownBy(() -> completion.complete(alice,MissionCode.SHOW_ME,receipt.id())).isInstanceOf(AuthException.class).satisfies(e -> assertThat(((AuthException)e).status()).isEqualTo(403));
         assertThat(db.queryForObject("SELECT COUNT(*) FROM mission_progress",Integer.class)).isZero();
     }
@@ -255,5 +322,73 @@ class ParticipationIntegrationTest {
         var minimal=new ParticipationController.ProfileRequest("닉네임만",null,null,null,List.of(),Arrays.stream(PolicyType.values()).map(t->new ParticipationController.Acceptance(t,"test-v1")).toList(),0);
         assertThat(service.save(principal,minimal).participationReady()).isTrue();assertThat(repository.profile(alice).realName()).isEqualTo("테스트이름");assertThat(repository.profile(alice).isPublic()).isTrue();
         assertThat(repository.interests()).anyMatch(x->"DOMAIN".equals(x.category())).anyMatch(x->"TECH_STACK".equals(x.category()));
+    }
+    @Test
+    void showMeRequiresBioAndInterestForFirstS() {
+        var consents = Arrays.stream(PolicyType.values())
+                .map(t -> new ParticipationController.Acceptance(t, "test-v1"))
+                .toList();
+
+        // 1. 닉네임만 작성: 저장 가능, S 미지급
+        var minimal = new ParticipationController.ProfileRequest(
+                "테스트별명", null, null, null,
+                List.of(), consents, 0
+        );
+        assertThat(service.save(principal, minimal).participationReady()).isTrue();
+
+        var tag = service.resolve(
+                principal, ParticipationService.tokenHash(token)
+        );
+        assertThat(tag.newlyCompleted()).isFalse();
+        assertThat(repository.mission(alice, MissionCode.SHOW_ME).state())
+                .isEqualTo("LOCKED");
+
+        // 2. 소개만 작성: S 미지급
+        service.save(principal, new ParticipationController.ProfileRequest(
+                "테스트별명", "안녕하세요!", null, null,
+                List.of(), consents, 1
+        ));
+        assertThat(repository.mission(alice, MissionCode.SHOW_ME).state())
+                .isEqualTo("LOCKED");
+
+        // 3. 관심사만 선택: S 미지급
+        service.save(principal, new ParticipationController.ProfileRequest(
+                "테스트별명", null, null, null,
+                interestIds(), consents, 2
+        ));
+        assertThat(repository.mission(alice, MissionCode.SHOW_ME).state())
+                .isEqualTo("LOCKED");
+
+        // 4. 소개 + 관심사 완성: 첫 S 지급
+        service.save(principal, new ParticipationController.ProfileRequest(
+                "테스트별명", "안녕하세요!", null, null,
+                interestIds(), consents, 3
+        ));
+        var mission = repository.mission(alice, MissionCode.SHOW_ME);
+        assertThat(mission.state()).isEqualTo("COMPLETED");
+
+        // 5. 다시 태그를 열어도 중복 지급 없음
+        assertThat(service.resolve(
+                principal, ParticipationService.tokenHash(token)
+        ).newlyCompleted()).isFalse();
+        assertThat(repository.mission(alice, MissionCode.SHOW_ME).completedAt())
+                .isEqualTo(mission.completedAt());
+    }
+    @Test void finalShowMeValidatorCannotCompleteAnEmptyIntroductionThroughInternalEvidence() {
+        var saved = service.save(principal, new ParticipationController.ProfileRequest(
+                "테스트별명", null, null, null, List.of(), request(true,0).acceptPolicies(), 0));
+        service.resolve(principal, ParticipationService.tokenHash(token));
+        assertThat(repository.eligible(alice)).isTrue();
+        assertThat(repository.showMeEligible(alice)).isFalse();
+        var receipt = new TransactionTemplate(manager).execute(status -> {
+            repository.lockPrincipal(principal);
+            repository.unlock(alice,repository.mission(alice,MissionCode.SHOW_ME).id(),Instant.now());
+            return repository.receipt(alice, "PROFILE", saved.profile().version(), java.time.Instant.now());
+        });
+        assertThatThrownBy(() -> completion.complete(alice, MissionCode.SHOW_ME, receipt.id()))
+                .isInstanceOf(AuthException.class)
+                .satisfies(failure -> assertThat(((AuthException)failure).code()).isEqualTo("MISSION_REQUIREMENTS"));
+        assertThat(repository.mission(alice, MissionCode.SHOW_ME).state()).isEqualTo("UNLOCKED");
+        assertThat(db.queryForObject("SELECT COUNT(*) FROM mission_completion_evidence WHERE user_id=?", Integer.class, alice)).isZero();
     }
 }

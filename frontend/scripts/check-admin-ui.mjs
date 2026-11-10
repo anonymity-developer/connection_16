@@ -1,12 +1,14 @@
 /* global document, window */
 import assert from 'node:assert/strict';
-import { mkdir, writeFile } from 'node:fs/promises';
+import { spawn } from 'node:child_process';
+import { chmod, mkdir, writeFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { chromium } from 'playwright';
 import { preview } from 'vite';
 
 // Isolated browser contracts: synthetic rows only, no live administrator or participant records.
-const server = await preview({ preview: { host: '127.0.0.1', port: 4573, strictPort: true } });
+let snapshot = '';
+const server = await preview({ preview: { host: '127.0.0.1', port: 4573, strictPort: true }, plugins: [{ name: 'admin-measured-dom', configurePreviewServer(server) { server.middlewares.use('/admin-snapshot.html', (req, res) => { if (req.method !== 'GET') { res.statusCode = 405; res.end(); return; } res.setHeader('Content-Type', 'text/html; charset=utf-8'); res.end(snapshot); }); } }] });
 const output = resolve('../output/playwright'); await mkdir(output, { recursive: true });
 let browser;
 try {
@@ -47,6 +49,8 @@ try {
   const visit = path => page.goto('http://127.0.0.1:4573' + path);
   const record = name => { checks.push(name); console.log('PASS ' + name); };
   await visit('/auth'); await page.getByLabel('아이디', { exact: true }).fill('admin:contract'); await page.getByLabel('비밀번호', { exact: true }).fill('a contract test password'); await page.getByRole('button', { name: '로그인하기', exact: true }).click(); await page.waitForURL('**/admin'); await page.getByRole('heading', { name: '다섯 미션 참여', exact: true }).waitFor(); record('shared login redirects administrators without participant onboarding');
+  await page.waitForLoadState('networkidle');
+  snapshot = (await page.content()).replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, '');
   for (const width of [1440, 768, 430, 390, 360]) {
     await page.setViewportSize({ width, height: 1000 });
     for (const [route, name] of [['/admin', 'overview'], ['/admin/members', 'members'], ['/admin/members/10', 'detail'], ['/admin/rankings', 'rankings'], ['/admin/completions', 'completions']]) {
@@ -72,9 +76,29 @@ try {
     await page.getByText('운영자 확인 중', { exact: true }).waitFor(); await page.getByRole('button', { name: '승인 상태 보기', exact: true }).click(); await page.getByText('마지막 승인본', { exact: true }).waitFor();
   }
   record('real wish and cheer components show pending and approved revisions without live moderation or content writes');
+  const cheer = page.locator('article').filter({ hasText: '관리자 미리보기 예시 응원입니다.' });
+  await cheer.getByRole('button', { name: '하트 남기기', exact: true }).click(); await cheer.getByText('하트 1개', { exact: true }).waitFor();
+  await cheer.getByRole('button', { name: '하트 취소하기', exact: true }).click(); await cheer.getByText('하트 0개', { exact: true }).waitFor();
+  await page.getByLabel('미리 볼 미션', { exact: true }).selectOption('MAKE_A_WISH');
+  await page.getByRole('button', { name: '소원 1 열기', exact: true }).click(); await page.getByRole('heading', { name: '발견한 소원', exact: true }).waitFor();
+  await page.getByRole('button', { name: '목록으로 보기', exact: true }).click();
+  let wish = page.locator('.wish-list-view article').filter({ hasText: '관리자 미리보기 예시 소원입니다.' });
+  await wish.getByRole('button', { name: '댓글 보기', exact: true }).click(); await wish.getByLabel('동료의 소원에 댓글 남기기', { exact: true }).fill('메모리 댓글 승인 확인');
+  await wish.getByRole('button', { name: '댓글 검수 요청하기', exact: true }).click(); await wish.getByText('운영자 확인 중', { exact: true }).waitFor();
+  await page.getByRole('button', { name: '댓글 승인 상태 보기', exact: true }).click();
+  await page.getByRole('button', { name: '목록으로 보기', exact: true }).click(); wish = page.locator('.wish-list-view article').filter({ hasText: '관리자 미리보기 예시 소원입니다.' });
+  await wish.getByRole('button', { name: '댓글 보기', exact: true }).click(); await wish.locator('.comment-list').first().getByText('메모리 댓글 승인 확인', { exact: true }).waitFor();
+  record('shared fountain, comments and heart controls run entirely in preview memory');
   await page.getByLabel('미리 볼 미션', { exact: true }).selectOption('SHOW_ME'); await page.getByLabel('닉네임', { exact: true }).fill('미리보기 첫인사'); await page.getByRole('checkbox', { name: '참여 안내와 상세 정보 공개 범위를 확인했어요.', exact: true }).check(); await page.getByRole('button', { name: '프로필 저장하기', exact: true }).click(); await page.getByText('미리보기 프로필을 저장했어요.', { exact: false }).waitFor();
+  await page.getByRole('heading', { name: '첫 번째 S 준비하기', exact: true }).waitFor();
+  await page.getByLabel('한 줄 소개 (선택)', { exact: true }).fill('관리자 화면 확인용 예시 소개'); await page.getByRole('checkbox', { name: '백엔드', exact: true }).check(); await page.getByRole('button', { name: '프로필 저장하기', exact: true }).click(); await page.getByRole('heading', { name: '첫 번째 S를 모았어요', exact: true }).waitFor();
   assert.deepEqual(mutations, ['/auth/login']); record('all five previews preserve participant profile, session identity and official records; only login used POST');
   await page.screenshot({ path: resolve(output, 'admin-preview-390.png'), fullPage: true });
   allowed = false; const before = previewReads; await page.reload(); await page.getByRole('alert').filter({ hasText: '관리자 권한이 필요해요.' }).waitFor(); assert.equal(previewReads, before); assert.equal(await page.locator('.admin-preview-stage').count(), 0); record('revoked administrator access never loads preview data or mounts a preview');
   assert.deepEqual(errors, []); await writeFile(resolve(output, 'admin-contract-checks.json'), JSON.stringify({ kind: 'synthetic browser fixtures, no real accounts or participant writes', checks, mutations, errors }, null, 2));
+  // Inspect the rendered synthetic administrator DOM without carrying any credential or auth bypass.
+  const inspector = resolve('../.taste-skill/admin-render'); await mkdir(inspector, { recursive: true });
+  const launcher = process.platform === 'win32' ? chromium.executablePath() : resolve(inspector, 'chromium.sh');
+  if (process.platform !== 'win32') { await writeFile(launcher, `#!/usr/bin/env bash\nexec "${chromium.executablePath()}" --no-sandbox "$@"\n`); await chmod(launcher, 0o700); }
+  await new Promise((done, reject) => { const child = spawn(process.execPath, ['scripts/taste.mjs', 'inspect', 'http://127.0.0.1:4573/admin-snapshot.html', '--app', '--widths', '1440,768,390', '--out', '.taste-skill/admin-render'], { cwd: resolve('..'), env: { ...process.env, CHROME_PATH: launcher }, stdio: 'inherit' }); child.on('error', reject); child.on('exit', code => code === 0 ? done() : reject(new Error(`Admin render check exited ${code}`))); });
 } finally { await browser?.close(); await new Promise(resolve => server.httpServer.close(resolve)); }

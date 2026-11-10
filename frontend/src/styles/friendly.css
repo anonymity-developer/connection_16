@@ -1,0 +1,156 @@
+/* Third pass: a friendly TAG ME event, building on both earlier UI patches.
+   Pastel stickers and soft shadows are intentional user-requested event styling. */
+:root:has(.participant-shell) {
+  --ground: #f7fcff; --raised: #eef6fb; --border: #dcecf5; --control: #8ba9bc;
+  --ink: #25465b; --muted: #536e7f;
+  --accent: #0877b9; --accent-soft: #e8f7ff; --accent-track: #bfe6f8; --accent-ink: #12628b;
+  --event-mint: #e4f7ee; --event-mint-ink: #286953;
+  --event-lilac: #f0ebfb; --event-lilac-ink: #655086;
+  --event-yellow: #fff6d6; --event-yellow-ink: #755b18;
+  --event-shadow: 0 4px 16px rgb(43 107 140 / .06);
+  --radius: 24px; --control-radius: 14px;
+}
+.participant-shell h1 { font-weight: 750; letter-spacing: -.035em; }
+.participant-shell h2 { letter-spacing: -.025em; }
+.participant-shell .brand { color: var(--accent-ink); }
+.participant-shell .header-login { border-radius: 999px; background: var(--accent-soft); border-color: transparent; }
+.participant-shell .button { border-radius: 999px; min-height: 48px; }
+.participant-shell .button--primary { box-shadow: none; }
+.participant-shell .button--secondary { border-color: var(--accent-track); background: var(--surface); }
+.participant-shell .button:disabled { box-shadow: none; }
+.participant-shell .button--quiet { box-shadow: none; }
+.participant-shell .input-wrap input, .participant-shell textarea, .participant-shell select,
+.participant-shell .people-filters input { border-radius: 14px; background: #fbfdff; }
+.participant-shell .field label { font-weight: 600; }
+.participant-shell .context-label { color: var(--accent-ink); font-size: 13px; }
+.participant-shell .home-welcome { display: grid; grid-template-columns: minmax(0, 1fr) 220px; align-items: center; gap: 24px; padding: 8px 4px 12px; }
+.participant-shell .home-welcome h1 { margin: 10px 0 12px; font-size: 30px; }
+.participant-shell .home-welcome > div > p:last-child { font-size: 16px; line-height: 1.8; }
+.connection-stickers { display: block; width: 220px; height: auto; pointer-events: none; }
+.sticker-thread { fill: none; stroke: var(--accent-track); stroke-width: 5; stroke-linecap: round; }
+.sticker-back { fill: var(--accent-track); }
+.sticker-tag { stroke: var(--surface); stroke-width: 5; stroke-linejoin: round; }
+.sticker-tag--blue { fill: var(--accent-soft); }
+.sticker-tag--mint { fill: var(--event-mint); }
+.sticker-hole { fill: var(--surface); }
+.connection-stickers text { fill: var(--accent-ink); font: 800 24px 'DM Sans', sans-serif; letter-spacing: -.5px; }
+.sticker-smile { fill: none; stroke: var(--accent); stroke-width: 3; stroke-linecap: round; }
+.sticker-heart { fill: var(--event-mint-ink); }
+.sticker-spark { fill: #e9c760; }
+.sticker-dot { fill: var(--accent-track); }
+.participant-shell .sticker-board { border: 2px dashed var(--accent-track); border-radius: 28px; background: var(--surface); padding: 28px; box-shadow: var(--event-shadow); }
+.participant-shell .sticker-board .collection-count { background: var(--accent-soft); padding: 4px 12px; border-radius: 999px; }
+.participant-shell .letter-slots { padding: 8px 0 4px; gap: 10px; }
+.participant-shell .letter-slot { border: 2px dashed var(--border); border-radius: 18px; background: #f6f9fb; transform: rotate(-2deg); }
+.participant-shell .letter-slot:nth-child(even) { transform: rotate(2deg); }
+.participant-shell .letter-slot strong { color: #778792; font-weight: 750; }
+.participant-shell [data-mission='SHOW_ME'], .participant-shell [data-mission='FAST_TAP'] { --mission-tint: var(--accent-soft); --mission-ink: var(--accent-ink); }
+.participant-shell [data-mission='SYNC_ME'] { --mission-tint: var(--event-mint); --mission-ink: var(--event-mint-ink); }
+.participant-shell [data-mission='MAKE_A_WISH'] { --mission-tint: var(--event-yellow); --mission-ink: var(--event-yellow-ink); }
+.participant-shell [data-mission='SAY_SOMETHING'] { --mission-tint: var(--event-lilac); --mission-ink: var(--event-lilac-ink); }
+.participant-shell .letter-slot.is-collected { background: var(--mission-tint); border: 2px solid var(--surface); box-shadow: 0 3px 9px rgb(43 107 140 / .10); }
+.participant-shell .letter-slot.is-collected strong, .participant-shell .letter-slot.is-collected .slot-state { color: var(--mission-ink); }
+.participant-shell .letter-slot:hover { border-color: var(--accent-track); }
+.participant-shell .slot-state { background: var(--surface); border-radius: 999px; min-width: 24px; min-height: 24px; display: grid; place-items: center; }
+.participant-shell .next-panel { border: 0; border-radius: 24px; background: var(--accent-soft); box-shadow: none; }
+.participant-shell .next-panel h2 { font-size: 21px; }
+.participant-shell .collection-progress { background: var(--raised); height: 8px; border-radius: 999px; }
+.participant-shell .collection-progress span { border-radius: inherit; }
+.participant-shell .preparation-note { padding: 16px 4px; margin-top: 4px; }
+.participant-shell .mission-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; border: 0; background: transparent; }
+.participant-shell .mission-row { position: relative; flex-wrap: wrap; align-items: center; gap: 16px; border: 1px solid var(--border); border-radius: 24px; padding: 24px; background: var(--surface); box-shadow: var(--event-shadow); }
+.participant-shell .mission-row + .mission-row { border-top: 1px solid var(--border); }
+.participant-shell .mission-row:first-child, .participant-shell .mission-row:last-child { border-radius: 24px; }
+.participant-shell .mission-row:last-child { grid-column: 1 / -1; }
+.participant-shell .mission-row:hover { background: var(--mission-tint); border-color: var(--accent-track); }
+.participant-shell .mission-letter { position: relative; width: 52px; height: 60px; border: 2px solid var(--surface); border-radius: 16px; color: var(--mission-ink, var(--accent-ink)); background: var(--mission-tint, var(--accent-soft)); font-weight: 700; transform: rotate(-4deg); }
+.participant-shell .mission-mini-icon { position: absolute; display: grid; place-items: center; right: -7px; bottom: -5px; width: 25px; height: 25px; border-radius: 50%; color: var(--mission-ink); background: var(--surface); }
+.participant-shell .mission-row-copy h3 { display: block; font-size: 16px; }
+.participant-shell .mission-row-copy h3 span { display: block; margin-top: 4px; }
+.participant-shell .mission-row-copy p { margin-top: 8px; }
+.participant-shell .mission-link-label { display: inline; }
+.participant-shell .mission-row-state { width: 100%; padding-left: 68px; justify-content: space-between; gap: 12px; }
+.participant-shell .state-badge { border-radius: 999px; padding: 5px 10px; }
+.participant-shell .mission-state-note { padding-inline: 4px; }
+.participant-shell .home-help { background: var(--event-mint); border-color: transparent; border-radius: 24px; }
+.participant-shell .mission-detail, .participant-shell .mission-guide { border-radius: 24px; border-color: var(--border); box-shadow: var(--event-shadow); }
+.participant-shell .mission-guide { background: var(--mission-tint, var(--accent-soft)); border-color: transparent; box-shadow: none; }
+.participant-shell .mission-reward > span { display: grid; place-items: center; width: 56px; height: 64px; border: 3px solid var(--surface); border-radius: 16px; color: var(--mission-ink, var(--accent-ink)); background: var(--surface); transform: rotate(-5deg); }
+.participant-shell .earned-letter { border: 3px solid var(--surface); border-radius: 22px; transform: rotate(-5deg); box-shadow: var(--event-shadow); }
+.participant-shell .mission-message > svg { color: var(--accent); }
+.participant-shell .wish-lake { border-radius: 24px; background: var(--accent-soft); }
+.participant-shell .auth-page .auth-form-panel { border-radius: 28px; border-color: var(--border); box-shadow: var(--event-shadow); }
+.participant-shell .account-theme .auth-guide { padding: 24px; border-radius: 28px; background: var(--accent-soft); }
+.participant-shell .auth-stickers { width: 190px; margin: 0 auto 16px; }
+.participant-shell .account-theme .auth-guide h2 { font-size: 24px; color: var(--accent-ink); }
+.participant-shell .auth-guide dl > div { border-color: var(--accent-track); }
+.participant-shell .account-theme .form-boundary { border-radius: 16px; }
+.participant-shell .auth-steps li[aria-current] { border-bottom-color: var(--accent); }
+.participant-shell .auth-steps span { font-size: 12px; }
+.participant-shell .first-letter-quest { border-radius: 28px; background: var(--event-yellow); border: 1px solid #f1e5b6; }
+.participant-shell .quest-heading { display: flex; align-items: center; gap: 20px; }
+.participant-shell .quest-letter { flex: none; width: 64px; height: 78px; background: var(--surface); border: 3px solid #fffdf6; border-radius: 18px; display: flex; flex-direction: column; justify-content: center; align-items: center; font-size: 36px; font-weight: 750; line-height: 1.2; color: var(--event-yellow-ink); transform: rotate(-6deg); }
+.participant-shell .quest-letter small { font-size: 11px; font-weight: 500; margin-top: 4px; }
+.participant-shell .show-me-summary { display: block; }
+.participant-shell .show-me-summary > p { margin-top: 8px; }
+.participant-shell .show-me-checklist ul { gap: 12px; }
+.participant-shell .show-me-checklist li { padding: 14px; background: var(--surface); border-radius: 16px; }
+.participant-shell .show-me-checklist li.is-ready { background: var(--event-mint); color: var(--event-mint-ink); }
+.participant-shell .account-theme .profile-form section, .participant-shell .account-theme .profile-preview { border-radius: 24px; border-color: var(--border); }
+.participant-shell .account-theme .profile-preview { background: var(--accent-soft); }
+.participant-shell .profile-interest-preview > span, .participant-shell .interest-options label { border-radius: 999px; }
+.participant-shell .profile-initial { border-radius: 18px 18px 18px 6px; transform: rotate(-4deg); }
+.participant-shell .visit-stats { background: var(--accent-soft); border-color: transparent; border-radius: 24px; }
+.participant-shell .visit-stats dd { color: var(--accent-ink); }
+.participant-shell .people-filters { border-radius: 24px; }
+.participant-shell .people-list > li, .participant-shell .person-row { border-radius: 24px; }
+.participant-shell .people-list > li { box-shadow: var(--event-shadow); }
+.participant-shell .person-initial { width: 48px; height: 48px; flex-basis: 48px; border-radius: 17px 17px 17px 5px; transform: rotate(-4deg); }
+.participant-shell .person-row[data-card-tone='1'] .person-initial { color: var(--event-mint-ink); background: var(--event-mint); }
+.participant-shell .person-row[data-card-tone='2'] .person-initial { color: var(--event-lilac-ink); background: var(--event-lilac); }
+.participant-shell .person-relation.is-mutual { background: var(--event-mint); border-radius: 999px; padding: 3px 8px; }
+.participant-shell .discovery-message { border-radius: 24px; }
+.participant-shell .discovery-message.is-empty { background: var(--event-mint); }
+.participant-shell .discovery-graph { border-radius: 28px; border-color: var(--border); background: var(--surface); box-shadow: var(--event-shadow); }
+.participant-shell .network-node > span { width: 34px; height: 34px; background: var(--accent-soft); border: 2px solid var(--surface); box-shadow: 0 2px 6px rgb(43 107 140 / .12); }
+.participant-shell .network-node small { padding: 1px 4px; border-radius: 6px; }
+.participant-shell .public-profile { position: relative; border-radius: 28px; border-color: var(--border); box-shadow: var(--event-shadow); }
+.participant-shell .public-profile-facts { background: var(--accent-soft); border-radius: 18px; }
+.participant-shell .public-profile-intro .profile-avatar { background: var(--event-mint); border-color: transparent; border-radius: 20px 20px 20px 6px; }
+.participant-shell .account-panel, .participant-shell .account-record { border-radius: 24px; box-shadow: var(--event-shadow); }
+.participant-shell .account-record { background: var(--accent-soft); border-color: transparent; }
+.participant-shell .tag-welcome { text-align: center; }
+.participant-shell .tag-stickers { width: 170px; margin: 0 auto 12px; }
+.participant-shell .tag-page .empty-state { border-radius: 28px; background: var(--surface); box-shadow: var(--event-shadow); padding: 28px; }
+.participant-shell .tag-page .empty-symbol { color: var(--accent); background: var(--event-mint); border-radius: 20px; }
+.participant-shell .tag-page .empty-state .button { margin-top: 20px; }
+.participant-shell .tag-footnote { text-align: center; }
+@media (max-width: 640px) {
+  .participant-shell .home-welcome { grid-template-columns: minmax(0, 1fr) 104px; gap: 8px; padding: 0; }
+  .participant-shell .home-welcome h1 { font-size: 24px; }
+  .participant-shell .home-welcome > div > p:last-child { font-size: 14px; }
+  .participant-shell .welcome-stickers { width: 104px; }
+  .participant-shell .sticker-board { padding: 20px 16px; }
+  .participant-shell .letter-slots { gap: 6px; }
+  .participant-shell .letter-slot { border-radius: 14px; padding: 14px 2px 10px; }
+  .participant-shell .letter-slot strong { font-size: 30px; }
+  .participant-shell .collection-count b { font-size: 20px; }
+  .participant-shell .mission-list { grid-template-columns: minmax(0, 1fr); gap: 12px; }
+  .participant-shell .mission-row { padding: 20px; gap: 16px; }
+  .participant-shell .mission-row-state { padding-left: 68px; }
+  .participant-shell .mission-row-copy p { font-size: 14px; }
+  .participant-shell .mission-detail, .participant-shell .mission-guide { padding: 22px 20px; }
+  .participant-shell .auth-page .auth-form-panel { padding: 24px 20px; }
+  .participant-shell .account-theme .auth-guide { padding: 24px; }
+  .participant-shell .auth-stickers { width: 150px; }
+  .participant-shell .quest-heading { gap: 16px; }
+  .participant-shell .quest-letter { width: 52px; height: 70px; font-size: 32px; }
+  .participant-shell .show-me-checklist ul { grid-template-columns: minmax(0, 1fr); }
+  .participant-shell .show-me-checklist li { padding: 12px; }
+  .participant-shell .first-letter-quest { padding: 20px 16px; }
+  .participant-shell .tag-page .empty-state { padding: 24px 20px; }
+  .participant-shell .tag-stickers { width: 140px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .participant-shell *, .participant-shell *::before, .participant-shell *::after { scroll-behavior: auto !important; transition: none !important; animation: none !important; }
+}

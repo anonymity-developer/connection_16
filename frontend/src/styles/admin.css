@@ -99,6 +99,9 @@
   .admin-table td, .admin-table td:first-child, .admin-table td:last-child { border: 0; padding: 0; text-align: left; overflow-wrap: anywhere; }
   .admin-table td::before { content: attr(data-label); display: block; font-size: 12px; color: var(--muted); }
   .admin-table td[data-label='참가자'], .admin-table td[data-label='미션'] { grid-column: 1 / -1; }
+  .admin-summary-table, .admin-summary-table tbody { display: block; }
+  .admin-summary-table tr { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .admin-summary-table td[data-label='미션']::before { display: none; }
   .admin-facts { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .admin-session-list li { display: block; }
   .admin-session-list strong { display: block; margin-top: 8px; }

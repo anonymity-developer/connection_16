@@ -1,0 +1,7 @@
+import { request } from '../auth/api';
+export type AwardCategory = 'FIRST_COMPLETION' | 'COMMENT_KING' | 'POPULAR_CHEER' | 'FAST_TAP';
+export const awardLabels: Record<AwardCategory, string> = { FIRST_COMPLETION: '최초 완성상', COMMENT_KING: '댓글왕', POPULAR_CHEER: '인기 응원상', FAST_TAP: 'FAST TAP' };
+export interface AwardProof { mission: string; sourceKind: string; sourceId: number; receiptOrder: number; acceptedAt: string; valid: boolean }
+export interface AwardCandidate { rank: number; userId: number; nickname: string; profileRegisteredAt: string; validCompletionAt: string; score: number | null; metricTie: boolean; unresolvedTie: boolean; overlappingTopCategories: AwardCategory[]; proofs: AwardProof[] }
+export interface AwardReport { ruleVersion: string; provisional: boolean; observedAt: string; opensAt: string | null; submitClosesAt: string | null; moderationClosesAt: string | null; eventPhase: string; category: AwardCategory; eligibleCompleteCount: number; total: number; offset: number; limit: number; items: AwardCandidate[]; invalidProofs: number; incompleteProofSets: number; pendingModeration: number; reviewTotal: number; reviewRecords: {userId: number; sourceId: number; reason: string}[]; pendingDecisions: string[] }
+export const awardsApi = { candidates: (category: AwardCategory, offset: number) => request<AwardReport>(`/admin/awards?category=${category}&offset=${offset}&limit=20`) };

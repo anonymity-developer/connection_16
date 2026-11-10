@@ -204,7 +204,7 @@ p { word-break: keep-all; overflow-wrap: anywhere; }
 .completion-page { text-align: center; padding-top: 64px; }
 .completion-page h1 { margin-top: 8px; }
 .completion-letters { display: flex; justify-content: center; gap: 10px; margin: 32px 0; }
-.completion-letters span { display: flex; justify-content: center; align-items: center; background: var(--accent-soft); border: 1px solid var(--accent-track); color: var(--accent); border-radius: var(--control-radius); width: 76px; height: 96px; font-size: 48px; line-height: 1; }
+.completion-letters > span { display: flex; justify-content: center; align-items: center; background: var(--accent-soft); border: 1px solid var(--accent-track); color: var(--accent); border-radius: var(--control-radius); width: 76px; height: 96px; font-size: 48px; line-height: 1; }
 .completion-page > p:not(.context-label) { color: var(--muted); margin-bottom: 24px; font-size: 14px; }
 .dev-preview { position: sticky; bottom: 0; background: var(--ink); color: white; padding: 8px 16px; display: flex; align-items: center; justify-content: center; gap: 20px; z-index: 20; font-size: 12px; }
 .dev-preview > div { display: flex; gap: 4px; }
@@ -276,7 +276,7 @@ p { word-break: keep-all; overflow-wrap: anywhere; }
   .dialog-inner { padding: 28px 20px 20px; }
   .empty-state { padding: 32px 20px; }
   .completion-letters { gap: 6px; }
-  .completion-letters span { width: 54px; height: 76px; font-size: 40px; }
+  .completion-letters > span { width: 54px; height: 76px; font-size: 40px; }
   .dev-preview { bottom: calc(72px + env(safe-area-inset-bottom)); flex-direction: column; gap: 0; padding: 6px 10px; }
 }
 @media (max-width: 374px) {
@@ -554,3 +554,14 @@ p { word-break: keep-all; overflow-wrap: anywhere; }
 .profile-disclosure { font-size: 14px; line-height: 1.8; margin: 16px 0; }
 .profile-policy-links { display: flex; flex-wrap: wrap; gap: 8px 16px; }
 @media (max-width: 480px) { .profile-source { gap: 16px; } .profile-source dl { gap: 20px; } }
+
+/* Existing graph geometry, with 44px keyboard/touch targets and bounded weight levels. */
+.network-canvas { position: relative; max-width: 340px; margin: auto; }
+.network-node { position: absolute; transform: translate(-50%, -50%); min-width: 44px; min-height: 44px; display: flex; flex-direction: column; align-items: center; justify-content: center; color: var(--ink); text-decoration: none; }
+.network-node > span { display: grid; place-items: center; width: 28px; height: 28px; border: 1px solid var(--control); border-radius: 50%; background: var(--surface); font-size: 13px; }
+.network-node small { font-size: 13px; background: var(--surface); white-space: nowrap; }
+.network-node:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+.discovery-graph .network-light line { stroke: var(--muted); }
+.discovery-graph .network-medium line { stroke: var(--accent); opacity: .65; }
+.discovery-graph .network-strong line { stroke: var(--accent); }
+.home-network { margin-top: 32px; }

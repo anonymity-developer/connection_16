@@ -393,3 +393,14 @@ route는 서버가 정한 내부 경로이며 토큰에서 외부 URL을 읽어 
 | GET | `/discovery/profiles/{id}/photo` | OPEN·본인/대상 현재 자격·기존 상세 방문 |
 
 둘 다 no-store PNG이며 외부 ID/URL/토큰을 노출하지 않는다. 사진 GET은 방문을 만들지 않는다. 입력/오류/사진 제한은 [가입 계약](mattermost-profile.md), 스키마는 참여/탐색 OpenAPI를 따른다.
+
+## 잠정 시상 후보 (후속 증분)
+
+- GET /api/v1/admin/awards?category=FIRST_COMPLETION&offset=0&limit=20
+- category: FIRST_COMPLETION / COMMENT_KING / POPULAR_CHEER / FAST_TAP. offset 0~100000, limit 1~50.
+- 관리자 필수. 현재 DB 역할/credential 검증, no-store. 조회만 하며 확정/추첨/지급/권한 변경을 하지 않음.
+- 응답: ruleVersion/provisional=true, observedAt/행사 마감/단계, category/total/offset/limit/items, 근거·게임 검토 건수/최대 50개 기록, 미확정 정책.
+- items: rank/userId/nickname/profileRegisteredAt/validCompletionAt/score/동점·공동 순위/복수 부문 1위 목록/proofs. proofs.sourceKind/sourceId/receiptOrder/acceptedAt을 제공하며 콘텐츠 원문·실명·MM 식별자/비밀번호/설문 답/탭 payload는 제외.
+- 401 미인증, 403 현재 ADMIN 아님, 400 필터 오류. 임의 다른 사용자 ID/역할을 body에 넣는 쓰기 API는 없음.
+
+[상세 집계/동점 기준](awards-candidates/RULES.md), [검증 및 미실행 항목](awards-candidates/TEST_RESULTS.md).
