@@ -9,6 +9,7 @@
 - 차단: `iam:ListOpenIDConnectProviders`는 실제 SCP explicit deny다. 제공자 생성은 자동 승인 검토가 명시적 승인 부족으로 거부해 **호출되지 않았다**. EC2 역할 정책·프로필/ECR/보안 그룹/SSM 설정 묶음도 자동 승인 검토가 거부해 실행되지 않았다. 이것을 AWS의 해당 API 거부로 오인하지 않는다.
 - 로컬 `.env.production`은 새 DB/관리자/HMAC 비밀값과 실제 도메인으로 만들었다. Git 제외 상태이며 값은 출력하지 않았다. SSM 업로드는 아직 없다. 기존 `.env`/`.env.pr-review`를 변경하지 않았다.
 - 도메인 공용 DNS 조회는 A/NS 모두 NXDOMAIN이었다. 등록/위임 전파와 EC2 IP 연결 후 다시 확인한다. 실제 EC2 기동·HTTPS·GitHub OIDC·원격 배포 성공은 아직 검증하지 않았다.
+- 작업 브랜치 `infra/ec2-deploy`는 원격에 push했다. draft PR 생성도 자동 승인 검토가 별도 승인 없는 외부 GitHub 작업으로 거부했으므로 PR은 생성되지 않았다. GitHub CI/배포 실행 성공으로 기록하지 않는다.
 
 ## 실행 전 승인할 EC2 설정
 

@@ -36,6 +36,10 @@ aws ecr get-login-password | docker login --username AWS --password-stdin "$regi
 
 mysql_id="$(docker ps -q --filter label=com.docker.compose.project=tagme-prod --filter label=com.docker.compose.service=mysql)"
 existing_mysql="$(docker ps -aq --filter label=com.docker.compose.project=tagme-prod --filter label=com.docker.compose.service=mysql)"
+if [[ -z "$existing_mysql" ]] && docker volume inspect tagme-prod_mysql_data >/dev/null 2>&1; then
+  echo 'Existing MySQL volume has no container; recover it and take a backup before deployment.' >&2
+  exit 1
+fi
 if [[ -n "$existing_mysql" && -z "$mysql_id" ]]; then
   echo 'Existing MySQL is stopped; recover it and take a backup before deployment.' >&2
   exit 1

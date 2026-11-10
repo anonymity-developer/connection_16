@@ -5,9 +5,10 @@
 - `infra/ec2-deploy`에서 기존 단일 VM/Compose를 유지해 main의 성공한 CI → private ECR 불변 이미지 → SSM Run Command → EC2 기동/readiness/HTTPS smoke를 구현했다. main/저장소/커밋을 확인하고 SSH·장기 AWS 키 없이 OIDC로 연결한다. Actions SHA를 고정했고 이미지 빌드는 EC2에서 수행하지 않는다. 역할/인스턴스 변수 미설정 시 배포하지 않으며 자동 배포는 명시적으로 켠다.
 - 사용자가 가비아에서 `anonymitydeveloper.site`를 구입했다. 별도 Git 제외 `.env.production`에 해당 도메인과 새 DB/관리자/HMAC 비밀값을 생성했다. 기존 `.env`/`.env.pr-review`는 보존했다. Mattermost 발신 계정은 자동 복사하지 않았으며 참가자 인증은 비활성이다. 당시 공용 DNS A/NS는 NXDOMAIN이었다.
 - 실제 AWS 로그인·Free ACTIVE/잔액 $100·시드니 AMI/기존 VPC/t3.small을 확인했다. `tagme-ec2` **빈 역할만 생성**됐다. OIDC 조회는 SCP explicit deny이며 제공자 생성과 역할 정책/프로필·ECR·SG·SSM 설정은 자동 승인 검토가 거부해 실행되지 않았다. EC2 생성·OIDC 연결·원격 배포는 완료되지 않았다. 고급 기능/유료 전환·SCP 변경은 수행하지 않았다.
-- 배포 안전성 8개, Actions actionlint, 셸 구문/ShellCheck, 개발/운영/작은 설정/이미지 전용 Compose 구성, 실제 분리된 임시 스택 이미지 빌드·4 healthy·웹→API 메타 smoke를 통과했다. 이미지 전용 비공개 구성도 4 healthy/게시 포트 0개/웹→API smoke를 확인했고, 빌드 소스 없는 실제 릴리스 묶음에서 `--no-build` 생성도 통과했다. Caddy의 실제 도메인 설정은 유효하며 기존 들여쓰기 포맷 경고는 남는다. 실제 HTTPS 발급·Mattermost·100명 부하/서버 밖 백업 복원은 미검증이다.
+- 배포 안전성 8개와 격리된 호스트 셸 검사 6개, Actions actionlint, 셸 구문/ShellCheck, 개발/운영/작은 설정/이미지 전용 Compose 구성, 실제 분리된 임시 스택 이미지 빌드·4 healthy·웹→API 메타 smoke를 통과했다. 호스트 검사는 AWS/Docker 대역이며 실제 클라우드 배포가 아니다. 이미지 전용 비공개 구성도 4 healthy/게시 포트 0개/웹→API smoke를 확인했고, 빌드 소스 없는 실제 릴리스 묶음에서 `--no-build` 생성도 통과했다. Caddy의 실제 도메인 설정은 유효하며 기존 들여쓰기 포맷 경고는 남는다. 실제 HTTPS 발급·Mattermost·100명 부하/서버 밖 백업 복원은 미검증이다.
 - SSM 기본 관리 정책이 모든 파라미터 읽기를 포함함을 확인해 운영 파일 한 개 외 읽기를 막는 명시적 Deny를 runtime 템플릿에 넣었다. 배포 전 dump 실패 시 기동을 중단하고 성공한 배포만 current 포인터를 갱신한다. 서버 내부 dump를 외부 백업/자동 DB 롤백으로 기록하지 않는다.
 - 실행 설정·실제 AWS 비용 조회(서버+30GiB+IPv4 약 $25.80/730시간, 기타 별도)·가비아 DNS·환경변수·승인 및 권한 차단/후속 순서는 [배포 연결](github-actions-ec2.md)에 기록했다. 실제 리소스 구성은 사용자 명시 승인 후 계속한다.
+- 작업 브랜치를 원격에 push했다. draft PR 생성은 자동 승인 검토가 별도 승인 없는 외부 GitHub 작업으로 거부했으므로 생성되지 않았다. main 병합·원격 CI/배포 실행은 없다. 이번에 만든 임시 Docker 검증 프로젝트/볼륨만 정리하고 기존 두 로컬 스택은 유지했다.
 
 ## 2026-11-10 — AWS Agent Toolkit 설치·인증·MCP 검증
 

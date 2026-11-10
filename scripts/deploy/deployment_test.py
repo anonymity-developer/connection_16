@@ -56,6 +56,9 @@ class DeploymentSafetyTest(unittest.TestCase):
         with self.assertRaises(ValueError):
             env.validate(self.settings(DB_PASSWORD='$(touch /tmp/unsafe)'))
         self.assertEqual(env.validate(self.settings(DB_PASSWORD="'literal-$credential#with space'")), '')
+        with self.assertRaises(ValueError) as caught:
+            env.validate(self.settings(DB_PASSWORD="'secret'with'unescaped-quotes'"))
+        self.assertNotIn('unescaped-quotes', str(caught.exception))
 
     def test_compose_target_and_aws_overrides_are_rejected(self):
         for key in ('COMPOSE_PROJECT_NAME', 'COMPOSE_FILE', 'AWS_ENDPOINT_URL', 'TAGME_REGISTRY'):

@@ -17,6 +17,8 @@ def validate(text):
         # Literal single quotes are the recommended Compose format for external credentials.
         if value.startswith("'") and value.endswith("'"):
             value = value[1:-1]
+            if "'" in value:
+                raise ValueError(f'{key}: embedded single quotes require a separately reviewed dotenv encoding')
         elif any(c in value for c in ('$', '"', '#', ' ', '\t', "'")):
             raise ValueError(f'{key}: use a literal single-quoted dotenv value')
         values[key] = value
