@@ -2,6 +2,8 @@
 
 `main`의 콘텐츠 검수 기능에 독립 관리자 로그인, 참가자/접속 분석, 미션별 순위와 관리자 전용 미리보기를 추가한다. 최종 시상 정산은 후속이다.
 
+작업 브랜치는 원래 `connection_16` 저장소의 `feat/admin-page`다. 기존 PR 브랜치와의 충돌 점검은 [호환성 확인](admin-pr-compatibility.md)을 따른다.
+
 ## 계정 등록과 로그인
 
 서버 환경변수에 `ADMIN_BOOTSTRAP_ID=admin:tagme`, `ADMIN_BOOTSTRAP_PASSWORD`(운영자가 정한 15~64자), `AUTH_HMAC_KEY`(32바이트 이상 난수의 Base64)를 설정한다. 기본/공용 비밀번호는 없다. 아이디는 `admin:` 뒤 소문자 영문/숫자/`.`/`_`/`-` 1~48자다. `:`는 참가자 Mattermost username 문법 밖이라 두 계정 영역이 충돌하지 않는다.
