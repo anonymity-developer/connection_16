@@ -29,6 +29,8 @@ class BootstrapWebTest {
                 .andExpect(jsonPath("$.missions.length()").value(5))
                 .andExpect(jsonPath("$.missions[0].code").value("SHOW_ME"))
                 .andExpect(jsonPath("$.missions[1].code").value("SYNC_ME"))
+                .andExpect(jsonPath("$.missions[2].title").value("A WISH COME TRUE"))
+                .andExpect(jsonPath("$.missions[4].title").value("YOU GOT THIS"))
                 .andExpect(jsonPath("$.missions[4].letter").value("Y"));
     }
 

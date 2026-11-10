@@ -21,14 +21,14 @@ try {
   let limited = false, unavailable = false;
   let releaseOtp, heldOtp = null;
   const sample = { id: 1, username: 'contract-test', nickname: null, onboardingRequired: true };
-  const password = 'first test password';
+  const password = 'Tgme-123';
   await page.route('**/api/v1/**', async (route) => {
     const request = route.request();
     const path = new URL(request.url()).pathname.replace('/api/v1', '');
     const method = request.method();
     const reply = (status, data, headers = {}) => route.fulfill({ status, contentType: 'application/json', headers, body: status === 204 ? undefined : JSON.stringify(data) });
       if (method === 'POST' && path === '/missions/show-me/reconcile') { assert.ok(request.headers()['x-xsrf-token']); return reply(200, { newlyCompleted: false }); }
-    if (method === 'GET' && path === '/auth/config') return reply(200, { available: true, passwordMinLength: 15, passwordMaxLength: 64 });
+    if (method === 'GET' && path === '/auth/config') return reply(200, { available: true, passwordMinLength: 8, passwordMaxLength: 64 });
     if (method === 'GET' && path === '/users/me') return user ? reply(200, user) : reply(401, { code: 'UNAUTHENTICATED', message: '로그인이 필요합니다.' });
     if (method === 'GET' && path === '/tags/pending') return reply(200, { present: false });
     if (method === 'GET' && path === '/event') return reply(200, { status: 'NOT_CONFIGURED', opensAt: null, submitClosesAt: null, profilePreparationEnabled: false });

@@ -127,13 +127,14 @@ try {
   assert.equal(saves, 1); assert.equal(completed, true);
   await visit('/'); await page.getByRole('progressbar', { name: '나의 글자 수집' }).waitFor();
   assert.equal(await page.getByRole('progressbar').getAttribute('aria-valuenow'), '1');
+  await page.getByText('S를 획득했어요!', { exact: true }).waitFor();
   assert.equal(await page.locator('input[name="realName"],input[name="classNo"]').count(), 0);
   record('profile imports readonly identity, groups domain and stack interests, requires one acknowledgement and automatically awards the first S without a tag');
 
   await visit('/missions/show-me');
   await page.getByRole('heading', { name: '연결의 한 조각을 모았어요', exact: true }).waitFor();
   await page.screenshot({ path: resolve(output, 'participation-show-me-complete-390.png'), fullPage: true });
-  await page.getByRole('link', { name: '수집판으로 돌아가기', exact: true }).click();
+  await page.getByRole('link', { name: '뒤로가기', exact: true }).click();
   await page.getByRole('progressbar').waitFor(); assert.equal(await page.getByRole('progressbar').getAttribute('aria-valuenow'), '1');
   await page.reload(); await page.getByRole('progressbar').waitFor(); assert.equal(await page.getByRole('progressbar').getAttribute('aria-valuenow'), '1');
   assert.equal(await page.getByRole('progressbar').getAttribute('aria-valuemax'), '5');
@@ -149,7 +150,9 @@ try {
   await page.getByRole('button', { name: '프로필 저장하기', exact: true }).click(); await page.waitForURL('**/t/resume');
   await page.reload(); await page.getByRole('button', { name: '태그로 미션 열기', exact: true }).click(); await page.waitForURL('**/missions/sync-me');
   assert.equal(completed, true); assert.equal(pending, false);
-  assert.equal(await page.evaluate(() => localStorage.length + sessionStorage.length), 0);
+  assert.deepEqual(await page.evaluate(() => ({ local: Object.entries(localStorage), session: sessionStorage.length })), {
+    local: [['tagme:collection-celebration:1', 'SHOW_ME']], session: 0,
+  });
   record('anonymous tag intent survives login reload and onboarding without browser credential or token storage');
 
   await visit('/me/profile'); await page.getByLabel('닉네임', { exact: true }).waitFor(); profileConflict = true;

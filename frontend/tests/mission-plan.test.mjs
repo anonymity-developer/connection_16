@@ -21,6 +21,7 @@ function api(status = 'OPEN', state = 'LOCKED', granted = true) {
 test('OPEN collection reconciles a pre-registered SHOW ME through POST then reloads only server-confirmed completion', async () => {
   const fixture = api(); const result = await loadParticipation(fixture, () => true);
   assert.deepEqual(fixture.calls, ['GET collection','POST reconcile','GET collection']);
+  assert.equal(result.initial.completedCount, 0);
   assert.equal(result.collection.completedCount, 1);
 });
 test('before event, closed, unconfigured, completed or stale loads never invoke the automatic grant', async () => {
@@ -53,9 +54,9 @@ test('wish feedback deduplicates fulfilled revisions and does not depend on luck
   assert.equal(feedback({id:null,latestRevision:null}),null);
   assert.equal(pending.missionCompleted,false);assert.equal(pending.luckScore,null);
 });
-test('wish toss preserves textual moderation status and exposes no score or acquired reward', () => {
-  const html = renderToStaticMarkup(createElement(WishToss));
-  assert.match(html,/role="status"/);assert.match(html,/A는 첫 검수 승인 후/);
+test('wish toss announces landing and shows the letter only after completion', () => {
+  const html = renderToStaticMarkup(createElement(WishToss, { earned: true }));
+  assert.match(html,/role="status"/);assert.match(html,/A를 획득했어요/);
   assert.doesNotMatch(html,/글자 획득 완료|운 점수|landingZone|<button|<input/);
 });
 test('SAY display name changes consistently while internal identifier, Y and route remain stable', () => {

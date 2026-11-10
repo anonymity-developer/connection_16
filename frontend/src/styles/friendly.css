@@ -62,7 +62,7 @@
 .participant-shell .mission-row + .mission-row { border-top: 1px solid var(--border); }
 .participant-shell .mission-row:first-child, .participant-shell .mission-row:last-child { border-radius: 24px; }
 .participant-shell .mission-row:last-child { grid-column: 1 / -1; }
-.participant-shell .mission-row:hover { background: var(--mission-tint); border-color: var(--accent-track); }
+.participant-shell .mission-row:hover { background: var(--surface); border-color: var(--accent-track); }
 .participant-shell .mission-letter { position: relative; width: 52px; height: 60px; border: 2px solid var(--surface); border-radius: 16px; color: var(--mission-ink, var(--accent-ink)); background: var(--mission-tint, var(--accent-soft)); font-weight: 700; transform: rotate(-4deg); }
 .participant-shell .mission-mini-icon { position: absolute; display: grid; place-items: center; right: -7px; bottom: -5px; width: 25px; height: 25px; border-radius: 50%; color: var(--mission-ink); background: var(--surface); }
 .participant-shell .mission-row-copy h3 { display: block; font-size: 16px; }

@@ -47,10 +47,10 @@ class EventRehearsalIntegrationTest {
         p.add("spring.data.redis.host",REDIS::getHost);p.add("spring.data.redis.port",()->REDIS.getMappedPort(6379));
         p.add("tagme.auth.enabled",()->true);p.add("tagme.auth.token",()->"rehearsal-mock-only");p.add("tagme.auth.channel-id",()->"c".repeat(26));p.add("tagme.auth.hmac-key",()->Base64.getEncoder().encodeToString(new byte[32]));
     }
-    @Autowired JdbcTemplate db;@Autowired TestRestTemplate http;@Autowired AuthRepository accounts;
+    @Autowired JdbcTemplate db;@Autowired TestRestTemplate http;
     @Autowired org.springframework.data.redis.core.StringRedisTemplate redis;
     @Autowired org.springframework.core.env.Environment environment;
-    @Autowired ModerationService moderation;@MockitoSpyBean ParticipationRepository participation;
+    @MockitoSpyBean ParticipationRepository participation;
     @MockitoBean MattermostClient mattermost;@MockitoBean ModerationProvider provider;
     static final String PASSWORD="rehearsal only long password";
     final Map<String,String> codes=new ConcurrentHashMap<>();final Map<MissionCode,String> tokens=new EnumMap<>(MissionCode.class);
@@ -128,6 +128,11 @@ class EventRehearsalIntegrationTest {
         assertThat(a.get("/tags/pending").path("present").asBoolean()).isTrue();
         var anotherTab=new Client();anotherTab.login("alpha");assertThat(completed(anotherTab)).isEqualTo(1);
         ok(a.send(HttpMethod.POST,"/tags/resume",Map.of()),200);unlock(a,MissionCode.SYNC_ME);
+        for(var mission:a.get("/missions/collection").path("missions")){
+            var code=mission.path("code").asText();
+            if(List.of("MAKE_A_WISH","FAST_TAP","SAY_SOMETHING").contains(code))assertThat(mission.path("state").asText()).isEqualTo("LOCKED");
+            if(code.equals("SYNC_ME"))assertThat(mission.path("state").asText()).isEqualTo("UNLOCKED");
+        }
         assertThat(a.get("/sync/questions").path("available").asBoolean()).isFalse();questionnaire();
         assertThat(a.send(HttpMethod.POST,"/sync/submit",Map.of("questionnaireVersion","rehearsal-v1","answers",List.of())).getStatusCode().value()).isEqualTo(400);
         var sync=ok(a.send(HttpMethod.POST,"/sync/submit",answers()),200);assertThat(sync.path("type").path("code").asText()).isEqualTo("I");ok(a.send(HttpMethod.POST,"/sync/submit",answers()),200);
@@ -141,7 +146,7 @@ class EventRehearsalIntegrationTest {
             a.csrf();b.csrf();var one=pool.submit(()->content(a,"wishes","rehearsal-wish-alpha",null));var repeat=pool.submit(()->content(a,"wishes","rehearsal-wish-alpha",null));var other=pool.submit(()->content(b,"wishes","rehearsal-wish-beta",null));
             aw=one.get(20,TimeUnit.SECONDS);assertThat(repeat.get(20,TimeUnit.SECONDS).path("id")).isEqualTo(aw.path("id"));bw=other.get(20,TimeUnit.SECONDS);
         }
-        assertThat(aw.path("missionCompleted").asBoolean()).isFalse();assertThat(aw.path("luckScore").isNull()).isTrue();
+        assertThat(aw.path("missionCompleted").asBoolean()).isTrue();assertThat(aw.path("luckScore").isNull()).isTrue();
         approve(admin,aw.path("latestRevision").path("id").asLong());approve(admin,bw.path("latestRevision").path("id").asLong());
         long original=aw.path("latestRevision").path("id").asLong();var own=a.get("/wishes/me");var edit=content(a,"wishes","rehearsal-wish-edit",own.path("version").asLong());
         assertThat(edit.path("approvedRevision").path("id").asLong()).isEqualTo(original);assertThat(edit.path("missionCompleted").asBoolean()).isTrue();approve(admin,edit.path("latestRevision").path("id").asLong());
@@ -151,14 +156,16 @@ class EventRehearsalIntegrationTest {
         long wait=Duration.between(Instant.now(),Instant.parse(tapB.path("endsAt").asText()).plusMillis(150)).toMillis();assertThat(wait).isLessThan(20000);if(wait>0)Thread.sleep(wait);
         for(var pair:List.of(Map.entry(a,tapA),Map.entry(b,tapB))){var finish=Map.of("attemptId",pair.getValue().path("attemptId").asLong(),"taps",List.of(100,200,300),"interruptions",List.of());ok(pair.getKey().send(HttpMethod.POST,"/tap/finish",finish),200);ok(pair.getKey().send(HttpMethod.POST,"/tap/finish",finish),200);}
         assertThat(a.send(HttpMethod.POST,"/tap/start",Map.of(),"rehearsal-tap-reuse").getStatusCode().value()).isEqualTo(409);
-        var ac=content(a,"cheers","rehearsal-cheer-alpha",null);var bc=content(b,"cheers","rehearsal-cheer-beta",null);approve(admin,ac.path("latestRevision").path("id").asLong());
+        var ac=content(a,"cheers","rehearsal-cheer-alpha",null);approve(admin,ac.path("latestRevision").path("id").asLong());
         assertThat(completed(a)).isEqualTo(5);assertThat(completed(b)).isEqualTo(4);
         var failure=new AtomicBoolean(true);doAnswer(inv->{inv.callRealMethod();if(((Long)inv.getArgument(0))==b.userId&&failure.getAndSet(false))throw new DataAccessResourceFailureException("isolated final commit failure");return null;}).when(participation).complete(eq(b.userId),any(),any(),any());
-        long revision=bc.path("latestRevision").path("id").asLong(),job=job(revision),fence=db.queryForObject("SELECT fence FROM moderation_jobs WHERE id=?",Long.class,job);
-        var actor=accounts.byId(admin.userId).orElseThrow().principal();
-        assertThatThrownBy(()->moderation.review(actor,job,new ReviewRequest(fence,"APPROVED","REHEARSAL ROLLBACK"))).isInstanceOf(DataAccessResourceFailureException.class);
+        var cheer=Map.of("content","리허설 전용 문장","templateId","PLAIN","style","ROSE","anonymous",false);
+        assertThat(b.send(HttpMethod.POST,"/cheers",cheer,"rehearsal-cheer-beta").getStatusCode().is5xxServerError()).isTrue();
         assertThat(completed(b)).isEqualTo(4);assertThat(db.queryForObject("SELECT COUNT(*) FROM event_completions WHERE user_id=?",Integer.class,b.userId)).isZero();
-        approve(admin,revision);assertThat(completed(b)).isEqualTo(5);
+        var bc=content(b,"cheers","rehearsal-cheer-beta",null);
+        assertThat(completed(b)).isEqualTo(5);
+        var editBeforePublication=content(b,"cheers","rehearsal-cheer-beta-edit",bc.path("version").asLong());
+        approve(admin,editBeforePublication.path("latestRevision").path("id").asLong());
         long card=ac.path("id").asLong();ok(b.send(HttpMethod.PUT,"/cheers/"+card+"/like",Map.of()),200);ok(b.send(HttpMethod.PUT,"/cheers/"+card+"/like",Map.of()),200);ok(b.send(HttpMethod.DELETE,"/cheers/"+card+"/like",null),204);
         assertThat(b.get("/cheers/"+card+"/like").path("liked").asBoolean()).isFalse();ok(b.send(HttpMethod.PUT,"/cheers/"+card+"/like",Map.of()),200);
         long wish=bw.path("id").asLong();var comment=Map.of("content","테스트 응원 댓글","revealProfile",false);var cr=ok(a.send(HttpMethod.POST,"/wishes/"+wish+"/comments",comment,"rehearsal-comment-one"),202);

@@ -89,3 +89,5 @@
   .show-me-checklist small { margin: 0; text-align: right; }
   .account-theme .profile-form section, .account-theme .profile-preview { padding: 20px; }
 }
+
+@media (max-width: 640px) { .account-theme .profile-preview { display: none; } }

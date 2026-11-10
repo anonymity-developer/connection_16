@@ -16,12 +16,13 @@ import static com.tagme.content.ContentModels.*;
 public class ContentService {
     private final ContentRepository repository;
     private final ParticipationRepository participation;
+    private final MissionCompletionService completion;
     private final TransactionTemplate tx;
     private final AuthRateLimiter limits;
     private final ObjectMapper json;
     private final SecureRandom random=new SecureRandom();
-    public ContentService(ContentRepository repository,ParticipationRepository participation,PlatformTransactionManager manager,AuthRateLimiter limits,ObjectMapper json) {
-        this.repository=repository;this.participation=participation;this.tx=new TransactionTemplate(manager);this.limits=limits;this.json=json;
+    public ContentService(ContentRepository repository,ParticipationRepository participation,MissionCompletionService completion,PlatformTransactionManager manager,AuthRateLimiter limits,ObjectMapper json) {
+        this.repository=repository;this.participation=participation;this.completion=completion;this.tx=new TransactionTemplate(manager);this.limits=limits;this.json=json;
     }
     static AuthException error(int status,String code,String text) { return new AuthException(status,code,text); }
     private void guard(AuthPrincipal actor,Kind kind) {
@@ -67,10 +68,10 @@ public class ContentService {
             var latest=repository.latest(item.id());int number=latest==null?1:latest.number()+1;
             if(number>20)throw error(409,"REVISION_LIMIT","수정 횟수를 초과했어요. 운영자에게 문의해 주세요.");
             long revision=repository.addRevision(item.id(),number,body,key,hash,received);repository.queue(item,revision);
-            participation.receipt(actor.userId(),kind.source(),revision,received);
-            dbProgress(actor.userId(),kind);return snapshot(actor.userId(),kind);
+            var receipt=participation.receipt(actor.userId(),kind.source(),revision,received);
+            completion.complete(actor.userId(),kind.mission(),receipt.id());
+            return snapshot(actor.userId(),kind);
         });
     }
-    private void dbProgress(long user,Kind kind) { repository.markInProgress(user,kind.mission().name()); }
     public Feed feed(Kind kind,Long cursor) { if(cursor!=null&&cursor<1)throw error(400,"INVALID_CURSOR","목록 위치를 확인해 주세요.");return repository.feed(kind,cursor==null?Long.MAX_VALUE:cursor); }
 }

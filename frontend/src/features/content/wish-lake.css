@@ -4,11 +4,10 @@
   --lake-shore: #e7f3eb;
   --lake-line: #62aabf;
   --lake-ink: #28576c;
-  --lake-coin: #ffedb3;
-  --lake-gold: #9a742a;
   --lake-leaf: #a4d7c5;
 }
 .content-mission.content-mission--wish { display: flex; flex-direction: column; }
+.wish-gallery { container-type: inline-size; }
 .wish-lake-intro { margin: 16px 0 24px; text-align: center; }
 .wish-lake-intro figcaption { font-size: 13px; color: var(--muted); margin-top: 8px; }
 .wish-lake-scene { position: relative; isolation: isolate; width: 100%; min-width: 0; height: clamp(300px, 48vw, 380px); }
@@ -22,16 +21,62 @@
 .wish-view-switch .button { min-height: 44px; padding: 8px 14px; font-size: 13px; }
 .wish-view-switch [aria-pressed="true"] { color: var(--accent-ink); background: var(--accent-soft); box-shadow: inset 0 0 0 1px var(--accent-track); }
 .wish-lake-help { font-size: 13px; line-height: 1.6; color: var(--muted); margin-top: 12px; text-align: center; }
-/* At 360px: a >=250px stage, 72% =180px; 3 columns of 56px + gaps fit.
-   Fixed 3x2 grid rather than random absolute positions: no collisions as records grow. */
-.wish-lake-coins { position: absolute; inset: 25% 14% 28%; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); grid-template-rows: repeat(2, 1fr); gap: 10px 4px; padding: 0; margin: 0; list-style: none; }
-.wish-lake-coins li { min-width: 0; display: grid; place-items: center; }
-.wish-lake-coin { display: grid; place-items: center; position: relative; width: 56px; min-height: 56px; padding: 0; border: 0; border-radius: 50%; background: transparent; color: var(--lake-ink); cursor: pointer; touch-action: manipulation; }
-.wish-lake-coin svg { width: 52px; height: 52px; filter: drop-shadow(0 3px 1px #367d931a); }
-.wish-lake-coin circle { fill: var(--lake-coin); stroke: var(--lake-gold); stroke-width: 1.5; }
-.wish-lake-coin path { fill: #d6b66d; stroke: #fff5d6; stroke-width: 1; }
-.wish-lake-coin span { position: absolute; bottom: -3px; right: 0; padding: 1px 5px; border-radius: 8px; background: #fff; font-size: 12px; line-height: 18px; font-weight: 600; font-variant-numeric: tabular-nums; }
-.wish-lake-coin:hover circle, .wish-lake-coin[aria-expanded="true"] circle { fill: #ffe08a; stroke-width: 2.5; }
+.wish-lake-coins { position: absolute; inset: 0; padding: 0; margin: 0; list-style: none; }
+.wish-lake-coins li { position: absolute; left: var(--coin-x); top: var(--coin-y); transform: translate(-50%, -50%); }
+.wish-lake-coins .wish-coin-stacked {
+  left: calc(var(--coin-x) - 23px);
+  top: calc(var(--coin-y) + 14px);
+  --stack-x: 5px;
+  --stack-y: -13px;
+  --stack-angle: -9deg;
+}
+.wish-lake-coins .wish-coin-stacked:first-child {
+  left: var(--coin-x);
+  top: calc(var(--coin-y) - 31px);
+  --stack-x: 0px;
+  --stack-y: 15px;
+  --stack-angle: -5deg;
+}
+.wish-lake-coins .wish-coin-stacked:nth-child(3) {
+  left: calc(var(--coin-x) + 23px);
+  --stack-x: -5px;
+  --stack-y: -11px;
+  --stack-angle: 11deg;
+}
+.wish-lake-coins .wish-coin-stacked:only-child { top: var(--coin-y); --stack-y: 0px; }
+.wish-lake-coins li:hover, .wish-lake-coins li:focus-within { z-index: 1; }
+.wish-lake-coin { display: grid; place-items: center; width: 44px; min-height: 44px; padding: 0; border: 0; border-radius: 50%; background: transparent; color: var(--lake-ink); cursor: pointer; touch-action: manipulation; }
+.wish-coin-gold {
+  width: 32px;
+  transform: translate(var(--stack-x), var(--stack-y)) rotate(var(--stack-angle));
+  filter: drop-shadow(0 2px 1px rgb(105 75 34 / .15));
+}
+.wish-lake-coin:is(:hover, :focus-visible, [aria-expanded="true"]) .wish-coin-gold {
+  filter: brightness(1.08) drop-shadow(0 2px 2px rgb(105 75 34 / .32));
+}
+.wish-coin-shadow {
+  width: var(--coin-size);
+  height: calc(var(--coin-size) * .48);
+  border-radius: 50%;
+  background: radial-gradient(ellipse, rgb(43 111 137 / .31) 15%, rgb(56 125 147 / .14) 54%, transparent 75%); /* taste-skill-ignore Approved submerged coin shadow, softly fading into the water. */
+  transform: rotate(-9deg);
+  filter: blur(.8px);
+  animation: wish-coin-drift var(--drift-duration) ease-in-out var(--drift-delay) infinite;
+}
+.wish-lake-coins li:nth-child(even) .wish-coin-shadow { animation-direction: reverse; }
+.wish-lake-coin:is(:hover, :focus-visible, [aria-expanded="true"]) .wish-coin-shadow { animation-play-state: paused; }
+@keyframes wish-coin-drift {
+  0%, 100% { transform: translate(-7px, -2px) rotate(-9deg); }
+  33% { transform: translate(4px, -7px) rotate(6deg); }
+  68% { transform: translate(10px, 5px) rotate(13deg); }
+}
+.wish-coin-tooltip { visibility: hidden; position: absolute; bottom: calc(100% + 2px); left: 50%; transform: translateX(-50%); width: 150px; max-height: 112px; overflow: hidden; overflow-wrap: anywhere; padding: 8px 10px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface); color: var(--ink); font-size: 13px; font-weight: 400; line-height: 1.6; pointer-events: none; }
+.wish-lake-coins [data-tip='start'] .wish-coin-tooltip { left: 0; transform: none; }
+.wish-lake-coins [data-tip='end'] .wish-coin-tooltip { right: 0; left: auto; transform: none; }
+.wish-lake-coin:hover .wish-coin-tooltip, .wish-lake-coin:focus-visible .wish-coin-tooltip { visibility: visible; }
+.wish-lake-coin:is(:hover, :focus-visible, [aria-expanded="true"]) .wish-coin-shadow {
+  background: radial-gradient(ellipse, rgb(29 94 124 / .65) 15%, rgb(43 111 137 / .32) 54%, transparent 75%); /* taste-skill-ignore Keep the submerged coin recognizable on hover, focus and selection. */
+}
 .wish-lake-coin:focus-visible, .wish-detail-heading h3:focus-visible { outline: 3px solid var(--accent); outline-offset: 3px; }
 .wish-lake-invitation { position: absolute; inset: 40% 18% auto; text-align: center; color: var(--lake-ink); font-size: 14px; line-height: 1.7; margin: 0; pointer-events: none; }
 .wish-lake-paging, .wish-detail-heading { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
@@ -43,21 +88,35 @@
 .content-card.wish-discovery-card { background: var(--surface); overflow-wrap: anywhere; text-align: left; }
 .wish-discovery-card .content-byline { margin-top: 0; margin-bottom: 8px; }
 .participant-shell .wish-gallery .wish-toss--in-lake { position: absolute; inset: 0; padding: 0; margin: 0; border: 0; background: none; border-radius: 0; pointer-events: none; }
-.participant-shell .wish-gallery .wish-toss--in-lake > svg { position: absolute; inset: 0; width: 100%; max-width: none; height: 100%; }
-.wish-toss--in-lake .toss-lake { display: none; }
-.participant-shell .wish-gallery .wish-toss--in-lake p { position: absolute; bottom: 0; left: 0; right: 0; margin: 0; font-size: 12px; padding: 6px; color: var(--lake-ink); background: #fff; border-radius: 12px; }
-.wish-toss--in-lake .toss-coin { animation-duration: 1000ms; }
-.wish-toss--in-lake .toss-ripple { animation-delay: 750ms; }
-@media (min-width: 900px) {
-  .content-mission--wish .wish-lake-coins { inset-inline: 22%; }
+.participant-shell .wish-gallery .wish-toss--in-lake p { position: absolute; left: 0; right: 0; margin: 0; font-size: 13px; line-height: 1.6; padding: 6px; text-align: center; color: var(--lake-ink); background: #fff; border-radius: 12px; }
+.toss-coin {
+  position: absolute;
+  z-index: 2;
+  left: 50%;
+  top: 37.5%;
+  display: grid;
+  place-items: center;
+  width: 25px;
+  height: 25px;
+  border: 2px solid #c29647;
+  border-radius: 50%;
+  background: #ffedb3;
+  color: #806129;
+  font-size: 12px;
+  font-weight: 700;
+  transform: translate(-50%, -50%);
+  animation: wish-coin-landing 1050ms ease-in-out both;
+}
+@keyframes wish-coin-landing {
+  from { top: 90%; transform: translate(-50%, -50%) rotate(-30deg) scale(1.5); }
+  50% { top: 17%; transform: translate(-25%, -50%) rotate(160deg) scale(1.2); }
+  to { top: 37.5%; transform: translate(-50%, -50%) rotate(360deg); }
 }
 @media (max-width: 430px) {
   .content-mission--wish > .content-feed, .content-mission--wish > .content-own { padding-inline: 12px; }
-  .wish-lake-scene { height: 300px; }
-  .wish-lake-coins { inset-inline: 12%; }
+  .wish-lake-scene.fountain-scene { width: calc(100% + 16px); margin-inline: -8px; }
 }
 @media (prefers-reduced-motion: reduce) {
-  .wish-gallery .toss-coin, .wish-gallery .toss-ripple { animation: none !important; }
-  .wish-gallery .toss-coin { opacity: 0; }
-  .wish-gallery .toss-ripple { opacity: .6; }
+  .wish-coin-shadow { animation: none; }
+  .wish-gallery .toss-coin { animation: none; }
 }

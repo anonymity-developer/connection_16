@@ -49,9 +49,9 @@ SSAFY 16기 서울캠퍼스 참여자가 프로필을 완성하고 네 종류 NF
 | --- | --- | --- | --- |
 | SHOW_ME | SHOW ME | 첫 번째 S | 행사 OPEN 중 공개 프로필·소개·관심사 1개 이상·현재 두 동의 확인 후 자동 지급, NFC 불필요 |
 | SYNC_ME | SYNC ME | 두 번째 S | 태그 해금 + 서버가 계산한 최초 성향 결과 저장 |
-| MAKE_A_WISH | MAKE A WISH | A | 태그 해금 + 소원 슬롯의 최초 유효 버전 승인 |
+| MAKE_A_WISH | A WISH COME TRUE | A | 태그 해금 + 최초 유효 소원 제출 저장 |
 | FAST_TAP | FAST TAP | F | 태그 해금 + 공식 게임 유효 결과 확정 |
-| SAY_SOMETHING | SAY SOMETHING | Y | 태그 해금 + 응원 카드 슬롯의 최초 유효 버전 승인 |
+| SAY_SOMETHING | YOU GOT THIS | Y | 태그 해금 + 최초 유효 응원 제출 저장 |
 
 네 태그를 찾는 순서는 자유다. 위 표의 순서는 수집판 표시 순서이며 필수 수행 순서가 아니다. 닉네임과 동의만으로 온보딩을 마칠 수 있지만 SHOW ME 보상에는 소개·관심사도 필요하다. 사전 등록자는 행사 시작 후 인증된 POST 재평가로 지급하며 조회 GET은 상태를 변경하지 않는다.
 

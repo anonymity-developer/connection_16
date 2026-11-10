@@ -34,7 +34,7 @@ test('password change checks the code and confirmation without asking for anothe
   assert.ok(validateAuth('change', 'verify', { ...values, password: '' }).password);
 });
 
-test('new passwords use 15–64 Unicode code points without trimming', () => {
-  for (const password of ['a'.repeat(14), '가'.repeat(65)]) assert.ok(validateAuth('signup', 'verify', { ...values, password, confirmation: password }).password);
-  for (const password of ['가'.repeat(64), '😀'.repeat(15), ' a long password ']) assert.deepEqual(validateAuth('signup', 'verify', { ...values, password, confirmation: password }), {});
+test('new passwords use 8–64 Unicode code points without trimming', () => {
+  for (const password of ['a'.repeat(7), '가'.repeat(65)]) assert.ok(validateAuth('signup', 'verify', { ...values, password, confirmation: password }).password);
+  for (const password of ['가'.repeat(64), '😀'.repeat(8), ' a long password ']) assert.deepEqual(validateAuth('signup', 'verify', { ...values, password, confirmation: password }), {});
 });

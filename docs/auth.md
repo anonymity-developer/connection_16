@@ -17,7 +17,7 @@ Mattermost 인증은 참가자 계정 기준이다. 사전 등록 운영자는 �
 
 V3가 `users.mattermost_username`과 `user_credentials`를 추가한다. username은 최대 64자, `utf8mb4_0900_bin` UNIQUE다. V9부터 가입 인증 성공 시 real_name/region/class_no를 Mattermost 이름에서 파싱해 저장한다. 파싱 실패 시 가입을 보류하며 가짜 이름/지역/반으로 채우지 않는다. [가져오기 계약](mattermost-profile.md)을 따른다. 기존 행의 username은 실제 조회 전까지 NULL, 기존 비밀번호는 자동 생성하지 않는다.
 
-초기 비밀번호 기준은 **공백을 포함해 15~64 Unicode code point**다. 공백만 있는 값은 거절한다. 원문을 변환하지 않고, 한글/이모지도 허용한다. 서버와 프론트에 같은 길이 기준을 적용했다. Spring Security PasswordEncoder로 PBKDF2-HMAC-SHA256, 600,000회, 사용자별 16바이트 salt, 256-bit 결과를 사용한다. 인코딩 ID는 `{pbkdf2-sha256-v1}`이며 나중에 비용/알고리즘 변경을 구분할 수 있다. JDK가 제공하는 알고리즘을 사용하며 FIPS 인증을 받았다는 의미가 아니다. 실제 운영 서버의 해시 비용·가입/로그인 부하를 확인한 뒤 조정한다.
+참가자 비밀번호는 **공백을 포함해 8~64 Unicode code point**다. 공백만 있는 값은 거절한다. 원문을 변환하지 않고, 한글/이모지도 허용한다. 서버와 프론트에 같은 길이 기준을 적용했다. Spring Security PasswordEncoder로 PBKDF2-HMAC-SHA256, 600,000회, 사용자별 16바이트 salt, 256-bit 결과를 사용한다. 인코딩 ID는 `{pbkdf2-sha256-v1}`이며 나중에 비용/알고리즘 변경을 구분할 수 있다. JDK가 제공하는 알고리즘을 사용하며 FIPS 인증을 받았다는 의미가 아니다. 실제 운영 서버의 해시 비용·가입/로그인 부하를 확인한 뒤 조정한다.
 
 비밀번호·OTP는 URL, localStorage/sessionStorage, 분석 이벤트, 공개 DTO와 로그에 넣지 않는다. Mattermost에는 해당 목적의 인증번호만 보내며 TAG ME 비밀번호를 보내지 않는다. 요청 DTO의 문자열 표현도 민감 입력을 숨긴다.
 

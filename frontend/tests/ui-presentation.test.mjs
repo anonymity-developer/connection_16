@@ -13,13 +13,8 @@ const { missions, lockedProgress } = await server.ssrLoadModule('/src/features/m
 
 const badge = (state, missionCode) => renderToStaticMarkup(createElement(StateBadge, { state, missionCode }));
 
-test('moderation wait and active result missions have different presentation without changing state', () => {
-  for (const code of ['MAKE_A_WISH', 'SAY_SOMETHING']) {
-    const html = badge('PENDING', code);
-    assert.match(html, /검수 중이에요/);
-    assert.doesNotMatch(html, /글자 획득 완료/);
-  }
-  for (const code of ['SYNC_ME', 'FAST_TAP']) {
+test('in-progress missions use neutral copy without presenting an earned letter', () => {
+  for (const code of ['MAKE_A_WISH', 'SAY_SOMETHING', 'SYNC_ME', 'FAST_TAP']) {
     const html = badge('PENDING', code);
     assert.match(html, /진행 중이에요/);
     assert.doesNotMatch(html, /검수 중이에요|글자 획득 완료/);
@@ -66,7 +61,7 @@ test('five mission progress cards preserve pending versus earned states and expo
       assert.match(html, /<details><summary>미션 힌트 보기<\/summary>/);
       if (state === 'COMPLETED') assert.match(html, /글자 획득 완료/);
       else assert.doesNotMatch(html, /글자 획득 완료|letter-sparkle/);
-      if (state === 'PENDING') assert.match(html, ['MAKE_A_WISH', 'SAY_SOMETHING'].includes(mission.code) ? /검수 중이에요/ : /진행 중이에요/);
+      if (state === 'PENDING') assert.match(html, /진행 중이에요/);
       assert.doesNotMatch(html, /<form|<input|\/t\//);
     }
   }
@@ -105,22 +100,30 @@ test('public collection has five Korean labels, no invented participation count 
 });
 
 
-test('home cards retain five distinct accessible detail links and only two moderation notes', () => {
+test('home cards retain five distinct accessible detail links and no sixth card or duplicate moderation notes', () => {
   const previous = globalThis.window;
   globalThis.window = { location: { href: 'http://localhost/', origin: 'http://localhost' } };
   try {
     const html = renderToStaticMarkup(createElement(MissionCards, { data: { preview: false, progress: lockedProgress, nickname: null } }));
     assert.equal((html.match(/class="mission-row"/g)||[]).length, 5);
-    assert.equal((html.match(/mission-overview-card/g)||[]).length, 1);
+    assert.equal((html.match(/mission-overview-card/g)||[]).length, 0);
     assert.doesNotMatch(html, /미션 알아보기|state-badge/);
     for (const mission of missions) {
       const card = [...html.matchAll(/<a[^>]*data-mission="([^"]+)"[^>]*>[\s\S]*?<\/a>/g)].find(m=>m[1]===mission.code)?.[0];
       assert.ok(card && card.includes(`href="/missions/${mission.slug}"`) && card.includes('aria-label='));
-      assert.equal(card.includes('mission-moderation-note'), ['MAKE_A_WISH','SAY_SOMETHING'].includes(mission.code));
+      assert.equal(card.includes('mission-moderation-note'), false);
     }
-    assert.match(html, /href="\/missions"/);
+    assert.doesNotMatch(html, /href="\/missions"/);
   } finally { if(previous===undefined)delete globalThis.window;else globalThis.window=previous; }
 });
+test('five cards use two desktop columns with a half-width final card and one mobile column', async () => {
+  const { readFile } = await import('node:fs/promises');
+  const css = await readFile(new URL('../src/styles/followup.css', import.meta.url), 'utf8');
+  assert.match(css, /\.participant-shell \.mission-list \{ grid-template-columns:repeat\(2,minmax\(0,1fr\)\); \}/);
+  assert.match(css, /\.participant-shell \.mission-row:last-child \{ grid-column:auto; \}/);
+  assert.match(css, /@media\(max-width:700px\)[^\n]*\.participant-shell \.mission-list\{grid-template-columns:1fr;/);
+});
+
 test('location hints preserve future configured text without inventing a floor', () => {
   const html = renderToStaticMarkup(createElement(MissionProgress, { mission: { ...missions[0], hint: '테스트 전용 위치 안내' }, signedIn: false, data: {preview:false,progress:lockedProgress,nickname:null} }));
   assert.match(html, /테스트 전용 위치 안내/);
@@ -145,7 +148,7 @@ test('collection invitation stays singular through locked, unlocked and moderati
     const mixed = render({ ...all, SAY_SOMETHING: 'PENDING' });
     assert.match(mixed, /collection-bubble/);
     assert.equal((mixed.match(/is-uncollected/g) || []).length, 1);
-    assert.match(mixed, /검수 중이에요/);
+    assert.match(mixed, /진행 중이에요/);
     const complete = render(all);
     assert.doesNotMatch(complete, /collection-bubble|is-uncollected/);
     assert.equal((complete.match(/letter-sparkle/g) || []).length, 5);

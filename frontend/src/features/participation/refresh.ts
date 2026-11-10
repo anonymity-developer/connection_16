@@ -11,5 +11,5 @@ export async function loadParticipation(api: {
     // Another tab/refresh may have won the grant: false must not retain the earlier LOCKED snapshot.
     if (current()) collection = await api.collection();
   }
-  return { collection, event };
+  return { collection, initial, event };
 }

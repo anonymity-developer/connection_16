@@ -4,12 +4,34 @@
 .letter-sticker { position: relative; display: inline-block; width: 76px; height: 95px; flex: none; vertical-align: middle; }
 .letter-sticker img { display: block; width: 100%; height: 100%; object-fit: contain; }
 .letter-sticker.is-uncollected img { filter: none; opacity: .88; }
+.participant-shell [data-mission="SHOW_ME"] { --slot-color: #e1f3ff; --slot-edge: #8bbbd7; }
+.participant-shell [data-mission="SYNC_ME"] { --slot-color: #def6ec; --slot-edge: #79bba1; }
+.participant-shell [data-mission="MAKE_A_WISH"] { --slot-color: #fff3c8; --slot-edge: #d3b45d; }
+.participant-shell [data-mission="FAST_TAP"] { --slot-color: #d9f5f7; --slot-edge: #66b5c1; }
+.participant-shell [data-mission="SAY_SOMETHING"] { --slot-color: #f4e5f6; --slot-edge: #be8cbd; }
+.participant-shell .sticker-board .letter-slot[data-visual]:not([data-visual="collected"]) {
+  background: color-mix(in srgb, var(--slot-color) 70%, var(--surface));
+  border: 2px solid var(--border);
+}
+.participant-shell .sticker-board .letter-slot[data-visual="collected"] {
+  background: var(--slot-color);
+  border: 2px solid var(--slot-edge);
+  box-shadow: inset 0 0 0 2px #ffffffb3;
+}
+.participant-shell .sticker-board .letter-slot .letter-sticker.is-uncollected img { filter: grayscale(1); opacity: .76; }
 .letter-sparkle { position: absolute; top: 0; right: 0; color: #8a6818; font-size: 20px; line-height: 1; }
 .letter-sticker.celebrate { animation: sticker-pop .55s ease-out 1; }
-.letter-sticker.celebrate .letter-sparkle { animation: sticker-glint .7s ease-out 1; }
-@keyframes sticker-pop { 0% { transform: scale(.94); } 55% { transform: scale(1.05); } 100% { transform: scale(1); } }
+.letter-sticker.celebrate .letter-sparkle { animation: sticker-glint .55s ease-out 1; }
+@keyframes sticker-pop {
+  0%, 100% { transform: scale(1); }
+  45% { transform: translateY(-3px) scale(1.12); }
+  75% { transform: scale(.99); }
+}
 @keyframes sticker-glint { 0%,100% { opacity: 1; } 45% { opacity: .35; transform: scale(1.2); } }
-.participant-shell .sticker-board { position: relative; }
+.participant-shell .sticker-board { position: relative; background: color-mix(in srgb, var(--accent-soft) 30%, var(--surface)); }
+.participant-shell .sticker-board.collection-celebrating { animation: collection-glow .55s ease-out; }
+.collection-earned { color: var(--accent-ink); }
+@keyframes collection-glow { 50% { box-shadow: var(--event-shadow), 0 0 0 4px var(--accent-track); } }
 .participant-shell .home-artwork { position: relative; justify-self: end; }
 .winter-decor { display: var(--winter-display, block); position: absolute; pointer-events: none; color: #9bcadd; width: 100px; height: 58px; }
 .winter-star { fill: #c8e4ee; }
@@ -17,7 +39,6 @@
 .sticker-board > .winter-decor { right: 24px; top: -25px; width: 76px; height: 44px; }
 .participant-shell .letter-slot { padding: 12px 4px 10px; gap: 6px; }
 .participant-shell .letter-slot .letter-sticker { width: clamp(50px, 6.4vw, 80px); height: clamp(63px, 8vw, 100px); max-width: 100%; }
-.participant-shell .letter-slot.is-collected { background: var(--mission-tint); }
 .participant-shell .letter-slot .slot-name { font-size: 13px; }
 .participant-shell .mission-row .mission-letter, .participant-shell .mission-detail-heading .mission-letter { width: 64px; height: 80px; padding: 0; background: transparent; border: 0; transform: none; }
 .participant-shell .mission-row .mission-letter .letter-sticker,
@@ -46,6 +67,7 @@
 }
 @media (prefers-reduced-motion: reduce) {
   .letter-sticker, .letter-sticker .letter-sparkle { animation: none !important; transition: none !important; }
+  .participant-shell .sticker-board.collection-celebrating { animation: none; }
 }
 
 /* Fifth pass: compact navigation, shared progress and operations presentation. */
@@ -207,23 +229,6 @@
 @media (max-width: 640px) {
   .participant-shell .collection-invitation { margin: 0 0 10px; }
   .participant-shell .collection-bubble { padding: 5px 11px; font-size: 12px; }
-}
-
-/* Wish receipt is presentation only: one short toss after a fulfilled submission. */
-.participant-shell .wish-toss { margin: 16px 0; padding: 12px 16px; background: #f0f9ff; border: 1px solid #d3e7f2; border-radius: 20px; text-align: center; }
-.participant-shell .wish-toss > svg { display: block; width: min(100%, 320px); height: auto; margin: auto; overflow: hidden; }
-.participant-shell .wish-toss p { color: #36576d; font-size: 13px; line-height: 1.6; }
-.participant-shell .toss-lake { fill: #d0ecf8; }
-.participant-shell .toss-coin { transform-origin: 70px 34px; animation: wish-coin-toss 900ms ease-in forwards; }
-.participant-shell .toss-coin circle { fill: #ffe9a0; stroke: #bf9133; stroke-width: 2; }
-.participant-shell .toss-coin path { fill: #bf9133; }
-.participant-shell .toss-ripple { fill: none; stroke: #65a8c6; stroke-width: 2; opacity: 0; transform-origin: 190px 102px; animation: wish-ripple 500ms 650ms ease-out forwards; }
-.participant-shell .ripple-two { animation-delay: 780ms; }
-@keyframes wish-coin-toss { 0% { transform: translate(0,0) rotate(-20deg); opacity: 1; } 45% { transform: translate(65px,-18px) rotate(160deg); opacity: 1; } 80% { transform: translate(120px,60px) rotate(300deg); opacity: 1; } 100% { transform: translate(120px,70px) rotate(360deg) scale(.2); opacity: 0; } }
-@keyframes wish-ripple { 0% { transform: scale(.4); opacity: .9; } 100% { transform: scale(1.6); opacity: 0; } }
-@media (prefers-reduced-motion: reduce) {
-  .participant-shell .toss-coin { animation: none; transform: translate(120px,60px); }
-  .participant-shell .toss-ripple { animation: none; opacity: .7; }
 }
 
 /* Candidate review reuses the operations shell, with no public winner treatment. */
