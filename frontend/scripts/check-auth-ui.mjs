@@ -145,11 +145,11 @@ try {
   await page.getByLabel('Mattermost 아이디', { exact: true }).fill('contract-test');
   limited = true;
   await page.getByRole('button', { name: '인증번호 받기', exact: true }).click();
-  await page.getByRole('status').filter({ hasText: '요청이 많아요' }).waitFor();
+  await page.getByRole('alert').filter({ hasText: '요청이 많아요' }).waitFor();
   assert.equal(await page.getByRole('button', { name: '인증번호 받기', exact: true }).isEnabled(), false);
   await page.clock.fastForward(3_000); limited = false; unavailable = true;
   await page.getByRole('button', { name: '인증번호 받기', exact: true }).click();
-  await page.getByRole('status').filter({ hasText: '인증 서비스를 사용할 수 없어요' }).waitFor();
+  await page.getByRole('alert').filter({ hasText: '인증 서비스를 사용할 수 없어요' }).waitFor();
   assert.equal(await page.locator('input[name="code"]').count(), 0);
   assert.equal(await page.evaluate(() => localStorage.length + sessionStorage.length), 0);
   assert.ok(!new URL(page.url()).search.includes('password'));
