@@ -48,6 +48,9 @@ tasks.named('test') {
 }
 
 tasks.register('integrationTest', Test) {
+    // Opt-in faults must rerun the task after a normal rehearsal rather than reuse a skipped result.
+    inputs.property('rehearsalFaults', providers.environmentVariable('TAGME_REHEARSAL_FAULTS').orElse('0'))
+    inputs.property('rehearsalRunId', providers.environmentVariable('TAGME_REHEARSAL_RUN_ID').orElse(''))
     description = 'Run integration tests against real MySQL and Redis (Docker required).'
     group = 'verification'
     testClassesDirs = sourceSets.test.output.classesDirs

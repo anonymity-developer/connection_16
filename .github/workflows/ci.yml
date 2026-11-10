@@ -44,6 +44,8 @@ jobs:
         run: npm run test:ui
       - name: Check authentication browser contracts
         run: npm run test:auth-ui
+      - name: Check NFC authentication and legacy SHOW ME return paths
+        run: npm run test:auth-nfc-ui
       - name: Check participation browser contracts
         run: npm run test:participation-ui
       - name: Check result missions in the browser
@@ -56,6 +58,8 @@ jobs:
         run: npm run test:discovery-ui
       - name: Check operations permissions and review workflow
         run: npm run test:operations-ui
+      - name: Check provisional awards and result exports
+        run: npm run test:awards-ui && npm run test:post-event-ui
       - name: Inspect production app with Taste
         run: |
           npm run preview -- --port 4173 > /tmp/tagme-preview.log 2>&1 &

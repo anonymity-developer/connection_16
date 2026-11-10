@@ -19,7 +19,9 @@ try {
     try {
       const req = route.request(), url = new URL(req.url()), path = url.pathname.replace('/api/v1', ''), method = req.method();
       const reply = (status, value) => route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(value) });
+      if (method === 'POST' && path === '/missions/show-me/reconcile') { assert.ok(req.headers()['x-xsrf-token']); return reply(200, { newlyCompleted: false }); }
       if (method === 'GET' && path === '/auth/config') return reply(200, { available: true, passwordMinLength: 15, passwordMaxLength: 64 });
+      if (method === 'GET' && path === '/discovery/graph') return reply(200, { self: { id: 1, nickname: '테스트' }, nodes: [], edges: [], truncated: false });
       if (method === 'GET' && path === '/users/me') return reply(200, { id: 1, username: 'test-participant', nickname: '테스트', onboardingRequired: false });
       if (method === 'GET' && path === '/tags/pending') return reply(200, { present: false });
       if (method === 'GET' && path === '/csrf') return reply(200, { headerName: 'X-XSRF-TOKEN', token: 'reaction-test-csrf' });
@@ -49,12 +51,12 @@ try {
     } catch (error) { routeErrors.push(error.message); await route.fulfill({ status: 500, contentType: 'application/json', body: JSON.stringify({ message: '계약 검사 오류' }) }); }
   });
   const visit = path => page.goto(`http://127.0.0.1:4475${path}`); const record = text => { checks.push(text); console.log(`PASS ${text}`); };
-  await visit('/missions/make-a-wish'); const feed = page.locator('.content-feed'); await feed.getByRole('button', { name: '댓글 보기', exact: true }).waitFor(); assert.equal(commentReads, 0); await feed.getByRole('button', { name: '댓글 보기', exact: true }).click(); const thread = page.locator('.comment-thread');
+  await visit('/missions/make-a-wish'); const feed = page.locator('.content-feed'); await feed.getByRole('button', { name: '소원 1 열기', exact: true }).click(); await feed.getByRole('button', { name: '댓글 보기', exact: true }).waitFor(); assert.equal(commentReads, 0); await feed.getByRole('button', { name: '댓글 보기', exact: true }).click(); const thread = page.locator('.comment-thread');
   await thread.getByRole('button', { name: '댓글 검수 요청하기', exact: true }).waitFor(); await thread.getByRole('button', { name: '댓글 검수 요청하기', exact: true }).click(); await thread.getByRole('alert').waitFor(); assert.equal(posts, 0); assert.equal(await thread.locator('textarea').evaluate(el => el === document.activeElement), true);
   record('comments load only when opened and blank input focuses the field without submitting');
   await thread.getByLabel('동료의 소원에 댓글 남기기', { exact: true }).fill('테스트 댓글입니다.'); failComment = true;
   await thread.getByRole('button', { name: '댓글 검수 요청하기', exact: true }).click(); await thread.getByRole('button', { name: '같은 댓글 다시 보내기', exact: true }).waitFor(); assert.equal(await thread.locator('textarea').isDisabled(), true); await thread.getByRole('button', { name: '같은 댓글 다시 보내기', exact: true }).click(); await thread.locator('.own-comments .comment-list li').first().waitFor(); assert.equal(posts, 2); assert.equal(mine.length, 1); assert.equal(await thread.locator(':scope > .comment-list li').count(), 0);
-  await page.reload(); await page.locator('.content-feed').getByRole('button', { name: '댓글 보기', exact: true }).click(); await page.locator('.own-comments .comment-list li').first().waitFor(); assert.equal(await page.locator('.content-status').getByText('글자 획득 완료', { exact: true }).count(), 0);
+  await page.reload(); await feed.getByRole('button', { name: '소원 1 열기', exact: true }).click(); await feed.getByRole('button', { name: '댓글 보기', exact: true }).click(); await page.locator('.own-comments .comment-list li').first().waitFor(); assert.equal(await page.locator('.content-status').getByText('글자 획득 완료', { exact: true }).count(), 0);
   record('uncertain comments retry the same key and text; pending state restores without public text or a letter');
   const current = page.locator('.comment-thread'); await current.locator('textarea').fill('다른 테스트 댓글'); await current.getByRole('checkbox', { name: '닉네임 표시하기', exact: true }).check(); failComment = true; await current.getByRole('button', { name: '댓글 검수 요청하기', exact: true }).click(); await current.getByRole('button', { name: '같은 댓글 다시 보내기', exact: true }).waitFor(); const beforeRefresh = posts;
   await current.getByRole('button', { name: '댓글 상태 새로고침', exact: true }).click(); await page.waitForFunction(() => document.querySelector('.comment-thread textarea')?.disabled === false); assert.equal(await current.locator('textarea').inputValue(), ''); assert.equal(posts, beforeRefresh); assert.equal(mine.length, 2); assert.equal(mine[0].revealProfile, true); commentRequest = null;

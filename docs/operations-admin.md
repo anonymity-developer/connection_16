@@ -82,3 +82,11 @@ V8 admin_audit_logs는 actor_id, action, target_type/id, reason, before_json/aft
 실제 MySQL/Redis 통합 테스트로 현재 역할/인가·CSRF, 커서/공개·대기 분리, 숨김과 늦은 worker/원글 댓글, 동시 버전 변경, 재처리 제한/원접수 보존, 감사 실패 롤백과 실제 판정 기록을 검사한다. 기존 콘텐츠·댓글 테스트도 V8의 감사 FK 순서에 맞춰 테스트 데이터만 정리한다.
 
 브라우저 계약 대역으로 익명/일반 계정의 원문 요청 차단, 상태/페이지 이동, 5개 폭, 승인본 비교/HTML 이스케이프, 사유·busy, 충돌/응답 유실 후 GET 복구, 재처리 한도, 숨김·복구/감사, 역할 회수/늦은 응답을 검사한다. 렌더 검사에는 같은 임시 loopback 서버의 읽기 전용 대역만 제공하며 앱/운영 설정에 인증 우회를 넣지 않는다. 실제 운영자/참가자/판정·DM·외부 검수·배포·휴대전화/현장 부하 검증과 구분한다.
+
+## 시상 후보 조회 후속
+
+최신 미션 통합 패치 위의 시상 후속은 GET /api/v1/admin/awards와 /admin?tab=awards를 제공한다. 기존 현재 DB ADMIN/credential/no-store를 재사용하고 한 REPEATABLE_READ 안에서 계산한다. 새 테이블·확정/지급/추첨·감사 쓰기는 없다. 위의 과거 ‘시상 후속’ 표현 중 **잠정 후보 조회**만 구현되었으며 확정·정정·배정·영구 snapshot은 여전히 후속이다. [집계 기준](awards-candidates/RULES.md), [검증 한계](awards-candidates/TEST_RESULTS.md)를 따른다.
+
+## 사후 운영 — 조회 전용
+
+`/admin?tab=results`: 같은 DB 스냅샷의 집계·기존 잠정 시상 후보·자료 지문 비교와 CSV/JSON/Markdown. 상세 기준/권한/한계는 [post-event/API.md](post-event/API.md), 개인별 로그 비활성 설계는 [정의서](post-event/DATA_DICTIONARY.md). 공식 확정·추첨·삭제·새 행동 추적 없음.

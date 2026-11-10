@@ -6,10 +6,10 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createBundle, writeBundle } from './create-tag-bundle.mjs';
 
-test('tag bundles contain five unique canonical 32-byte tokens and only their hashes in SQL', () => {
+test('tag bundles contain four NFC-only unique canonical 32-byte tokens and only their hashes in SQL', () => {
   const bundle = createBundle('https://tagme.example.com');
-  assert.equal(new Set(bundle.tags.map(tag => tag.url)).size, 5);
-  assert.deepEqual(bundle.tags.map(t => t.missionCode), ['SHOW_ME', 'SYNC_ME', 'MAKE_A_WISH', 'FAST_TAP', 'SAY_SOMETHING']);
+  assert.equal(new Set(bundle.tags.map(tag => tag.url)).size, 4);
+  assert.deepEqual(bundle.tags.map(t => t.missionCode), ['SYNC_ME', 'MAKE_A_WISH', 'FAST_TAP', 'SAY_SOMETHING']);
   for (const tag of bundle.tags) {
     const token = new URL(tag.url).pathname.slice(3);
     assert.match(token, /^[A-Za-z0-9_-]{43}$/); assert.equal(Buffer.from(token, 'base64url').length, 32);

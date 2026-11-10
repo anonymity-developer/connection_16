@@ -48,3 +48,10 @@ test-results/
 output/playwright/
 .playwright-cli/
 .codex-log/
+
+# Local rehearsal status reports
+output/rehearsal/
+
+# Offline analysis template caches
+__pycache__/
+*.pyc

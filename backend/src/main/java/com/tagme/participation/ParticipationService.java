@@ -55,7 +55,6 @@ public class ParticipationService {
         return new Collection(missions,(int)missions.stream().filter(m -> "COMPLETED".equals(m.state())).count(),repository.completion(userId));
     }
     public ProfileState save(AuthPrincipal principal,ParticipationController.ProfileRequest value) {
-        Instant received = Instant.now();
         limits.check("profile-user",Long.toString(principal.userId()),30,60);
         validateUrl(value.githubUrl(),true); validateUrl(value.blogUrl(),false);
         if (value.interestIds().stream().distinct().count() != value.interestIds().size()) throw error(400,"INVALID_INTERESTS","관심사를 중복 없이 선택해 주세요.");
@@ -79,13 +78,17 @@ public class ParticipationService {
             }
             repository.saveProfile(principal.userId(),value);
             var saved = repository.profile(principal.userId());
-            var mission = repository.mission(principal.userId(),MissionCode.SHOW_ME);
-            if (repository.eligible(principal.userId())) {
-                var receipt = repository.receipt(principal.userId(),"PROFILE",saved.version(),received);
-                if (!"LOCKED".equals(mission.state()) && mission.active() && "OPEN".equals(repository.event(false).status())) completion.complete(principal.userId(),MissionCode.SHOW_ME,receipt.id());
-            }
+            if (repository.showMeEligible(principal.userId())) repository.receipt(principal.userId(),"PROFILE",saved.version(),repository.now());
+            completion.completeShowMe(principal.userId());
             return profile(principal.userId());
         });
+    }
+    // Explicit authenticated POST: reads stay read-only and CSRF remains required.
+    public boolean reconcileShowMe(AuthPrincipal principal) {
+        return Boolean.TRUE.equals(transactions.execute(status -> {
+            repository.lockPrincipal(principal);
+            return completion.completeShowMe(principal.userId());
+        }));
     }
     private Map<PolicyType,Policy> requirePolicies(long userId) {
         var state = repository.policyState(userId,true);
@@ -107,14 +110,18 @@ public class ParticipationService {
         return transactions.execute(status -> {
             repository.lockPrincipal(principal); repository.requireOpen(false);
             var code = repository.tag(hash); var mission = repository.mission(principal.userId(),code); repository.activeMission(mission.id());
-            boolean newlyUnlocked = "LOCKED".equals(mission.state()), newlyCompleted = false;
+            // Legacy SHOW ME tags are harmless links to the profile; they cannot unlock a mission.
+            if (code == MissionCode.SHOW_ME) {
+                boolean granted = completion.completeShowMe(principal.userId());
+                return new TagResult(code,repository.mission(principal.userId(),code).state(),"/me/profile",false,granted);
+            }
+            boolean newlyUnlocked = "LOCKED".equals(mission.state());
             if (newlyUnlocked) {
                 repository.unlock(principal.userId(),mission.id(),received);
-                var receipt = repository.receipt(principal.userId(),"TAG_UNLOCK",mission.id(),received);
-                if (code == MissionCode.SHOW_ME && repository.eligible(principal.userId())) newlyCompleted = completion.complete(principal.userId(),code,receipt.id());
+                repository.receipt(principal.userId(),"TAG_UNLOCK",mission.id(),received);
             }
             var current = repository.mission(principal.userId(),code);
-            return new TagResult(code,current.state(),route(code),newlyUnlocked,newlyCompleted);
+            return new TagResult(code,current.state(),route(code),newlyUnlocked,false);
         });
     }
     private String route(MissionCode code) { return "/missions/" + code.name().toLowerCase(java.util.Locale.ROOT).replace('_','-'); }

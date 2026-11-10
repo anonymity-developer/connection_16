@@ -11,6 +11,6 @@ public final class DiscoveryModels {
     public record Detail(Person person,String realName,String region,int classNo,String bio,String githubUrl,String blogUrl,String photoUrl,boolean newlyVisited) { }
     public record Stats(long visitedCount,long visitorCount,long mutualCount) { }
     public record Self(long id,String nickname) { }
-    public record Edge(long from,long to) { }
+    public record Edge(long from,long to,int weight,String strength) { }
     public record Graph(Self self,List<Person> nodes,List<Edge> edges,boolean truncated) { }
 }

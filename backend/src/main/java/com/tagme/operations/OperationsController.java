@@ -15,6 +15,7 @@ public class OperationsController {
     private final OperationsService service;
     public OperationsController(OperationsService service) { this.service=service; }
     private AuthPrincipal actor(Authentication auth) { if(auth==null||!(auth.getPrincipal() instanceof AuthPrincipal p))throw AuthException.invalid();return p; }
+    @GetMapping("/awards") public AwardModels.Report awards(Authentication auth,@RequestParam(required=false) String category,@RequestParam(required=false) Integer offset,@RequestParam(required=false) Integer limit) { return service.awards(actor(auth),category,offset,limit); }
     @GetMapping("/access") public Access access(Authentication auth) { return service.access(actor(auth)); }
     @GetMapping("/moderation/tasks") public Page<Task> tasks(Authentication auth,@RequestParam(required=false) Long after,@RequestParam(required=false) Integer limit,@RequestParam(required=false) String status) { return service.tasks(actor(auth),after,limit,status); }
     @GetMapping("/content") public Page<Content> content(Authentication auth,@RequestParam(required=false) Long cursor,@RequestParam(required=false) Integer limit,@RequestParam(required=false) String kind,@RequestParam(required=false) String visibility) { return service.contents(actor(auth),cursor,limit,kind,visibility); }

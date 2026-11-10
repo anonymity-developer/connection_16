@@ -38,6 +38,9 @@ class DiscoveryIntegrationTest {
     AuthPrincipal actor,bob,charlie;String hash;long interest;final Map<String,String> cookies=new HashMap<>();static final String PASSWORD="a long test password";
     @BeforeEach void setup(){
         reset(repository,mattermost,accounts);cookies.clear();
+        db.update("DELETE FROM cheer_likes");
+        db.update("UPDATE content_items SET approved_revision_id=NULL,pending_revision_id=NULL");
+        db.update("DELETE FROM content_revisions");db.update("DELETE FROM content_items");
         for(String t:List.of("profile_views","current_sync_questionnaire","sync_results","sync_questionnaires","user_consent_events","user_consents","user_interests","profiles","user_credentials","users","current_consent_policies","consent_policies","event_settings"))db.update("DELETE FROM "+t);
         try(var c=redis.getConnectionFactory().getConnection()){c.serverCommands().flushDb();}
         db.update("INSERT INTO event_settings(id,opens_at,submit_closes_at,moderation_closes_at) VALUES (1,UTC_TIMESTAMP(6)-INTERVAL 1 HOUR,UTC_TIMESTAMP(6)+INTERVAL 1 HOUR,UTC_TIMESTAMP(6)+INTERVAL 2 HOUR)");
@@ -56,6 +59,29 @@ class DiscoveryIntegrationTest {
         var time=db.queryForObject("SELECT first_viewed_at FROM profile_views",java.sql.Timestamp.class);assertThat(service.open(actor,bob.userId()).newlyVisited()).isFalse();assertThat(db.queryForObject("SELECT first_viewed_at FROM profile_views",java.sql.Timestamp.class)).isEqualTo(time);assertThat(db.queryForObject("SELECT COUNT(*) FROM profile_views",Integer.class)).isEqualTo(1);
     }
     @Test void mutualStatsAndGraphsShowOnlyTheViewersDirectVisibleRelations(){service.open(actor,bob.userId());service.open(bob,actor.userId());service.open(charlie,bob.userId());var stats=service.stats(actor);assertThat(stats.visitedCount()).isEqualTo(1);assertThat(stats.visitorCount()).isEqualTo(1);assertThat(stats.mutualCount()).isEqualTo(1);var graph=service.graph(actor,30);assertThat(graph.nodes()).hasSize(1);assertThat(graph.nodes().getFirst().mutual()).isTrue();assertThat(graph.edges()).hasSize(2);assertThat(graph.edges()).allMatch(e->e.from()==actor.userId()||e.to()==actor.userId());}
+    @Test void graphWeightUsesOnlyCurrentApprovedNonAnonymousOwnLikes() {
+        service.open(actor,bob.userId());service.open(bob,actor.userId());
+        db.update("INSERT INTO content_items(author_id,kind) VALUES (?,'CHEER')",bob.userId());
+        long card=db.queryForObject("SELECT id FROM content_items WHERE author_id=? AND kind='CHEER'",Long.class,bob.userId());
+        db.update("INSERT INTO content_revisions(item_id,revision_no,content_text,template_id,style,anonymous,submitted_at,moderation_status,idempotency_key,payload_hash) VALUES (?,1,'test','PLAIN','INK',FALSE,UTC_TIMESTAMP(6),'APPROVED','weight-test',?)",card,"a".repeat(64));
+        long revision=db.queryForObject("SELECT id FROM content_revisions WHERE item_id=?",Long.class,card);
+        db.update("UPDATE content_items SET approved_revision_id=? WHERE id=?",revision,card);
+        db.update("INSERT INTO cheer_likes(card_id,user_id) VALUES (?,?)",card,actor.userId());
+        assertThat(service.graph(actor,30).edges()).allMatch(e->e.weight()==6);
+        // Card owner sees visits only: the liker identity is not exposed in their graph.
+        assertThat(service.graph(bob,30).edges()).allMatch(e->e.weight()==4);
+        db.update("DELETE FROM cheer_likes WHERE card_id=?",card);
+        assertThat(service.graph(actor,30).edges()).allMatch(e->e.weight()==4);
+        db.update("INSERT INTO cheer_likes(card_id,user_id) VALUES (?,?)",card,actor.userId());
+        assertThat(service.graph(actor,30).edges()).allMatch(e->e.weight()==6);
+        db.update("UPDATE content_revisions SET anonymous=TRUE WHERE id=?",revision);
+        assertThat(service.graph(actor,30).edges()).allMatch(e->e.weight()==4);
+        db.update("UPDATE content_revisions SET anonymous=FALSE WHERE id=?",revision);
+        db.update("UPDATE content_items SET visibility_status='HIDDEN' WHERE id=?",card);
+        assertThat(service.graph(actor,30).edges()).allMatch(e->e.weight()==4);
+        db.update("UPDATE content_items SET visibility_status='VISIBLE',approved_revision_id=NULL WHERE id=?",card);
+        assertThat(service.graph(actor,30).edges()).allMatch(e->e.weight()==4);
+    }
     @Test void selfOpenNeverCreatesAnEdgeAndGraphTruncationDoesNotShrinkFullStats(){assertThat(service.open(actor,actor.userId()).newlyVisited()).isFalse();assertThat(db.queryForObject("SELECT COUNT(*) FROM profile_views",Integer.class)).isZero();service.open(actor,bob.userId());service.open(actor,charlie.userId());var graph=service.graph(actor,1);assertThat(graph.nodes()).hasSize(1);assertThat(graph.truncated()).isTrue();assertThat(service.stats(actor).visitedCount()).isEqualTo(2);assertThatThrownBy(()->service.graph(actor,31)).isInstanceOf(AuthException.class);}
     @Test void hidingAndPolicyChangesFilterEveryReadWithoutDeletingHistory(){service.open(actor,bob.userId());service.open(bob,actor.userId());db.update("UPDATE profiles SET is_public=FALSE WHERE user_id=?",bob.userId());assertThat(people().items()).noneMatch(p->p.id()==bob.userId());assertThat(service.recommended(actor)).noneMatch(p->p.id()==bob.userId());assertThat(service.graph(actor,30).nodes()).isEmpty();assertThat(service.stats(actor).mutualCount()).isZero();assertThatThrownBy(()->service.open(actor,bob.userId())).isInstanceOf(AuthException.class);assertThat(db.queryForObject("SELECT COUNT(*) FROM profile_views",Integer.class)).isEqualTo(2);db.update("INSERT INTO consent_policies VALUES ('PROFILE_PUBLICATION','test-v2','새 테스트','테스트 전용')");db.update("UPDATE current_consent_policies SET policy_version='test-v2' WHERE policy_type='PROFILE_PUBLICATION'");assertThatThrownBy(()->people()).isInstanceOf(AuthException.class);}
     @Test void suspendedWithdrawnOrIncompleteProfilesAreNotDiscoverable(){db.update("UPDATE users SET status='SUSPENDED' WHERE id=?",bob.userId());db.update("UPDATE profiles SET nickname='' WHERE user_id=?",charlie.userId());assertThat(people().items()).isEmpty();db.update("UPDATE users SET status='WITHDRAWN' WHERE id=?",bob.userId());assertThatThrownBy(()->service.open(actor,bob.userId())).isInstanceOf(AuthException.class);}

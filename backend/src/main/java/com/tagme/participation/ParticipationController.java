@@ -40,6 +40,8 @@ public class ParticipationController {
     @PutMapping("/users/me/profile") public ProfileState save(Authentication auth,@Valid @RequestBody ProfileRequest body) { return service.save(principal(auth),body); }
     @GetMapping({"/missions","/missions/collection"}) public Collection collection(Authentication auth) { return service.collection(principal(auth).userId()); }
     @GetMapping("/missions/completion") public Completion completion(Authentication auth) { return service.collection(principal(auth).userId()).completion(); }
+    public record ShowMeReconciled(boolean newlyCompleted) { }
+    @PostMapping("/missions/show-me/reconcile") public ShowMeReconciled reconcile(Authentication auth) { return new ShowMeReconciled(service.reconcileShowMe(principal(auth))); }
     @PostMapping("/tags/resolve") public TagResult resolve(Authentication auth,@Valid @RequestBody TagRequest body) { return service.resolve(principal(auth),ParticipationService.tokenHash(body.token())); }
     @PostMapping("/tags/pending") @ResponseStatus(HttpStatus.ACCEPTED)
     public void pending(HttpServletRequest request,@Valid @RequestBody TagRequest body) {

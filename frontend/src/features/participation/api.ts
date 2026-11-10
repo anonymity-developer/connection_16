@@ -16,6 +16,7 @@ export interface ProfileInput { nickname: string; bio: string | null; githubUrl:
 export const participationApi = {
   event: () => request<EventState>('/event'),
   collection: () => request<Collection>('/missions/collection'),
+  reconcileShowMe: () => request<{ newlyCompleted: boolean }>('/missions/show-me/reconcile', 'POST', {}),
   profile: () => request<ProfileState>('/users/me/profile'),
   interests: () => request<Interest[]>('/interests'),
   saveProfile: (value: ProfileInput) => request<ProfileState>('/users/me/profile', 'PUT', value),

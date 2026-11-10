@@ -27,6 +27,7 @@ try {
     const path = new URL(request.url()).pathname.replace('/api/v1', '');
     const method = request.method();
     const reply = (status, data, headers = {}) => route.fulfill({ status, contentType: 'application/json', headers, body: status === 204 ? undefined : JSON.stringify(data) });
+      if (method === 'POST' && path === '/missions/show-me/reconcile') { assert.ok(request.headers()['x-xsrf-token']); return reply(200, { newlyCompleted: false }); }
     if (method === 'GET' && path === '/auth/config') return reply(200, { available: true, passwordMinLength: 15, passwordMaxLength: 64 });
     if (method === 'GET' && path === '/users/me') return user ? reply(200, user) : reply(401, { code: 'UNAUTHENTICATED', message: '로그인이 필요합니다.' });
     if (method === 'GET' && path === '/tags/pending') return reply(200, { present: false });
@@ -145,11 +146,11 @@ try {
   await page.getByLabel('Mattermost 아이디', { exact: true }).fill('contract-test');
   limited = true;
   await page.getByRole('button', { name: '인증번호 받기', exact: true }).click();
-  await page.getByRole('status').filter({ hasText: '요청이 많아요' }).waitFor();
+  await page.getByRole('alert').filter({ hasText: '요청이 많아요' }).waitFor();
   assert.equal(await page.getByRole('button', { name: '인증번호 받기', exact: true }).isEnabled(), false);
   await page.clock.fastForward(3_000); limited = false; unavailable = true;
   await page.getByRole('button', { name: '인증번호 받기', exact: true }).click();
-  await page.getByRole('status').filter({ hasText: '인증 서비스를 사용할 수 없어요' }).waitFor();
+  await page.getByRole('alert').filter({ hasText: '인증 서비스를 사용할 수 없어요' }).waitFor();
   assert.equal(await page.locator('input[name="code"]').count(), 0);
   assert.equal(await page.evaluate(() => localStorage.length + sessionStorage.length), 0);
   assert.ok(!new URL(page.url()).search.includes('password'));
