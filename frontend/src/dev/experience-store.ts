@@ -1,4 +1,4 @@
-import draft from '../../../docs/sync-questionnaire.proposal.json';
+import draft from './sync-questionnaire.proposal.json';
 import type { resultsApi, SyncResult, TapAttempt } from '../features/results/api';
 import type { contentApi, ContentKind, OwnSlot, PublicContent, Revision } from '../features/content/api';
 import type { reactionsApi, OwnComment, PublicComment } from '../features/content/reactions-api';

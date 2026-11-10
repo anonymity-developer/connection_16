@@ -55,7 +55,7 @@ try {
     await visit(`${productionUrl}/?preview=complete`);
     assert.equal(await page.getByRole('complementary', { name: '개발용 상태 미리보기' }).count(), 0);
     assert.equal(await page.getByRole('progressbar').count(), 0);
-    assert.ok((await page.locator('.collection-count').innerText()).includes('로그인 후'));
+    assert.equal(await page.locator('.collection-count').count(), 0, 'no fake count before server data');
     await visit(`${productionUrl}/me/password?preview=unlocked`);
     assert.equal(await page.locator('input[name="password"]').count(), 0);
     await visit(`${productionUrl}/complete?preview=complete`);
@@ -105,9 +105,9 @@ try {
     await page.waitForFunction(() => document.querySelector('[role="progressbar"]')?.getAttribute('aria-valuenow') === '2');
     await page.goForward();
     await page.waitForFunction(() => document.querySelector('[role="progressbar"]')?.getAttribute('aria-valuenow') === '5');
-    assert.ok((await page.locator('.next-panel a').getAttribute('href')).startsWith('/complete'));
+    assert.equal(new URL(await page.locator('.collection-complete-link').getAttribute('href'), developmentUrl).pathname, '/complete');
     await page.screenshot({ path: resolve(output, 'home-preview-complete-390.png'), fullPage: true });
-    await page.getByRole('link', { name: '완성 화면 보기', exact: true }).click();
+    await page.getByRole('link', { name: '완성 기록 보기', exact: true }).click();
     await page.getByRole('heading', { name: '다섯 글자를 모두 모았어요', exact: true }).waitFor();
   });
   await check('leading-zero OTP paste, mismatch focus, dialog Escape/focus and account change', async () => {
