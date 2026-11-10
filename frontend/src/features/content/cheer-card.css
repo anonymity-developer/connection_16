@@ -35,7 +35,7 @@
   inset: 0 0 auto;
   height: 7px;
   border-radius: 13px 13px 0 0;
-  background: repeating-linear-gradient(125deg, var(--letter-stamp) 0 10px, var(--letter-paper) 10px 20px, var(--letter-edge) 20px 30px, var(--letter-paper) 30px 40px);
+  background: repeating-linear-gradient(125deg, var(--letter-stamp) 0 10px, var(--letter-paper) 10px 20px, var(--letter-edge) 20px 30px, var(--letter-paper) 30px 40px); /* taste-skill-ignore Approved airmail stripe pattern for the small-letter template. */
 }
 
 .content-mission:not(.content-mission--wish) .content-card.template-note::after {
@@ -51,6 +51,6 @@
 }
 
 .content-mission:not(.content-mission--wish) .content-card.template-note .content-body {
-  background: repeating-linear-gradient(to bottom, transparent 0 calc(1.8em - 1px), var(--letter-line) calc(1.8em - 1px) 1.8em);
+  background: repeating-linear-gradient(to bottom, transparent 0 calc(1.8em - 1px), var(--letter-line) calc(1.8em - 1px) 1.8em); /* taste-skill-ignore Approved writing-paper rules aligned to the letter text. */
   min-height: 3.6em;
 }

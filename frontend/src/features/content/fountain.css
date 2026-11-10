@@ -7,7 +7,7 @@
 .fountain-scene .wish-lake-invitation { inset:65% 15% auto; }
 .fountain-scene.has-receipt { margin-bottom:70px; }
 .participant-shell .wish-gallery .fountain-scene .wish-toss--in-lake p { bottom:-62px; }
-.wish-sky { margin-top: 10px; padding: 12px clamp(10px, 3vw, 22px) 22px; background: linear-gradient(180deg, #e6f5fd, #f5fbff 420px); border: 1px solid #d4eaf6; border-radius: 24px; }
+.wish-sky { margin-top: 10px; padding: 12px clamp(10px, 3vw, 22px) 22px; background: linear-gradient(180deg, #e6f5fd, #f5fbff 420px); border: 1px solid #d4eaf6; border-radius: 24px; } /* taste-skill-ignore Approved sky illustration behind the wish clouds and airplane. */
 .wish-sky-heading { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 60px; padding-inline: 10px; color: var(--accent-ink); font-size: 14px; font-weight: 700; }
 .wish-sky-flight { flex: 0 1 170px; min-width: 0; width: 51%; color: #73abc9; overflow: visible; }
 .wish-clouds { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: start; gap: 12px 16px; padding: 0; margin: 0; list-style: none; }

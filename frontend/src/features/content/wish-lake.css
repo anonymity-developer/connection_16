@@ -58,7 +58,7 @@
   width: var(--coin-size);
   height: calc(var(--coin-size) * .48);
   border-radius: 50%;
-  background: radial-gradient(ellipse, rgb(43 111 137 / .31) 15%, rgb(56 125 147 / .14) 54%, transparent 75%);
+  background: radial-gradient(ellipse, rgb(43 111 137 / .31) 15%, rgb(56 125 147 / .14) 54%, transparent 75%); /* taste-skill-ignore Approved submerged coin shadow, softly fading into the water. */
   transform: rotate(-9deg);
   filter: blur(.8px);
   animation: wish-coin-drift var(--drift-duration) ease-in-out var(--drift-delay) infinite;
@@ -75,7 +75,7 @@
 .wish-lake-coins [data-tip='end'] .wish-coin-tooltip { right: 0; left: auto; transform: none; }
 .wish-lake-coin:hover .wish-coin-tooltip, .wish-lake-coin:focus-visible .wish-coin-tooltip { visibility: visible; }
 .wish-lake-coin:is(:hover, :focus-visible, [aria-expanded="true"]) .wish-coin-shadow {
-  background: radial-gradient(ellipse, rgb(29 94 124 / .65) 15%, rgb(43 111 137 / .32) 54%, transparent 75%);
+  background: radial-gradient(ellipse, rgb(29 94 124 / .65) 15%, rgb(43 111 137 / .32) 54%, transparent 75%); /* taste-skill-ignore Keep the submerged coin recognizable on hover, focus and selection. */
 }
 .wish-lake-coin:focus-visible, .wish-detail-heading h3:focus-visible { outline: 3px solid var(--accent); outline-offset: 3px; }
 .wish-lake-invitation { position: absolute; inset: 40% 18% auto; text-align: center; color: var(--lake-ink); font-size: 14px; line-height: 1.7; margin: 0; pointer-events: none; }

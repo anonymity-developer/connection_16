@@ -21,7 +21,6 @@
 .demo-profile .content-choice input,.content-own .content-choice input,.sync-option input { position:absolute; width:1px; height:1px; opacity:0; }
 .demo-profile .content-choice:has(:focus-visible),.content-own .content-choice:has(:focus-visible),.sync-option:has(:focus-visible) { outline:3px solid var(--accent); outline-offset:3px; }
 .consent-chip { background:var(--raised); padding:14px; border-radius:16px; cursor:pointer; }
-.consent-chip::before { content:'○'; margin-right:10px; color:var(--muted); }.consent-chip:has(:checked)::before { content:'✓'; color:var(--accent); }
 .sync-progress { width:100%; height:10px; background:#e4ecf1; border-radius:10px; overflow:hidden; margin:20px 0 8px; }.sync-progress > span { display:block; height:100%; background:var(--accent); border-radius:inherit; }
 .sync-step { color:var(--accent-ink); font-size:13px; margin-bottom:20px; }
 .sync-option:has(:checked) { border-color:var(--accent); background:var(--accent-soft); color:var(--accent-ink); }
@@ -29,7 +28,11 @@
 .participant-shell .tap-area { display:flex; flex-direction:column; align-items:center; justify-content:center; width:min(100%,300px); min-height:0; aspect-ratio:1; margin:24px auto; border-radius:50%; font-size:44px; }
 .participant-shell .tap-area > span { font-size:14px; }
 .participant-shell .content-mission:not(.content-mission--wish) { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); align-items:start; gap:24px; }
-.demo-fountain .throw-coin,.demo-fountain .throw-flight > span { background:radial-gradient(ellipse at 28% 22%,#fffce1 0%,#f9db7d 38%,#dcac46 76%,#f4d685 100%); border:3px solid #b88a32; box-shadow:inset 0 0 0 4px #ffedb1,inset 0 0 0 6px #d5ac53,0 5px 0 #9c742b,0 9px 12px #6e522b30; }
+.demo-fountain .throw-coin,.demo-fountain .throw-flight > span {
+  background:radial-gradient(ellipse at 28% 22%,#fffce1 0%,#f9db7d 38%,#dcac46 76%,#f4d685 100%); /* taste-skill-ignore Approved gold coin illustration shared by the draggable and flying coin. */
+  border:3px solid #b88a32;
+  box-shadow:inset 0 0 0 4px #ffedb1,inset 0 0 0 6px #d5ac53,0 5px 0 #9c742b,0 9px 12px #6e522b30;
+}
 .demo-fountain .throw-coin { animation:coin-invite 1500ms ease-in-out 2; outline:5px solid #ffe7a744; outline-offset:5px; }.throw-assist { font-size:13px; margin:20px 0; color:var(--muted); }.throw-assist summary { min-height:44px; cursor:pointer; }
 @keyframes coin-invite {50%{transform:translate(-50%,-60%) rotate(-7deg);}}
 @media(max-width:700px){.participant-shell .content-mission:not(.content-mission--wish),.peer-detail-grid{grid-template-columns:1fr;}.peer-detail-header{gap:16px;}.peer-detail-grid{gap:16px;padding:20px 0;}.participant-shell .mission-list{grid-template-columns:1fr;}.demo-switcher{padding-inline:16px;}}

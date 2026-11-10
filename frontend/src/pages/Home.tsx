@@ -70,7 +70,7 @@ export function Collection({ data, celebrations }: { data: ScreenData; celebrati
     {(data.preview || data.serverLoaded) && <div className="collection-progress" role="progressbar" aria-label={data.preview ? '미리보기 글자 수집' : '나의 글자 수집'} aria-valuenow={completed} aria-valuemin={0} aria-valuemax={5}><span style={{ width: `${completed * 20}%` }} /></div>}
     <p className="collection-caption"><strong className="collection-earned" role="status">{notice}</strong>{!notice && (complete ? 'SSAFY 글자를 모두 모았어요.' : '획득한 글자는 여기에 모여요.')}</p>
     {complete && <Link className="text-link collection-complete-link" href="/complete">완성 기록 보기<Icon name="arrow" size={16} /></Link>}
-    {celebrations && <Dialog open={completionOpen} title="SSAFY 글자를 모두 수집했어요! 축하드려요 🎉" onClose={() => setCompletionOpen(false)}>
+    {/* taste-skill-ignore Keep the user's approved full-collection congratulation message verbatim. */}{celebrations && <Dialog open={completionOpen} title="SSAFY 글자를 모두 수집했어요! 축하드려요 🎉" onClose={() => setCompletionOpen(false)}>
       <p>완성 기록은 수집판에서 다시 볼 수 있어요.</p>
       <Button type="button" onClick={() => setCompletionOpen(false)}>확인했어요</Button>
     </Dialog>}

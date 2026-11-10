@@ -378,3 +378,8 @@ PR #9 병합 뒤 [PR #10](https://github.com/anonymity-developer/connection_16/p
 - A WISH COME TRUE와 YOU GOT THIS를 서버 공개 메타데이터 및 기본 미션 제목에 반영했다. NFC 코드와 경로는 그대로 사용한다.
 - 360/390/430/768/1440px에서 운영용 화면을 검사했다. 미획득·진행 중·완료 상태, 확대 및 모션 감소, 축하창 닫기와 재방문, 인증·NFC 복귀, 미션 결과·분수·응원 및 관리자 미리보기를 확인했다. 프론트 lint/build와 단위 테스트 100개를 통과했다.
 - Java 21에서 bootJar, 백엔드 단위 84개, MySQL·Redis 통합 134개를 통과했다. 별도 설정으로 실행하는 장애 리허설 1개는 제외됐다.
+
+## 2026-11-11 — PR #17 Taste CI 수정
+
+- 승인된 편지·하늘·동전 일러스트의 gradient 6곳과 전체 수집 축하 문구에 Taste가 지원하는 줄 단위 예외와 보존 이유를 적었다. 사용처가 없는 동의 체크 문자 CSS 한 줄을 제거했다.
+- Node 24에서 Taste lint 0 FAIL·35 WARN, ESLint, 단위 테스트 100개, TypeScript·production build, UI·콘텐츠 브라우저 계약 검사를 통과했다. 360/390/430/768/1440px 수집판과 획득 모션·축하창, 분수의 동전·그림자·구름·편지를 확인했다. Production Taste inspect는 0 FAIL·1 WARN이며, WARN은 데스크톱 첫 화면 아래에 이어지는 블록 배치다.
