@@ -1,4 +1,4 @@
-/* global document, window, getComputedStyle */
+/* global document, window, getComputedStyle, requestAnimationFrame */
 import assert from 'node:assert/strict';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
@@ -90,6 +90,32 @@ try {
   const readsBeforeHome = discoveryReads; await visit('/'); await page.locator('.mission-section').waitFor();
   assert.equal(await page.locator('.discovery-graph, .home-network').count(), 0); assert.equal(discoveryReads, readsBeforeHome);
   record('direct relationship arrows and accessible rows use server data; empty graphs keep real zero counts');
+  // A response page is larger than the diagram; the next page stays reachable.
+  const connected = Array.from({ length: 31 }, (_, i) => ({
+    ...person(4), id: i + 10, nickname: '긴닉네임'.repeat(7) + i, visited: true, visitedMe: false, mutual: false,
+  }));
+  await page.route('**/api/v1/discovery/graph?**', route => {
+    const start = Number(new URL(route.request().url()).searchParams.get('offset'));
+    const nodes = connected.slice(start, start + 30);
+    return route.fulfill({ json: { self: { id: 1, nickname: '나' }, nodes,
+      edges: nodes.map(p => ({ from: 1, to: p.id, weight: 1 })), truncated: start + nodes.length < connected.length } });
+  });
+  await visit('/discovery/graph'); await page.locator('.network-node').first().waitFor();
+  for (const width of [360, 390, 430, 768, 1440]) {
+    await page.setViewportSize({ width, height: 900 });
+    await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+    const boxes = await Promise.all((await page.locator('.network-node').all()).map(n => n.boundingBox()));
+    assert.ok(boxes.length > 0 && boxes.length < 30);
+    for (const [i, a] of boxes.entries()) for (const b of boxes.slice(i+1)) {
+      assert.ok(a.x+a.width <= b.x || b.x+b.width <= a.x || a.y+a.height <= b.y || b.y+b.height <= a.y);
+    }
+    assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth), false);
+  }
+  assert.equal(await page.locator('.people-list li').count(), 30);
+  await page.getByRole('button', { name: '연결된 동료 더 보기' }).click();
+  await page.locator('.people-list li').nth(30).waitFor();
+  assert.equal(await page.getByRole('button', { name: '연결된 동료 더 보기' }).count(), 0);
+  record('30 long nicknames fit separated graph targets at five widths; the list loads the 31st relationship');
   required = true; await visit('/discovery'); await page.getByRole('link', { name: '내 프로필과 참여 안내 확인하기', exact: true }).waitFor(); assert.equal(await page.locator('.person-row').count(), 0); assert.equal(await page.locator('.visit-stats').count(), 0); required = false;
   await visit('/missions/say-something'); await page.getByRole('link', { name: '테스트 공개의 프로필 보기', exact: true }).waitFor(); assert.equal(await page.locator('.content-feed-list a[href="/discovery/profiles/999"]').count(), 0); assert.equal(await page.locator('.content-feed-list a[href="/discovery/profiles/2"]').count(), 1);
   await visit('/missions/make-a-wish'); await page.getByRole('button', { name: '소원 1 열기', exact: true }).click(); await page.getByRole('button', { name: '댓글 보기', exact: true }).click(); await page.getByRole('link', { name: '테스트 공개의 프로필 보기', exact: true }).waitFor(); assert.equal(await page.locator('.comment-list a[href="/discovery/profiles/999"]').count(), 0); await page.getByRole('link', { name: '테스트 공개의 프로필 보기', exact: true }).click(); await page.getByText('테스트 실명2', { exact: true }).waitFor();
