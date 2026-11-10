@@ -55,7 +55,6 @@ public class ParticipationService {
         return new Collection(missions,(int)missions.stream().filter(m -> "COMPLETED".equals(m.state())).count(),repository.completion(userId));
     }
     public ProfileState save(AuthPrincipal principal,ParticipationController.ProfileRequest value) {
-        Instant received = Instant.now();
         limits.check("profile-user",Long.toString(principal.userId()),30,60);
         validateUrl(value.githubUrl(),true); validateUrl(value.blogUrl(),false);
         if (value.interestIds().stream().distinct().count() != value.interestIds().size()) throw error(400,"INVALID_INTERESTS","관심사를 중복 없이 선택해 주세요.");
@@ -79,7 +78,7 @@ public class ParticipationService {
             }
             repository.saveProfile(principal.userId(),value);
             var saved = repository.profile(principal.userId());
-            if (repository.showMeEligible(principal.userId())) repository.receipt(principal.userId(),"PROFILE",saved.version(),received);
+            if (repository.showMeEligible(principal.userId())) repository.receipt(principal.userId(),"PROFILE",saved.version(),repository.now());
             completion.completeShowMe(principal.userId());
             return profile(principal.userId());
         });

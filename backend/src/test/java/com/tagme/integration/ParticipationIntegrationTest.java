@@ -135,12 +135,54 @@ class ParticipationIntegrationTest {
         login(); get("/missions/collection");
         assertThat(repository.mission(alice,MissionCode.SHOW_ME).state()).isEqualTo("LOCKED");
         assertThat(raw(HttpMethod.POST,"/missions/show-me/reconcile",Map.of(),null).getStatusCode().value()).isEqualTo(403);
-        Instant processing=Instant.now();
+        Instant processing=repository.now();
         assertThat(send(HttpMethod.POST,"/missions/show-me/reconcile",Map.of()).getBody()).containsEntry("newlyCompleted",true);
         var accepted=db.queryForObject("SELECT accepted_received_at FROM mission_completion_evidence WHERE user_id=?",Timestamp.class,alice).toInstant();
         assertThat(accepted).isAfterOrEqualTo(processing);
         assertThat(repository.completion(alice).complete()).isFalse();
         assertThat(send(HttpMethod.POST,"/missions/show-me/reconcile",Map.of()).getBody()).containsEntry("newlyCompleted",false);
+    }
+    <T> T withDatabaseTime(Instant time,java.util.function.Supplier<T> action) {
+        return new TransactionTemplate(manager).execute(status -> {
+            db.execute("SET timestamp="+time.getEpochSecond());
+            try { return action.get(); } finally { db.execute("SET timestamp=0"); }
+        });
+    }
+    @Test void showMeUsesDatabaseTimeEvenWhenJvmClockDiffersAndHonoursOpenBoundary() {
+        Instant opens=Instant.parse("2026-01-01T00:00:00Z"),closes=opens.plusSeconds(60);
+        db.update("UPDATE event_settings SET opens_at=?,submit_closes_at=?,moderation_closes_at=?,profile_preparation_enabled=TRUE",Timestamp.from(opens),Timestamp.from(closes),Timestamp.from(closes.plusSeconds(60)));
+        withDatabaseTime(opens.minusSeconds(1),() -> service.save(principal,request(true,0)));
+        assertThat(repository.mission(alice,MissionCode.SHOW_ME).state()).isEqualTo("LOCKED");
+        assertThat(withDatabaseTime(opens,() -> service.reconcileShowMe(principal))).isTrue();
+        var granted=db.queryForObject("SELECT e.accepted_received_at,p.completed_at,p.unlocked_at,r.received_at FROM mission_completion_evidence e JOIN mission_progress p ON p.user_id=e.user_id AND p.mission_id=e.mission_id JOIN submission_receipts r ON r.id=e.receipt_order WHERE e.user_id=?",
+            (row,n) -> new Instant[]{row.getTimestamp(1).toInstant(),row.getTimestamp(2).toInstant(),row.getTimestamp(3).toInstant(),row.getTimestamp(4).toInstant()},alice);
+        assertThat(granted[0]).isEqualTo(opens);
+        assertThat(granted[1]).isEqualTo(granted[0]);
+        assertThat(granted[3]).isEqualTo(opens.minusSeconds(1));
+        assertThat(granted[2]).isEqualTo(opens);
+    }
+    @Test void showMeCannotGrantAtTheExclusiveCloseBoundary() {
+        Instant closes=Instant.parse("2026-01-01T00:01:00Z");
+        db.update("UPDATE event_settings SET opens_at=?,submit_closes_at=?,moderation_closes_at=?,profile_preparation_enabled=TRUE",Timestamp.from(closes.minusSeconds(60)),Timestamp.from(closes),Timestamp.from(closes.plusSeconds(60)));
+        withDatabaseTime(closes.minusSeconds(61),() -> service.save(principal,request(true,0)));
+        assertThat(withDatabaseTime(closes,() -> service.reconcileShowMe(principal))).isFalse();
+        assertThat(repository.mission(alice,MissionCode.SHOW_ME).state()).isEqualTo("LOCKED");
+        assertThat(db.queryForObject("SELECT COUNT(*) FROM mission_completion_evidence",Integer.class)).isZero();
+    }
+    @Test void crossingCloseDuringShowMeRollsBackProfileUnlockAndEvidenceTogether() {
+        Instant opens=Instant.parse("2026-01-01T00:00:00Z"),closes=opens.plusSeconds(60);
+        db.update("UPDATE event_settings SET opens_at=?,submit_closes_at=?,moderation_closes_at=?",Timestamp.from(opens),Timestamp.from(closes),Timestamp.from(closes.plusSeconds(60)));
+        var reads=new java.util.concurrent.atomic.AtomicInteger();
+        doAnswer(invocation -> {
+            if(reads.incrementAndGet()==2)db.execute("SET timestamp="+closes.getEpochSecond());
+            return invocation.callRealMethod();
+        }).when(repository).requireOpenTime();
+        assertThatThrownBy(() -> withDatabaseTime(opens.plusSeconds(59),() -> service.save(principal,request(true,0))))
+            .isInstanceOf(AuthException.class).hasMessageContaining("참여 가능한 시간");
+        assertThat(repository.profile(alice)).isNull();
+        assertThat(db.queryForObject("SELECT COUNT(*) FROM mission_progress",Integer.class)).isZero();
+        assertThat(db.queryForObject("SELECT COUNT(*) FROM submission_receipts",Integer.class)).isZero();
+        assertThat(db.queryForObject("SELECT COUNT(*) FROM mission_completion_evidence",Integer.class)).isZero();
     }
     @Test void csrfOwnershipFormatsMissingPolicyAndClosedEventFailWithoutProgress() {
         assertThat(send(HttpMethod.POST,"/missions/show-me/reconcile",Map.of()).getStatusCode().value()).isEqualTo(401);

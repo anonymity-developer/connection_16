@@ -29,10 +29,11 @@ public class MissionCompletionService {
         var mission = repository.mission(userId,MissionCode.SHOW_ME);
         if (!mission.active() || "COMPLETED".equals(mission.state()) || !repository.showMeEligible(userId)) return false;
         repository.activeMission(mission.id());
+        var processed = repository.requireOpenTime();
         var profile = repository.profile(userId);
         var receipt = repository.profileReceipt(userId,profile.version());
-        if (receipt == null) receipt = repository.receipt(userId,"PROFILE",profile.version(),java.time.Instant.now());
-        if ("LOCKED".equals(mission.state())) repository.unlock(userId,mission.id(),java.time.Instant.now());
+        if (receipt == null) receipt = repository.receipt(userId,"PROFILE",profile.version(),processed);
+        if ("LOCKED".equals(mission.state())) repository.unlock(userId,mission.id(),processed);
         return completeInternal(userId,MissionCode.SHOW_ME,receipt.id(),false);
     }
     private boolean completeInternal(long userId,MissionCode code,long receiptId,boolean moderated) {
@@ -52,7 +53,7 @@ public class MissionCompletionService {
         var condition = rule.conditionReceivedAt(userId,receipt);
         if (condition.isAfter(accepted)) accepted = condition;
         // Never backdate a newly granted SHOW ME, including pre-event profiles and old tag unlocks.
-        if (code == MissionCode.SHOW_ME) accepted = java.time.Instant.now();
+        if (code == MissionCode.SHOW_ME) accepted = repository.requireOpenTime();
         repository.complete(userId,mission,receipt,accepted); return true;
     }
 }

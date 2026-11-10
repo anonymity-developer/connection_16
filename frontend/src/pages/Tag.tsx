@@ -23,9 +23,10 @@ export function TagPage({ token }: { token: string }) {
       }
       const result = token === 'resume' ? await participationApi.resume() : await participationApi.resolve(token);
       const mission = missions.find(m => m.code === result.missionCode);
-      if (!mission || result.route !== `/missions/${mission.slug}`) throw new Error('이동할 미션을 확인하지 못했어요.');
+      const expectedRoute = mission?.code === 'SHOW_ME' ? '/me/profile' : mission ? `/missions/${mission.slug}` : null;
+      if (!mission || result.route !== expectedRoute) throw new Error('이동할 미션을 확인하지 못했어요.');
       await participation.refresh();
-      auth.setFlash(result.newlyCompleted ? 'SHOW ME의 첫 번째 S를 모았어요.' : result.newlyUnlocked ? `${mission.name} 미션을 열었어요.` : '이미 열어 둔 미션이에요. 저장된 상태로 이어갈게요.');
+      auth.setFlash(result.newlyCompleted ? 'SHOW ME의 첫 번째 S를 모았어요.' : mission.code === 'SHOW_ME' ? '프로필에서 첫 번째 S의 준비 상태를 확인해 주세요.' : result.newlyUnlocked ? `${mission.name} 미션을 열었어요.` : '이미 열어 둔 미션이에요. 저장된 상태로 이어갈게요.');
       navigate(result.route);
     } catch (failure) { setError(failure instanceof Error ? failure.message : '태그를 확인하지 못했어요.'); }
     finally { setBusy(false); }

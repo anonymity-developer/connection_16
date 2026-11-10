@@ -43,6 +43,16 @@ public class ParticipationRepository {
         if (!"OPEN".equals(event.status()) && !(profile && "BEFORE_OPEN".equals(event.status()) && event.profilePreparationEnabled()))
             throw error(403, "EVENT_CLOSED", "지금은 참여 가능한 시간이 아니에요.");
     }
+    public Instant now() { return db.queryForObject("SELECT UTC_TIMESTAMP(6)",Timestamp.class).toInstant(); }
+    /** One DB clock sample both checks the half-open event window and dates a new SHOW ME grant. */
+    public Instant requireOpenTime() {
+        return db.query("SELECT opens_at,submit_closes_at,UTC_TIMESTAMP(6) AS processed_at FROM event_settings WHERE id=1 FOR SHARE",(row,n) -> {
+            Instant processed=instant(row,"processed_at");
+            if (processed.isBefore(instant(row,"opens_at")) || !processed.isBefore(instant(row,"submit_closes_at")))
+                throw error(403,"EVENT_CLOSED","지금은 참여 가능한 시간이 아니에요.");
+            return processed;
+        }).stream().findFirst().orElseThrow(() -> error(503,"EVENT_NOT_CONFIGURED","행사 일정을 준비하고 있어요."));
+    }
     public List<Policy> policies(long userId, boolean lock) {
         var policies = db.query("""
                 SELECT p.* FROM current_consent_policies c JOIN consent_policies p
@@ -161,7 +171,10 @@ public class ParticipationRepository {
     public void complete(long userId,Mission mission,Receipt receipt,Instant accepted) {
         db.update("INSERT INTO mission_completion_evidence(user_id,mission_id,source_kind,source_id,receipt_order,accepted_received_at) VALUES (?,?,?,?,?,?)",
                 userId,mission.id(),receipt.sourceKind(),receipt.sourceId(),receipt.id(),Timestamp.from(accepted));
-        db.update("UPDATE mission_progress SET status='COMPLETED',completed_at=UTC_TIMESTAMP(6) WHERE user_id=? AND mission_id=? AND status<>'COMPLETED'",userId,mission.id());
+        // SHOW ME evidence and completion share the validated DB processing instant.
+        // Other missions retain their earlier receipt time and the actual DB completion time.
+        Instant completed = mission.code()==MissionCode.SHOW_ME ? accepted : now();
+        db.update("UPDATE mission_progress SET status='COMPLETED',completed_at=? WHERE user_id=? AND mission_id=? AND status<>'COMPLETED'",Timestamp.from(completed),userId,mission.id());
         boolean all = missions(userId).size() == MissionCode.values().length && missions(userId).stream().allMatch(m -> "COMPLETED".equals(m.state()));
         if (all && !completion(userId).complete()) {
             long order = db.queryForObject("SELECT next_value FROM event_completion_sequence WHERE id=1 FOR UPDATE",Long.class);

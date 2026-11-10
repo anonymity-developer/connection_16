@@ -11,10 +11,11 @@ try {
   const page = await context.newPage();
   const errors = [];
   page.on('pageerror', error => errors.push(error.message));
-  const missions = ['SYNC_ME', 'MAKE_A_WISH', 'FAST_TAP', 'SAY_SOMETHING'];
+  const missions = ['SHOW_ME', 'SYNC_ME', 'MAKE_A_WISH', 'FAST_TAP', 'SAY_SOMETHING'];
   let signedIn = false, onboarded = true, pending = null, current = 0, resolves = 0, logins = 0, expireOnResolve = false;
   const tokenFor = i => String.fromCharCode(65 + i).repeat(43);
-  const pathFor = i => `/missions/${missions[i].toLowerCase().replaceAll('_', '-')}`;
+  const pathFor = i => missions[i] === 'SHOW_ME' ? '/me/profile' : `/missions/${missions[i].toLowerCase().replaceAll('_', '-')}`;
+  let routeOverride = null;
   const user = () => ({ id: 1, username: 'contract-test', nickname: onboarded ? '테스트' : null, onboardingRequired: !onboarded });
   const profile = () => ({ identity: { realName: '테스트', region: '서울', classNo: 13, photoUrl: null, ready: true },
     profile: onboarded ? { nickname: '테스트', bio: '', interestIds: [], version: 1 } : null,
@@ -33,7 +34,7 @@ try {
         if (path === '/event') return reply(200, { status: 'OPEN', opensAt: null, submitClosesAt: null, profilePreparationEnabled: false });
         if (path === '/users/me/profile') return reply(200, profile());
         if (path === '/interests') return reply(200, []);
-        if (path === '/missions/collection') return reply(200, { missions: ['SHOW_ME', ...missions].map((code, i) => ({ id: i + 1, code, active: true, state: 'LOCKED' })), completedCount: 0, completion: { complete: false } });
+        if (path === '/missions/collection') return reply(200, { missions: missions.map((code, i) => ({ id: i + 1, code, active: true, state: 'LOCKED' })), completedCount: 0, completion: { complete: false } });
         if (path === '/discovery/graph') return reply(200, { self: { id: 1, nickname: '테스트' }, nodes: [], edges: [], truncated: false });
         // The destination mission's content is outside this STEP 1 contract.
         return reply(503, { code: 'TEST_OUT_OF_SCOPE', message: '미션 본문은 이 인증 테스트의 범위가 아닙니다.' });
@@ -56,7 +57,7 @@ try {
         const i = path.endsWith('resume') ? pending : current;
         if (path.endsWith('resolve')) assert.equal(body.token, tokenFor(current));
         pending = null; resolves++;
-        return reply(200, { missionCode: missions[i], state: 'UNLOCKED', route: pathFor(i), newlyUnlocked: true, newlyCompleted: false });
+        return reply(200, { missionCode: missions[i], state: missions[i] === 'SHOW_ME' ? 'LOCKED' : 'UNLOCKED', route: routeOverride ?? pathFor(i), newlyUnlocked: missions[i] !== 'SHOW_ME', newlyCompleted: false });
       }
       throw new Error(`Unexpected mutation ${path}`);
     } catch (error) { errors.push(error.message); return reply(500, { message: '계약 검사 실패' }); }
@@ -99,6 +100,22 @@ try {
       console.log(`PASS ${mode}: ${missions[current]} survives reload and returns to original mission`);
     }
   }
+  current = 0;
+  for (const width of [390,1440]) {
+    await page.setViewportSize({ width, height: 900 });
+    await visit(`/t/${tokenFor(current)}`);
+    await page.getByRole('button', { name: '태그로 미션 열기', exact: true }).click();
+    await page.waitForURL('**/me/profile');
+  }
+  for (const [mission, invalidRoute] of [[0, '/missions/show-me'], [0, 'https://example.com'], [1, '/me/profile']]) {
+    current = mission; routeOverride = invalidRoute;
+    await visit(`/t/${tokenFor(current)}`);
+    await page.getByRole('button', { name: '태그로 미션 열기', exact: true }).click();
+    await page.getByRole('alert').filter({ hasText: '이동할 미션을 확인하지 못했어요.' }).waitFor();
+    assert.equal(new URL(page.url()).pathname, `/t/${tokenFor(current)}`);
+  }
+  routeOverride = null;
+  console.log('PASS legacy SHOW ME direct links at 390/1440 and invalid/cross-mission routes rejected');
   current = 1; const before = logins;
   await visit(`/t/${tokenFor(current)}`);
   await page.reload();

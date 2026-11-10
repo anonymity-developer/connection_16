@@ -41,10 +41,12 @@ class ShowMeAutomaticCompletionTest {
         when(repository.profileReceipt(1,3)).thenReturn(receipt);when(repository.receipt(7)).thenReturn(receipt);
         when(rule.code()).thenReturn(MissionCode.SHOW_ME);when(rule.accepts(anyLong(),any(),any())).thenReturn(true);
         when(rule.conditionReceivedAt(1,receipt)).thenReturn(before);
-        Instant processing=Instant.now();
+        // Deliberately far from the JVM wall clock: the database time is authoritative.
+        Instant processing=before.plusMillis(500);
+        when(repository.requireOpenTime()).thenReturn(processing);
         assertThat(completion.completeShowMe(1)).isTrue();
-        verify(repository).unlock(eq(1L),eq(1L),argThat(time -> !time.isBefore(processing)));
-        verify(repository).complete(eq(1L),any(),eq(receipt),argThat(time -> !time.isBefore(processing)));
+        verify(repository).unlock(eq(1L),eq(1L),eq(processing));
+        verify(repository).complete(eq(1L),any(),eq(receipt),eq(processing));
         verify(repository,never()).tag(anyString());
         verify(repository,never()).receipt(anyLong(),eq("TAG_UNLOCK"),anyLong(),any());
     }

@@ -47,19 +47,19 @@ COMMIT;
 4. 로그인 시 세션 ID 교체 후에도 이 임시 상태가 남는다. 브라우저 localStorage/sessionStorage에는 자격증명이나 태그를 보관하지 않는다.
 5. 프로필 준비가 필요하면 내 계정/프로필부터 진행한다. 이후 고정 내부 경로 `/t/resume`에서 POST `/tags/resume`으로 이어간다. 외부 return URL은 받지 않는다.
 6. 로그인한 사용자의 직접 태그는 POST `/tags/resolve`로 처리한다. 세션/CSRF/계정 버전/행사/태그/미션 활성 상태를 검증한다.
-7. resolve 성공 후 새 해금 여부/글자 지급 여부와 정해진 내부 미션 경로를 반환한다. resume 성공 시 임시 의도를 지운다. 실패 시에는 다시 시도할 수 있고 15분이 지나면 다시 스캔해야 한다.
+7. resolve 성공 후 새 해금 여부/글자 지급 여부와 정해진 내부 미션 경로를 반환한다. 기존 SHOW ME 태그는 해금 근거를 만들지 않고 `/me/profile`로 이동한다. 다른 네 미션은 해당 `/missions/{slug}`만 허용한다. resume 성공 시 임시 의도를 지운다. 실패 시에는 다시 시도할 수 있고 15분이 지나면 다시 스캔해야 한다.
 
 형식 오류는 400, 미존재/비활성 태그는 같은 404, 행사 외/비활성 미션은 403이다. 사용자 행 잠금과 progress 복합 PK로 중복 해금을 막는다. 첫 해금 시각/접수 ID를 덮어쓰지 않는다. URL 공유로 다른 인증 사용자가 해금할 수 있으므로 현장 체류 증명으로 안내하지 않는다. HTML meta와 운영 Caddy는 no-referrer를 사용한다. 접근 로그/분석 도구에 태그 경로를 수집하지 않는다.
 
 ## SHOW ME와 공통 완료
 
-프로필 완성만으로는 첫 번째 S를 지급하지 않는다. 공개된 필수 프로필 + 두 현재 동의 + SHOW ME 해금이 모두 필요하다. 태그가 먼저면 프로필 저장이, 프로필이 먼저면 태그 해금이 공통 완료를 호출한다. 이후 수정/재스캔은 최초 완료 시각을 바꾸지 않는다.
+SHOW ME는 NFC 없이 행사 OPEN 중 자동 지급한다. 공개된 필수 프로필 + 비어 있지 않은 소개 + 관심사 1개 이상 + 현재 두 동의가 필요하다. 닉네임만으로 프로필을 저장하고 온보딩을 마칠 수 있지만 보상 조건은 별도다. 프로필 저장 또는 인증·CSRF가 있는 POST `/missions/show-me/reconcile`이 현재 조건을 재검증한다. 사전 등록은 OPEN 이후 POST에서 평가하며 GET 조회는 지급하지 않는다. 이후 수정/재평가/기존 태그 재스캔은 최초 완료 시각을 바꾸지 않는다.
 
 MissionCompletionService는 클라이언트용 범용 완료 API가 아니다. 사용자 행 잠금 → 계정/행사 → 미션 활성/해금 → 서버 receipt 소유 → 해당 미션의 CompletionRule 검증 → 최초 evidence/progress → 다섯 code 판정 → 필요할 때만 전역 sequence 잠금 순서다. 비밀번호 버전과 ACTIVE 상태는 실제 쓰기 트랜잭션 안에서도 확인한다.
 
 운영 CompletionRule은 다섯 미션별 서버 근거를 확인한다. 후속 페이즈에서 성향/공식 게임/승인 콘텐츠 근거를 연결했다. 테스트의 가상 미래 rule은 테스트 구성에만 있으며 운영 API/바이너리 경로로 우회할 수 없다.
 
-submission_receipts는 프로필 버전 또는 최초 해금별 서버 접수 시각을 보존한다. evidence의 accepted_received_at은 수행/해금 조건을 모두 만족한 접수 시각의 최댓값이다. 락 대기 때문에 요청 순서와 처리 순서가 달라도 이전 미해금 행위를 유효 완료 시각으로 앞당기지 않는다. profile.version은 사용자별 값이므로 PROFILE source_id도 사용자 범위로 유일하다.
+submission_receipts는 프로필 버전 또는 최초 해금별 서버 접수 시각을 보존한다. 네 NFC 미션 evidence의 accepted_received_at은 수행/해금 조건을 모두 만족한 접수 시각의 최댓값이다. SHOW ME는 지급 직전 DB `UTC_TIMESTAMP(6)` 한 표본으로 `[opens_at, submit_closes_at)`을 검증하고 그 값을 인정·완료 시각에 함께 저장한다. 프로필 접수·자동 해금도 DB 시계를 쓰며 사전 등록 시각으로 보상을 소급하지 않는다. 처리 중 마감에 도달하면 동일 트랜잭션의 저장/해금/근거를 롤백한다. profile.version은 사용자별 값이므로 PROFILE source_id도 사용자 범위로 유일하다.
 
 전체 완료는 정확히 SHOW_ME/SYNC_ME/MAKE_A_WISH/FAST_TAP/SAY_SOMETHING 다섯 code가 완료됐을 때만 기록한다. 사용자 PK/완료 순번 UNIQUE와 sequence 행 잠금으로 중복을 막는다. sequence 증가 후 실패도 같은 트랜잭션에서 롤백한다. completionOrder는 **운영상 처리 완료 순번**이며 awardConfirmed=false로 반환한다. 검수 지연 보정 시상 순위나 수상 확정으로 표시하지 않는다.
 
@@ -76,6 +76,7 @@ submission_receipts는 프로필 버전 또는 최초 해금별 서버 접수 �
 | GET | /users/me/photo | 본인 Mattermost 사진, no-store |
 | GET | /missions, /missions/collection | 5개 미션 상태/시각, 완료 개수/전체 완료 |
 | GET | /missions/completion | 전체 완료 상태/운영상 순번/시상 미확정 |
+| POST | /missions/show-me/reconcile | 현재 프로필 조건 재평가, newlyCompleted 반환; 로그인·CSRF 필요 |
 | POST | /tags/pending | 익명 태그 의도 저장, 202 |
 | GET | /tags/pending | 임시 의도 존재 여부만 반환 |
 | POST | /tags/resolve | 로그인한 사용자의 실제 태그 검증/해금 |
