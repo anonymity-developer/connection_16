@@ -27,6 +27,7 @@ try {
     const path = new URL(request.url()).pathname.replace('/api/v1', '');
     const method = request.method();
     const reply = (status, data, headers = {}) => route.fulfill({ status, contentType: 'application/json', headers, body: status === 204 ? undefined : JSON.stringify(data) });
+      if (method === 'POST' && path === '/missions/show-me/reconcile') { assert.ok(request.headers()['x-xsrf-token']); return reply(200, { newlyCompleted: false }); }
     if (method === 'GET' && path === '/auth/config') return reply(200, { available: true, passwordMinLength: 15, passwordMaxLength: 64 });
     if (method === 'GET' && path === '/users/me') return user ? reply(200, user) : reply(401, { code: 'UNAUTHENTICATED', message: '로그인이 필요합니다.' });
     if (method === 'GET' && path === '/tags/pending') return reply(200, { present: false });

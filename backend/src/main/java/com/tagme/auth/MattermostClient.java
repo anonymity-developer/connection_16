@@ -130,8 +130,7 @@ public class MattermostClient {
             var channel = http.post().uri("/channels/direct").header("Authorization", "Bearer " + token)
                     .body(List.of(sender.id(), target.id())).retrieve().body(Channel.class);
             if (channel == null || channel.id() == null || channel.id().isBlank()) throw AuthException.unavailable();
-            var message = "TAG ME " + purpose.label() + " 인증번호: " + code + "\n"
-                    + properties.otpTtlSeconds() + "초 이내에 입력해 주세요. 타인에게 공유하지 마세요. 요청한 적이 없다면 무시해 주세요.";
+            var message = OtpMessage.format(purpose.label(), code, properties.otpTtlSeconds());
             var post = http.post().uri("/posts").header("Authorization", "Bearer " + token)
                     .body(Map.of("channel_id", channel.id(), "message", message)).retrieve().body(Channel.class);
             if (post == null || post.id() == null || post.id().isBlank()) throw AuthException.unavailable();

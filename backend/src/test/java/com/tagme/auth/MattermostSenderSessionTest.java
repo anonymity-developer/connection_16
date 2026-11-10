@@ -137,4 +137,12 @@ class MattermostSenderSessionTest {
         }
         assertThat(client.byId(USER)).isEmpty(); assertThat(client.byId(USER)).isEmpty(); server.verify();
     }
+    @Test void senderCannotSendOtpToSelfAndTemporarySessionStillLogsOut() {
+        login(TOKEN);
+        server.expect(requestTo("http://localhost/api/v4/users/me"))
+                .andRespond(withSuccess(json(user(SENDER)), MediaType.APPLICATION_JSON));
+        logout(TOKEN);
+        // Any attempted direct-channel/post request is unexpected and fails this mock test.
+        unavailable(() -> client().sendCode(new MattermostClient.Identity(SENDER, "test-operator", null), OtpStore.Purpose.SIGN_UP, "012345"));
+    }
 }

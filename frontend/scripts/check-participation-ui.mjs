@@ -38,6 +38,7 @@ try {
     try {
       const req = route.request(); const path = new URL(req.url()).pathname.replace('/api/v1', ''); const method = req.method();
       const reply = (status, data) => route.fulfill({ status, contentType: 'application/json', body: [202, 204].includes(status) ? undefined : JSON.stringify(data) });
+      if (method === 'POST' && path === '/missions/show-me/reconcile') { assert.ok(req.headers()['x-xsrf-token']); return reply(200, { newlyCompleted: false }); }
       if (method === 'GET' && path === '/auth/config') return reply(200, { available: true, passwordMinLength: 15, passwordMaxLength: 64 });
       if (method === 'GET' && path === '/discovery/graph') return reply(200, { self: { id: 1, nickname: '테스트' }, nodes: [], edges: [], truncated: false });
       if (method === 'GET' && path === '/users/me') return signedIn ? reply(200, user()) : reply(401, { code: 'UNAUTHENTICATED', message: '로그인이 필요합니다.' });
@@ -49,7 +50,7 @@ try {
       if (method === 'GET' && path === '/users/me/profile') return reply(200, state());
       if (method === 'GET' && path === '/missions/collection') {
         if (collectionFailure) return reply(503, { code: 'UNAVAILABLE', message: '참여 기록을 불러오지 못했어요.' });
-        return reply(200, { missions: ['SHOW_ME', 'SYNC_ME', 'MAKE_A_WISH', 'FAST_TAP', 'SAY_SOMETHING'].map((code, i) => ({ id: i + 1, code, active: true, state: i === 0 ? completed ? 'COMPLETED' : unlocked ? 'UNLOCKED' : 'LOCKED' : 'LOCKED', unlockedAt: null, completedAt: null })), completedCount: completed ? 1 : 0, completion: { complete: false, completionOrder: null, completedAt: null, awardConfirmed: false } });
+        return reply(200, { missions: ['SHOW_ME', 'SYNC_ME', 'MAKE_A_WISH', 'FAST_TAP', 'SAY_SOMETHING'].map((code, i) => ({ id: i + 1, code, active: true, state: i === 0 ? completed ? 'COMPLETED' : 'LOCKED' : i === 1 && unlocked ? 'UNLOCKED' : 'LOCKED', unlockedAt: null, completedAt: null })), completedCount: completed ? 1 : 0, completion: { complete: false, completionOrder: null, completedAt: null, awardConfirmed: false } });
       }
       assert.equal(req.headers()['x-xsrf-token'], 'contract-csrf');
       const body = req.postDataJSON();
@@ -59,9 +60,9 @@ try {
         resolves++;
         if (path === '/tags/resume' && !pending) return reply(404, { code: 'TAG_INTENT_EXPIRED', message: '태그 연결이 만료됐어요. 현장 태그를 다시 읽어주세요.' });
         if (closed) return reply(403, { code: 'EVENT_CLOSED', message: '지금은 참여 가능한 시간이 아니에요.' });
-        const newlyUnlocked = !unlocked, newlyCompleted = !completed && state().participationReady;
-        unlocked = true; if (state().participationReady) completed = true; pending = false;
-        return reply(200, { missionCode: 'SHOW_ME', state: completed ? 'COMPLETED' : 'UNLOCKED', route: '/missions/show-me', newlyUnlocked, newlyCompleted });
+        const newlyUnlocked = !unlocked, newlyCompleted = false;
+        unlocked = true; pending = false;
+        return reply(200, { missionCode: 'SYNC_ME', state: 'UNLOCKED', route: '/missions/sync-me', newlyUnlocked, newlyCompleted });
       }
       if (path === '/users/me/profile' && method === 'PUT') {
         saves++; if (heldSave) await heldSave;
@@ -71,7 +72,7 @@ try {
         assert.equal(body.expectedVersion, profile?.version ?? 0);
         assert.deepEqual(body.acceptPolicies.map(p => p.type).sort(), agreements ? [] : ['PARTICIPATION', 'PROFILE_PUBLICATION']);
         agreements = true; profile = { ...body, version: (profile?.version ?? 0) + 1 };
-        if (unlocked && profile) completed = true;
+        if (profile?.bio?.trim() && profile.interestIds.length && agreements && !closed) completed = true;
         return reply(200, state());
       }
 
@@ -95,7 +96,15 @@ try {
   assert.equal(await page.locator('input[name="policy"]').count(), 1);
   assert.equal(await page.locator('input[name="realName"],input[name="classNo"]').count(), 0);
   assert.equal(await page.locator('input[name="policy"]:checked').count(), 0);
-  await fill(); await page.getByRole('button', { name: '프로필 저장하기', exact: true }).click(); assert.equal(saves, 0);
+  const checklist = page.getByRole('region', { name: '첫 번째 S 준비하기', exact: true });
+  // Draft inputs can satisfy presentation checks, but must not claim a server award.
+  assert.equal(await checklist.locator('.is-ready').count(), 0);
+  await fill();
+  assert.equal(await checklist.locator('.is-ready').count(), 2);
+  assert.equal(await checklist.getByText('현장에서 태그해 주세요', { exact: true }).count(), 1);
+  assert.equal(await page.getByRole('heading', { name: '첫 번째 S를 모았어요', exact: true }).count(), 0);
+  assert.equal(completed, false);
+  await page.getByRole('button', { name: '프로필 저장하기', exact: true }).click(); assert.equal(saves, 0);
   await page.getByRole('button', { name: /내용 보기$/ }).first().click();
   await page.getByRole('dialog').waitFor(); assert.ok((await page.getByRole('dialog').innerText()).includes('실제 운영 정책이 아닙니다.'));
   await page.keyboard.press('Escape'); await agree();
@@ -112,13 +121,13 @@ try {
   await page.getByRole('button', { name: '프로필 저장하기', exact: true }).click();
   await page.locator('form[aria-busy="true"]').waitFor(); assert.equal(await page.getByRole('button', { name: '저장 중…', exact: true }).isEnabled(), false);
   releaseSave(); heldSave = null; await page.waitForURL('**/me');
-  assert.equal(saves, 1); assert.equal(completed, false);
+  assert.equal(saves, 1); assert.equal(completed, true);
   await visit('/'); await page.getByRole('progressbar', { name: '나의 글자 수집' }).waitFor();
-  assert.equal(await page.getByRole('progressbar').getAttribute('aria-valuenow'), '0');
+  assert.equal(await page.getByRole('progressbar').getAttribute('aria-valuenow'), '1');
   assert.equal(await page.locator('input[name="realName"],input[name="classNo"]').count(), 0);
-  record('profile imports readonly identity, groups domain and stack interests, requires one acknowledgement and awards no letter before the tag');
+  record('profile imports readonly identity, groups domain and stack interests, requires one acknowledgement and automatically awards the first S without a tag');
 
-  await visit(`/t/${token}`); await page.getByRole('button', { name: '태그로 미션 열기', exact: true }).click(); await page.waitForURL('**/missions/show-me');
+  await visit('/missions/show-me');
   await page.getByRole('heading', { name: '연결의 한 조각을 모았어요', exact: true }).waitFor();
   await page.screenshot({ path: resolve(output, 'participation-show-me-complete-390.png'), fullPage: true });
   await page.getByRole('link', { name: '수집판으로 돌아가기', exact: true }).click();
@@ -126,7 +135,7 @@ try {
   await page.reload(); await page.getByRole('progressbar').waitFor(); assert.equal(await page.getByRole('progressbar').getAttribute('aria-valuenow'), '1');
   assert.equal(await page.getByRole('progressbar').getAttribute('aria-valuemax'), '5');
   await page.screenshot({ path: resolve(output, 'participation-collection-390.png'), fullPage: true });
-  record('SHOW ME tag uses server result and collection keeps exactly one of five letters after refresh');
+  record('SHOW ME profile completion keeps exactly one of five letters after refresh');
 
   signedIn = false; profile = null; agreements = false; unlocked = false; completed = false;
   await visit(`/t/${token}`); await page.getByRole('button', { name: '로그인하고 이어가기', exact: true }).click(); await page.waitForURL('**/auth');
@@ -135,7 +144,7 @@ try {
   await page.getByRole('button', { name: '로그인하기', exact: true }).click(); await page.waitForURL('**/me');
   await page.getByRole('link', { name: '프로필 등록하기', exact: true }).click(); await fill(); await agree();
   await page.getByRole('button', { name: '프로필 저장하기', exact: true }).click(); await page.waitForURL('**/t/resume');
-  await page.reload(); await page.getByRole('button', { name: '태그로 미션 열기', exact: true }).click(); await page.waitForURL('**/missions/show-me');
+  await page.reload(); await page.getByRole('button', { name: '태그로 미션 열기', exact: true }).click(); await page.waitForURL('**/missions/sync-me');
   assert.equal(completed, true); assert.equal(pending, false);
   assert.equal(await page.evaluate(() => localStorage.length + sessionStorage.length), 0);
   record('anonymous tag intent survives login reload and onboarding without browser credential or token storage');

@@ -20,6 +20,21 @@ public class MissionCompletionService {
         if (code != MissionCode.MAKE_A_WISH && code != MissionCode.SAY_SOMETHING) throw error(403,"INVALID_EVIDENCE","검수형 미션을 확인해 주세요.");
         return completeInternal(userId,code,receiptId,true);
     }
+    /** No tag is required. Pre-registration is reconciled only when actually processed in OPEN. */
+    @Transactional
+    public boolean completeShowMe(long userId) {
+        repository.lockUser(userId);
+        var event = repository.event(true);
+        if (!"OPEN".equals(event.status())) return false;
+        var mission = repository.mission(userId,MissionCode.SHOW_ME);
+        if (!mission.active() || "COMPLETED".equals(mission.state()) || !repository.showMeEligible(userId)) return false;
+        repository.activeMission(mission.id());
+        var profile = repository.profile(userId);
+        var receipt = repository.profileReceipt(userId,profile.version());
+        if (receipt == null) receipt = repository.receipt(userId,"PROFILE",profile.version(),java.time.Instant.now());
+        if ("LOCKED".equals(mission.state())) repository.unlock(userId,mission.id(),java.time.Instant.now());
+        return completeInternal(userId,MissionCode.SHOW_ME,receipt.id(),false);
+    }
     private boolean completeInternal(long userId,MissionCode code,long receiptId,boolean moderated) {
         repository.lockUser(userId);
         if (!moderated) repository.requireOpen(false);
@@ -36,6 +51,8 @@ public class MissionCompletionService {
         var accepted = receipt.receivedAt().isAfter(mission.unlockedAt()) ? receipt.receivedAt() : mission.unlockedAt();
         var condition = rule.conditionReceivedAt(userId,receipt);
         if (condition.isAfter(accepted)) accepted = condition;
+        // Never backdate a newly granted SHOW ME, including pre-event profiles and old tag unlocks.
+        if (code == MissionCode.SHOW_ME) accepted = java.time.Instant.now();
         repository.complete(userId,mission,receipt,accepted); return true;
     }
 }

@@ -2,9 +2,9 @@ import { useEffect, useRef, useState } from 'react';
 import { Button } from '../../components/ui';
 import { Icon } from '../../components/Icon';
 import { ApiError } from '../auth/api';
-import { reactionsApi } from './reactions-api';
+import { reactionsApi as serverApi } from './reactions-api';
 import type { LikeState } from './reactions-api';
-export function HeartControl({ id, initial, loading }: { id: number; initial: LikeState | null; loading: boolean }) {
+export function HeartControl({ id, initial, loading, api: reactionsApi = serverApi }: { id: number; initial: LikeState | null; loading: boolean; api?: typeof serverApi }) {
   const [state, setState] = useState<LikeState | null>(initial); const [busy, setBusy] = useState(false); const [error, setError] = useState(''); const [blocked, setBlocked] = useState(false);
   const active = useRef(true); const desired = useRef<boolean | null>(null);
   useEffect(() => { active.current = true; return () => { active.current = false; }; }, []);

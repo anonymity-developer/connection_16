@@ -21,13 +21,41 @@ public class OperationsService {
     private final ParticipationRepository participation;
     private final AuthRateLimiter limits;
     private final TransactionTemplate tx;
+    private final TransactionTemplate awardsTx;
     public OperationsService(OperationsRepository repository,ContentRepository content,ReactionRepository reactions,AdminAuditRepository audit,AuthRepository accounts,ParticipationRepository participation,AuthRateLimiter limits,PlatformTransactionManager manager) {
         this.repository=repository;this.content=content;this.reactions=reactions;this.audit=audit;this.accounts=accounts;this.participation=participation;this.limits=limits;this.tx=new TransactionTemplate(manager);
+        this.awardsTx=new TransactionTemplate(manager);
+        this.awardsTx.setIsolationLevel(org.springframework.transaction.TransactionDefinition.ISOLATION_REPEATABLE_READ);
+        this.awardsTx.setTimeout(20);
     }
     private static AuthException error(int status,String code,String text) { return new AuthException(status,code,text); }
     private void admin(AuthPrincipal actor) {
         participation.lockPrincipal(actor);
         if(!"ADMIN".equals(accounts.byId(actor.userId()).orElseThrow(AuthException::invalid).role()))throw error(403,"ADMIN_REQUIRED","관리자 권한이 필요해요.");
+    }
+    public AwardModels.Report awards(AuthPrincipal actor,String category,Integer offset,Integer limit) {
+        // Validate current DB role inside the SAME snapshot transaction as the entire ranking.
+        return awardsTx.execute(s->{
+            admin(actor);
+            AwardModels.Category selected;
+            try { selected=category==null?AwardModels.Category.FIRST_COMPLETION:AwardModels.Category.valueOf(category); }
+            catch(IllegalArgumentException failure) { throw error(400,"INVALID_FILTER","시상 부문을 확인해 주세요."); }
+            int start=offset==null?0:offset, count=size(limit);
+            if(start<0||start>100000)throw error(400,"INVALID_FILTER","목록 위치를 확인해 주세요.");
+            var facts=repository.awardFacts();var ranking=AwardCalculator.rank(facts);var rows=ranking.categories().get(selected);var window=facts.window();
+            var reviewKeys=facts.reviews().stream().map(r->r.userId()+":"+r.sourceId()).collect(java.util.stream.Collectors.toSet());
+            var reviews=java.util.stream.Stream.concat(facts.reviews().stream(),facts.proofs().stream().filter(p->!p.valid()&&!reviewKeys.contains(p.userId()+":"+p.sourceId())).map(p->new AwardModels.Review(p.userId(),p.sourceId(),"INVALID_"+p.mission()))).toList();
+            String phase=window.opensAt()==null?"NOT_CONFIGURED":window.observedAt().isBefore(window.opensAt())?"BEFORE_OPEN"
+                :window.observedAt().isBefore(window.closesAt())?"OPEN":!window.observedAt().isAfter(window.moderationClosesAt())?"MODERATION":"REVIEW";
+            return new AwardModels.Report(AwardCalculator.RULE_VERSION,true,window.observedAt(),window.opensAt(),window.closesAt(),window.moderationClosesAt(),
+                phase,selected,ranking.eligibleCompleteCount(),rows.size(),start,count,rows.stream().skip(start).limit(count).toList(),
+                ranking.invalidProofs(),ranking.incompleteProofSets(),facts.pendingModeration(),reviews.size(),reviews.stream().limit(50).toList(),
+                List.of("동일 점수·동일 최초 프로필 시각은 공동 순위이며 추가 동점 기준 미확정",
+                    "중복 수상 허용 여부·복수 부문 1위의 부문 선택·차순위 배정 방식 미확정",
+                    "0댓글·0하트인 경우 최소 활동 기준 미확정: 점수 0 그대로 표시",
+                    "랜덤 참여상 인원·적격 조건 미확정: 추첨하지 않음",
+                    "최종 스냅샷 확정·정정·공개·지급 정책 미확정: 잠정 조회만 제공"));
+        });
     }
     public Access access(AuthPrincipal actor) { return tx.execute(s->{admin(actor);return new Access(true);}); }
     private int size(Integer limit) { int size=limit==null?20:limit;if(size<1||size>50)throw error(400,"INVALID_FILTER","한 번에 최대 50건까지 확인할 수 있어요.");return size; }

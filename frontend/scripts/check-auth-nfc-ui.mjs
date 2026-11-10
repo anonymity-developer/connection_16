@@ -11,7 +11,7 @@ try {
   const page = await context.newPage();
   const errors = [];
   page.on('pageerror', error => errors.push(error.message));
-  const missions = ['SHOW_ME', 'SYNC_ME', 'MAKE_A_WISH', 'FAST_TAP', 'SAY_SOMETHING'];
+  const missions = ['SYNC_ME', 'MAKE_A_WISH', 'FAST_TAP', 'SAY_SOMETHING'];
   let signedIn = false, onboarded = true, pending = null, current = 0, resolves = 0, logins = 0, expireOnResolve = false;
   const tokenFor = i => String.fromCharCode(65 + i).repeat(43);
   const pathFor = i => `/missions/${missions[i].toLowerCase().replaceAll('_', '-')}`;
@@ -23,6 +23,7 @@ try {
   await context.route('**/api/v1/**', async route => {
     const request = route.request(), method = request.method(), path = new URL(request.url()).pathname.replace('/api/v1', '');
     const reply = (status, data) => route.fulfill({ status, contentType: 'application/json', body: [202, 204].includes(status) ? undefined : JSON.stringify(data) });
+      if (method === 'POST' && path === '/missions/show-me/reconcile') { assert.ok(request.headers()['x-xsrf-token']); return reply(200, { newlyCompleted: false }); }
     try {
       if (method === 'GET') {
         if (path === '/auth/config') return reply(200, { available: true, passwordMinLength: 15, passwordMaxLength: 64 });
@@ -32,7 +33,7 @@ try {
         if (path === '/event') return reply(200, { status: 'OPEN', opensAt: null, submitClosesAt: null, profilePreparationEnabled: false });
         if (path === '/users/me/profile') return reply(200, profile());
         if (path === '/interests') return reply(200, []);
-        if (path === '/missions/collection') return reply(200, { missions: missions.map((code, i) => ({ id: i + 1, code, active: true, state: 'LOCKED' })), completedCount: 0, completion: { complete: false } });
+        if (path === '/missions/collection') return reply(200, { missions: ['SHOW_ME', ...missions].map((code, i) => ({ id: i + 1, code, active: true, state: 'LOCKED' })), completedCount: 0, completion: { complete: false } });
         if (path === '/discovery/graph') return reply(200, { self: { id: 1, nickname: '테스트' }, nodes: [], edges: [], truncated: false });
         // The destination mission's content is outside this STEP 1 contract.
         return reply(503, { code: 'TEST_OUT_OF_SCOPE', message: '미션 본문은 이 인증 테스트의 범위가 아닙니다.' });

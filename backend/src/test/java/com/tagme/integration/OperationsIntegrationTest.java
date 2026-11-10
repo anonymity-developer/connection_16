@@ -43,7 +43,7 @@ class OperationsIntegrationTest {
     @BeforeEach void setup(){
         reset(repository,mattermost,provider,audit);cookies.clear();
         db.update("UPDATE content_items SET approved_revision_id=NULL,pending_revision_id=NULL");
-        for(String table:List.of("admin_audit_logs","cheer_likes","wish_comments","moderation_reviews","moderation_jobs","content_revisions","content_items","content_settings","mission_completion_evidence","submission_receipts","event_completions","mission_progress","tags","user_consent_events","user_consents","user_interests","profiles","user_credentials","users","current_consent_policies","consent_policies","event_settings"))db.update("DELETE FROM "+table);
+        for(String table:List.of("tap_attempt_events","tap_slots","tap_attempts","sync_results","admin_audit_logs","cheer_likes","wish_comments","moderation_reviews","moderation_jobs","content_revisions","content_items","content_settings","mission_completion_evidence","submission_receipts","event_completions","mission_progress","tags","user_consent_events","user_consents","user_interests","profiles","user_credentials","users","current_consent_policies","consent_policies","event_settings"))db.update("DELETE FROM "+table);
         try(var c=redis.getConnectionFactory().getConnection()){c.serverCommands().flushDb();}
         db.update("UPDATE event_completion_sequence SET next_value=1");db.update("UPDATE missions SET active=TRUE");
         db.update("INSERT INTO event_settings(id,opens_at,submit_closes_at,moderation_closes_at) VALUES (1,UTC_TIMESTAMP(6)-INTERVAL 1 HOUR,UTC_TIMESTAMP(6)+INTERVAL 1 HOUR,UTC_TIMESTAMP(6)+INTERVAL 2 HOUR)");
@@ -127,4 +127,117 @@ class OperationsIntegrationTest {
         assertThat(send("/admin/moderation/"+j.id()+"/retry",Map.of("reason","누락 검사")).getStatusCode().value()).isEqualTo(400);assertThat(send("/admin/moderation/"+j.id()+"/decision",Map.of("decision","APPROVED","reason","누락 검사")).getStatusCode().value()).isEqualTo(400);
         var c=raw(HttpMethod.GET,"/csrf",null,null);assertThat(raw(HttpMethod.PATCH,"/admin/content/"+j.itemId()+"/visibility",Map.of("expectedVersion",repository.item(j.itemId(),false).version(),"visibility","HIDDEN","reason","운영 확인"),(String)c.getBody().get("token")).getStatusCode().value()).isEqualTo(204);
     }
+    // Award fixtures exist only in this class's isolated Testcontainers; no operation writes awards.
+    long awardInsert(String sql,Object...args) {
+        var keys=new org.springframework.jdbc.support.GeneratedKeyHolder();
+        db.update(connection->{var statement=connection.prepareStatement(sql,java.sql.Statement.RETURN_GENERATED_KEYS);for(int i=0;i<args.length;i++)statement.setObject(i+1,args[i]);return statement;},keys);
+        return Objects.requireNonNull(keys.getKey()).longValue();
+    }
+    java.time.Instant awardOpen(){return db.queryForObject("SELECT opens_at FROM event_settings WHERE id=1",java.sql.Timestamp.class).toInstant();}
+    java.sql.Timestamp stamp(java.time.Instant value){return java.sql.Timestamp.from(value);}
+    long awardItem(long author,String kind,java.time.Instant submitted) {
+        long item=awardInsert("INSERT INTO content_items(author_id,kind) VALUES (?,?)",author,kind);
+        long revision=awardInsert("INSERT INTO content_revisions(item_id,revision_no,content_text,template_id,style,anonymous,submitted_at,moderation_status,idempotency_key,payload_hash) VALUES (?,1,'AWARD TEST ONLY','PLAIN','ROSE',TRUE,?,'APPROVED',?,?)",item,stamp(submitted),UUID.randomUUID().toString(),"e".repeat(64));
+        db.update("INSERT INTO moderation_jobs(revision_id,status) VALUES (?,'APPROVED')",revision);
+        db.update("UPDATE content_items SET approved_revision_id=? WHERE id=?",revision,item);return item;
+    }
+    long awardRevision(long item){return db.queryForObject("SELECT approved_revision_id FROM content_items WHERE id=?",Long.class,item);}
+    long awardUser(String name,int finishSeconds,int registeredSeconds) {
+        long user=accounts.insertUser("award-test-"+name,"award-test-"+name);accounts.insertCredential(user,accounts.byId(actor.userId()).orElseThrow().hash());
+        accounts.syncProfile(user,new MattermostProfile("테스트","서울",1,0));
+        var opened=awardOpen();var finish=opened.plusSeconds(finishSeconds);
+        db.update("INSERT INTO profiles(user_id,nickname,bio,is_public,published_at) VALUES (?,?,'테스트',TRUE,?)",user,name,stamp(opened.plusSeconds(registeredSeconds)));
+        db.update("INSERT INTO user_interests SELECT ?,MIN(id) FROM interests",user);
+        for(String type:List.of("PARTICIPATION","PROFILE_PUBLICATION"))db.update("INSERT INTO user_consents(user_id,policy_type,policy_version,agreed_at) VALUES (?,?,'test-v1',?)",user,type,stamp(opened));
+        db.update("INSERT IGNORE INTO sync_questionnaires(version,definition_json) VALUES ('award-test-v1','{}')");
+        db.update("INSERT INTO sync_results(user_id,questionnaire_version,answers_json,axis_scores_json,type_code,payload_hash,submitted_at) VALUES (?,'award-test-v1','[]','{}','FIXTURE',?,?)",user,"e".repeat(64),stamp(finish.minusSeconds(3)));
+        long wish=awardItem(user,"WISH",finish.minusSeconds(2)),cheer=awardItem(user,"CHEER",finish);
+        long tap=awardInsert("INSERT INTO tap_attempts(user_id,generation,idempotency_key,starts_at,ends_at,submit_deadline,status,tap_count,submitted_at,payload_hash) VALUES (?,1,?,?,?,?,'VALID',120,?,?)",user,UUID.randomUUID().toString(),stamp(finish.minusSeconds(16)),stamp(finish.minusSeconds(6)),stamp(finish.plusSeconds(4)),stamp(finish.minusSeconds(1)),"e".repeat(64));
+        db.update("INSERT INTO tap_slots(user_id,current_attempt_id) VALUES (?,?)",user,tap);
+        var events=new ArrayList<Object[]>();for(int ms=0;ms<9600;ms+=80)events.add(new Object[]{tap,ms});
+        db.batchUpdate("INSERT INTO tap_attempt_events(attempt_id,event_type,relative_time_ms) VALUES (?,'TAP',?)",events);
+        var codes=List.of("SHOW_ME","SYNC_ME","MAKE_A_WISH","FAST_TAP","SAY_SOMETHING");var kinds=List.of("PROFILE","SYNC_RESULT","WISH_REVISION","GAME_ATTEMPT","CHEER_REVISION");
+        var sources=List.of(1L,user,awardRevision(wish),tap,awardRevision(cheer));
+        for(int i=0;i<codes.size();i++) {
+            long mission=db.queryForObject("SELECT id FROM missions WHERE code=?",Long.class,codes.get(i));
+            db.update("INSERT INTO mission_progress(user_id,mission_id,status,unlocked_at,completed_at) VALUES (?,?,'COMPLETED',?,UTC_TIMESTAMP(6))",user,mission,stamp(opened));
+            var receipt=participation.receipt(user,kinds.get(i),sources.get(i),finish.minusSeconds(4-i));
+            db.update("INSERT INTO mission_completion_evidence(user_id,mission_id,source_kind,source_id,receipt_order,accepted_received_at) VALUES (?,?,?,?,?,?)",user,mission,kinds.get(i),sources.get(i),receipt.id(),stamp(finish.minusSeconds(4-i)));
+        }
+        long order=db.queryForObject("SELECT COALESCE(MAX(completion_order),0)+1 FROM event_completions",Long.class);
+        db.update("INSERT INTO event_completions(user_id,completion_order,completed_at) VALUES (?,?,UTC_TIMESTAMP(6))",user,order);return user;
+    }
+    long awardContent(long author,String kind){return db.queryForObject("SELECT id FROM content_items WHERE author_id=? AND kind=?",Long.class,author,kind);}
+    long awardComment(long author,long wish) {
+        var submitted=awardOpen().plusSeconds(200);long item=awardItem(author,"COMMENT",submitted);
+        db.update("INSERT INTO wish_comments(wish_id,content_item_id,author_id,idempotency_key,payload_hash) VALUES (?,?,?,?,?)",wish,item,author,UUID.randomUUID().toString(),"e".repeat(64));
+        participation.receipt(author,"COMMENT_REVISION",awardRevision(item),submitted);return item;
+    }
+    AwardModels.Report awardReport(String category){return operations.awards(admin,category,0,20);}
+    @Test void awardsUseReceiptTimeProfileTiesAndCurrentPublicApprovalRatherThanCompletionOrder() {
+        long a=awardUser("award-a",100,2),b=awardUser("award-b",90,1);
+        db.update("UPDATE mission_progress SET completed_at=UTC_TIMESTAMP(6)-INTERVAL 30 MINUTE WHERE user_id=?",a);
+        db.update("UPDATE mission_progress SET completed_at=UTC_TIMESTAMP(6)-INTERVAL 10 MINUTE WHERE user_id=?",b);
+        assertThat(awardReport("FIRST_COMPLETION").items()).extracting(AwardModels.Candidate::userId).containsExactly(b,a);
+        assertThat(db.queryForObject("SELECT completion_order FROM event_completions WHERE user_id=?",Long.class,a)).isEqualTo(1);
+        var before=awardReport("FIRST_COMPLETION").items();
+        db.update("UPDATE mission_progress SET completed_at=completed_at+INTERVAL 5 MINUTE WHERE user_id=?",b);
+        assertThat(awardReport("FIRST_COMPLETION").items()).isEqualTo(before);
+        // Current approved revision may change while the earliest valid evidence remains immutable.
+        long cheer=awardContent(a,"CHEER");long old=awardRevision(cheer);
+        long newer=awardInsert("INSERT INTO content_revisions(item_id,revision_no,content_text,template_id,style,anonymous,submitted_at,moderation_status,idempotency_key,payload_hash) VALUES (?,2,'NEW TEST ONLY','PLAIN','ROSE',TRUE,?,'QUEUED',?,?)",cheer,stamp(awardOpen().plusSeconds(300)),UUID.randomUUID().toString(),"f".repeat(64));
+        db.update("INSERT INTO moderation_jobs(revision_id) VALUES (?)",newer);db.update("UPDATE content_items SET pending_revision_id=? WHERE id=?",newer,cheer);
+        assertThat(awardRevision(cheer)).isEqualTo(old);assertThat(awardReport("FIRST_COMPLETION").items()).isEqualTo(before);
+        db.update("UPDATE profiles SET bio='수정된 테스트 소개',version=version+1 WHERE user_id=?",a);
+        db.update("UPDATE content_revisions SET moderation_status='APPROVED' WHERE id=?",newer);db.update("UPDATE moderation_jobs SET status='APPROVED' WHERE revision_id=?",newer);
+        db.update("UPDATE content_items SET approved_revision_id=?,pending_revision_id=NULL WHERE id=?",newer,cheer);
+        assertThat(awardReport("FIRST_COMPLETION").items()).isEqualTo(before);
+        db.update("UPDATE content_items SET visibility_status='HIDDEN' WHERE id=?",cheer);
+        assertThat(awardReport("FIRST_COMPLETION").items()).extracting(AwardModels.Candidate::userId).containsExactly(b);
+    }
+    @Test void awardsCountDistinctOtherWishesAndActualUncancelledPublicHearts() {
+        long a=awardUser("award-a",100,2),b=awardUser("award-b",90,1),c=awardUser("award-c",80,3);
+        long wish=awardContent(b,"WISH"),other=awardContent(c,"WISH"),cheer=awardContent(a,"CHEER");
+        awardComment(a,wish);awardComment(a,wish);awardComment(a,awardContent(a,"WISH"));long hidden=awardComment(a,other);
+        db.update("UPDATE content_items SET visibility_status='HIDDEN' WHERE id=?",hidden);
+        assertThat(awardReport("COMMENT_KING").items().getFirst().score()).isEqualTo(1);
+        db.update("INSERT INTO cheer_likes(card_id,user_id,created_at) VALUES (?,?,?),(?,?,?),(?,?,?)",cheer,b,stamp(awardOpen().plusSeconds(200)),cheer,c,stamp(awardOpen().plusSeconds(200)),cheer,a,stamp(awardOpen().plusSeconds(200)));
+        assertThatThrownBy(()->db.update("INSERT INTO cheer_likes(card_id,user_id) VALUES (?,?)",cheer,b)).isInstanceOf(org.springframework.dao.DuplicateKeyException.class);
+        assertThat(awardReport("POPULAR_CHEER").items().getFirst().score()).isEqualTo(2);
+        db.update("DELETE FROM cheer_likes WHERE card_id=? AND user_id=?",cheer,c);
+        assertThat(awardReport("POPULAR_CHEER").items().getFirst().score()).isEqualTo(1);
+        db.update("UPDATE profiles SET published_at=NULL WHERE user_id=?",b);
+        assertThat(awardReport("POPULAR_CHEER").items().stream().filter(row->row.userId()==a).findFirst().orElseThrow().score()).isEqualTo(1);
+        db.update("UPDATE profiles SET is_public=FALSE WHERE user_id=?",b);
+        assertThat(awardReport("POPULAR_CHEER").items().stream().filter(row->row.userId()==a).findFirst().orElseThrow().score()).isZero();
+        assertThat(awardReport("COMMENT_KING").items().stream().filter(row->row.userId()==a).findFirst().orElseThrow().score()).isZero();
+    }
+    @Test void awardTapReviewCorruptProofExactTiesAndRoleBypassAreNeverSilentlyPromoted() {
+        long a=awardUser("award-a",100,1),b=awardUser("award-b",100,1);
+        assertThat(awardReport("FIRST_COMPLETION").items()).allMatch(row->row.rank()==1&&row.unresolvedTie());
+        assertThat(awardReport("FIRST_COMPLETION").items().getFirst().overlappingTopCategories()).hasSize(4);
+        db.update("UPDATE tap_attempts SET status='REVIEW_REQUIRED',tap_count=500,review_reason='UNUSUAL_RATE' WHERE user_id=?",a);
+        var report=awardReport("FAST_TAP");assertThat(report.items()).extracting(AwardModels.Candidate::userId).containsExactly(b);assertThat(report.reviewTotal()).isEqualTo(1);
+        db.update("UPDATE tap_attempts SET status='INTERRUPTED' WHERE user_id=?",b);assertThat(awardReport("FAST_TAP").items()).isEmpty();
+        db.update("UPDATE tap_attempts SET status='VALID',tap_count=201 WHERE user_id=?",b);assertThat(awardReport("FAST_TAP").items()).isEmpty();
+        db.update("UPDATE tap_attempts SET tap_count=120 WHERE user_id=?",b);
+        db.update("UPDATE mission_completion_evidence SET accepted_received_at=accepted_received_at-INTERVAL 1 DAY WHERE user_id=? AND source_kind='PROFILE'",b);
+        assertThat(awardReport("FIRST_COMPLETION").items()).isEmpty();
+        code(()->operations.awards(new AuthPrincipal(actor.userId(),actor.version(),"ADMIN"),"FIRST_COMPLETION",0,20),"ADMIN_REQUIRED");
+        code(()->operations.awards(admin,"RANDOM",0,20),"INVALID_FILTER");
+        assertThat(raw(HttpMethod.GET,"/admin/awards",null,null).getStatusCode().value()).isEqualTo(401);
+        send("/auth/login",Map.of("username","alice","password",PASSWORD));assertThat(raw(HttpMethod.GET,"/admin/awards",null,null).getStatusCode().value()).isEqualTo(403);
+        cookies.clear();send("/auth/login",Map.of("username","admin","password",PASSWORD));
+        var response=raw(HttpMethod.GET,"/admin/awards",null,null);assertThat(response.getStatusCode().value()).isEqualTo(200);assertThat(response.getHeaders().getCacheControl()).contains("no-store");
+        assertThat(response.getBody().toString()).doesNotContain("AWARD TEST ONLY","payload_hash","password","mattermost");
+    }
+    @Test void awardsRepeatWithinOneSnapshotWhileVisibilityChangesCommitAndNextReadReflectsChange() throws Exception {
+        long a=awardUser("award-a",100,1);long wish=awardContent(a,"WISH");
+        var snapshot=new TransactionTemplate(manager);snapshot.setIsolationLevel(org.springframework.transaction.TransactionDefinition.ISOLATION_REPEATABLE_READ);
+        snapshot.execute(status->{var first=awardReport("FIRST_COMPLETION");var pool=Executors.newSingleThreadExecutor();
+            try{pool.submit(()->db.update("UPDATE content_items SET visibility_status='HIDDEN' WHERE id=?",wish)).get(10,TimeUnit.SECONDS);}catch(Exception failure){throw new RuntimeException(failure);}finally{pool.shutdownNow();}
+            assertThat(awardReport("FIRST_COMPLETION").items()).isEqualTo(first.items());return null;});
+        assertThat(awardReport("FIRST_COMPLETION").items()).isEmpty();
+    }
+
 }

@@ -51,6 +51,7 @@ try {
     try {
       const request = route.request(), url = new URL(request.url()), path = url.pathname.replace('/api/v1', ''), method = request.method();
       const reply = (status, value) => route.fulfill({ status, contentType: 'application/json', ...(status === 204 ? {} : { body: JSON.stringify(value) }) });
+      if (method === 'POST' && path === '/missions/show-me/reconcile') { assert.ok(request.headers()['x-xsrf-token']); return reply(200, { newlyCompleted: false }); }
       if (path === '/users/me' && !signedIn) return reply(401, { code: 'UNAUTHENTICATED', message: '로그인이 필요합니다.' });
       if (path === '/admin/access') { accessReads++; if (!admin) return reply(403, { code: 'ADMIN_REQUIRED', message: '관리자 권한이 필요해요.' }); }
       else if (path.startsWith('/admin/')) { privateReads++; assert.equal(admin, true); }

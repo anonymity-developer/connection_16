@@ -204,7 +204,7 @@ p { word-break: keep-all; overflow-wrap: anywhere; }
 .completion-page { text-align: center; padding-top: 64px; }
 .completion-page h1 { margin-top: 8px; }
 .completion-letters { display: flex; justify-content: center; gap: 10px; margin: 32px 0; }
-.completion-letters span { display: flex; justify-content: center; align-items: center; background: var(--accent-soft); border: 1px solid var(--accent-track); color: var(--accent); border-radius: var(--control-radius); width: 76px; height: 96px; font-size: 48px; line-height: 1; }
+.completion-letters > span { display: flex; justify-content: center; align-items: center; background: var(--accent-soft); border: 1px solid var(--accent-track); color: var(--accent); border-radius: var(--control-radius); width: 76px; height: 96px; font-size: 48px; line-height: 1; }
 .completion-page > p:not(.context-label) { color: var(--muted); margin-bottom: 24px; font-size: 14px; }
 .dev-preview { position: sticky; bottom: 0; background: var(--ink); color: white; padding: 8px 16px; display: flex; align-items: center; justify-content: center; gap: 20px; z-index: 20; font-size: 12px; }
 .dev-preview > div { display: flex; gap: 4px; }
@@ -276,7 +276,7 @@ p { word-break: keep-all; overflow-wrap: anywhere; }
   .dialog-inner { padding: 28px 20px 20px; }
   .empty-state { padding: 32px 20px; }
   .completion-letters { gap: 6px; }
-  .completion-letters span { width: 54px; height: 76px; font-size: 40px; }
+  .completion-letters > span { width: 54px; height: 76px; font-size: 40px; }
   .dev-preview { bottom: calc(72px + env(safe-area-inset-bottom)); flex-direction: column; gap: 0; padding: 6px 10px; }
 }
 @media (max-width: 374px) {
