@@ -10,6 +10,64 @@ servers:
 security:
 - cookieAuth: []
 paths:
+  /admin/members/{id}/reset-games:
+    post:
+      summary: 참가자 한 명의 네 게임을 보관 후 초기화; 계정·프로필·SHOW ME·태그 유지
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: integer
+          minimum: 1
+      - name: Idempotency-Key
+        in: header
+        required: true
+        schema:
+          type: string
+          pattern: '^[A-Za-z0-9_-]{16,64}$'
+      - name: X-XSRF-TOKEN
+        in: header
+        required: true
+        schema:
+          type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [expectedGeneration, reason, confirmation]
+              properties:
+                expectedGeneration:
+                  type: integer
+                  format: int64
+                  minimum: 0
+                reason:
+                  type: string
+                  minLength: 1
+                  maxLength: 300
+                confirmation:
+                  type: string
+                  const: RESET
+      responses:
+        '200':
+          description: 초기화 이력 요약. 원본 snapshot·비공개 본문은 반환하지 않음.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResetRecord'
+        '400':
+          description: 확인·사유·요청 키가 잘못됨.
+        '401':
+          description: 유효한 세션 필요.
+        '403':
+          description: 현재 ADMIN 또는 CSRF 필요.
+        '404':
+          description: 참가자 없음 또는 독립 관리자 계정.
+        '409':
+          description: 현재 세대 불일치 또는 같은 키의 다른 요청.
   /admin/overview:
     get:
       summary: 가입·완료·접속 세션과 다섯 미션의 실제 현황
@@ -159,6 +217,30 @@ components:
       in: cookie
       name: TAGME_SESSION
   schemas:
+    ResetRecord:
+      type: object
+      required: [id, generation, actorId, reason, createdAt, summary]
+      properties:
+        id:
+          type: integer
+          format: int64
+        generation:
+          type: integer
+          format: int64
+        actorId:
+          type: integer
+          format: int64
+        reason:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        summary:
+          type: object
+          additionalProperties:
+            oneOf:
+            - type: integer
+            - type: boolean
     Member:
       type: object
       required:
@@ -428,7 +510,18 @@ components:
       - interests
       - githubUrl
       - blogUrl
+      - resetGeneration
+      - resets
       properties:
+        resetGeneration:
+          type: integer
+          format: int64
+          minimum: 0
+        resets:
+          type: array
+          maxItems: 10
+          items:
+            $ref: '#/components/schemas/ResetRecord'
         member:
           $ref: '#/components/schemas/Member'
         missions:

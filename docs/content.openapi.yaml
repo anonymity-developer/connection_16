@@ -1,8 +1,8 @@
 openapi: 3.1.0
 info:
-  title: TAG ME 소원·응원과 비동기 검수 API
+  title: TAG ME 소원·응원 제출과 공개 API
   version: 0.4.2
-  description: 모든 조회 세션 필요, 변경 CSRF와 해금/기간/동의 확인. 관리자 판정은 ADMIN 필요. 외부 제공자 미설정 시 REVIEW_REQUIRED.
+  description: 모든 조회 세션 필요, 변경 CSRF와 해금/기간/동의 확인. 기본은 검수 없이 즉시 공개하며 새 검수 작업을 만들지 않는다. 변경은 X-Participation-Generation 헤더로 현재 세대를 전송한다.
     댓글/하트는 reactions.openapi.yaml, 공개 프로필 링크는 discovery.openapi.yaml을 따름. 숨김/재처리/감사는 operations.openapi.yaml, 신고는 후속.
 servers:
 - url: /api/v1

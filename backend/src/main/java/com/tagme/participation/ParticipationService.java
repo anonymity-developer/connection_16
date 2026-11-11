@@ -52,7 +52,7 @@ public class ParticipationService {
     @Transactional(readOnly=true)
     public Collection collection(long userId) {
         var missions = repository.missions(userId);
-        return new Collection(missions,(int)missions.stream().filter(m -> "COMPLETED".equals(m.state())).count(),repository.completion(userId));
+        return new Collection(missions,(int)missions.stream().filter(m -> "COMPLETED".equals(m.state())).count(),repository.completion(userId),repository.generation(userId));
     }
     public ProfileState save(AuthPrincipal principal,ParticipationController.ProfileRequest value) {
         limits.check("profile-user",Long.toString(principal.userId()),30,60);

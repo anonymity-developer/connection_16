@@ -20,9 +20,10 @@ public class ContentService {
     private final TransactionTemplate tx;
     private final AuthRateLimiter limits;
     private final ObjectMapper json;
+    private final PublicationPolicy publication;
     private final SecureRandom random=new SecureRandom();
-    public ContentService(ContentRepository repository,ParticipationRepository participation,MissionCompletionService completion,PlatformTransactionManager manager,AuthRateLimiter limits,ObjectMapper json) {
-        this.repository=repository;this.participation=participation;this.completion=completion;this.tx=new TransactionTemplate(manager);this.limits=limits;this.json=json;
+    public ContentService(ContentRepository repository,ParticipationRepository participation,MissionCompletionService completion,PlatformTransactionManager manager,AuthRateLimiter limits,ObjectMapper json,PublicationPolicy publication) {
+        this.repository=repository;this.participation=participation;this.completion=completion;this.tx=new TransactionTemplate(manager);this.limits=limits;this.json=json;this.publication=publication;
     }
     static AuthException error(int status,String code,String text) { return new AuthException(status,code,text); }
     private void guard(AuthPrincipal actor,Kind kind) {
@@ -43,12 +44,15 @@ public class ContentService {
         catch(Exception impossible) { throw new IllegalStateException("Cannot encode content",impossible); }
     }
     public OwnSlot submit(AuthPrincipal actor,Kind kind,String key,ContentController.Submit body,boolean edit) {
+        return submit(actor,kind,key,body,edit,0);
+    }
+    public OwnSlot submit(AuthPrincipal actor,Kind kind,String key,ContentController.Submit body,boolean edit,long generation) {
         if(key==null||!key.matches("[A-Za-z0-9_-]{16,64}"))throw error(400,"INVALID_IDEMPOTENCY_KEY","요청 식별자를 확인해 주세요.");
         if(body.content()==null||body.content().isBlank()||body.content().length()>200||!List.of("PLAIN","NOTE").contains(body.templateId())||!List.of("ROSE","INK").contains(body.style()))throw error(400,"INVALID_CONTENT","문구와 카드 스타일을 확인해 주세요.");
         if(kind==Kind.WISH&&(!body.anonymous()||!"PLAIN".equals(body.templateId())||!"ROSE".equals(body.style())))throw error(400,"INVALID_WISH_STYLE","소원은 익명 기본 형태로 저장돼요.");
         limits.check("content-user",Long.toString(actor.userId()),30,60);Instant received=repository.now();String hash=hash(body);
         return tx.execute(s->{
-            participation.lockPrincipal(actor);var item=repository.own(actor.userId(),kind);
+            participation.lockPrincipal(actor);participation.requireGeneration(actor.userId(),generation);var item=repository.own(actor.userId(),kind);
             if(item!=null) {
                 var replay=repository.byKey(item.id(),key);
                 if(replay!=null){if(!replay.hash().equals(hash))throw error(409,"IDEMPOTENCY_CONFLICT","같은 요청의 내용이 변경됐어요. 저장된 글을 먼저 확인해 주세요.");return snapshot(actor.userId(),kind);}
@@ -67,7 +71,8 @@ public class ContentService {
             }
             var latest=repository.latest(item.id());int number=latest==null?1:latest.number()+1;
             if(number>20)throw error(409,"REVISION_LIMIT","수정 횟수를 초과했어요. 운영자에게 문의해 주세요.");
-            long revision=repository.addRevision(item.id(),number,body,key,hash,received);repository.queue(item,revision);
+            long revision=repository.addRevision(item.id(),number,body,key,hash,received);
+            if(publication.moderated())repository.queue(item,revision);else repository.publish(item,revision);
             var receipt=participation.receipt(actor.userId(),kind.source(),revision,received);
             completion.complete(actor.userId(),kind.mission(),receipt.id());
             return snapshot(actor.userId(),kind);

@@ -1,5 +1,7 @@
 # API 계약 계획
 
+`POST /admin/members/{id}/reset-games`는 ADMIN·CSRF·Idempotency-Key가 필요하다. 수집판의 `resetGeneration`을 게임·댓글·하트 변경 요청의 `X-Participation-Generation` 헤더로 보내며, 초기화 전 요청은 409다. [현재 공개·초기화 계약](direct-publication-and-reset.md).
+
 추가된 관리자 현황·회원/접속·순위·미리보기 API와 인증 응답 필드는 [관리자 콘솔 계약](admin-console.md#화면과-api)을 따른다. `/api/v1/admin/**`는 모두 현재 DB의 ADMIN과 유효 세션이 필요하다.
 
 ## 1. 공통 규칙

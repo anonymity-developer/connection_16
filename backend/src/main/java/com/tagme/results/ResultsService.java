@@ -37,9 +37,12 @@ public class ResultsService {
         catch(AuthException failure){throw failure;}catch(Exception invalid){throw error(503,"RESULT_UNAVAILABLE","저장된 결과를 확인하지 못했어요.");}
     }
     public SyncResult submit(AuthPrincipal actor,SyncRequest body){
+        return submit(actor,body,0);
+    }
+    public SyncResult submit(AuthPrincipal actor,SyncRequest body,long generation){
         limits.check("sync-user",Long.toString(actor.userId()),30,60);Instant received=repository.now();
         return transactions.execute(status->{
-            participation.lockPrincipal(actor);
+            participation.lockPrincipal(actor);participation.requireGeneration(actor.userId(),generation);
             var existing=repository.sync(actor.userId());
             if(existing==null)guard(actor,MissionCode.SYNC_ME);
             var definition=existing==null?repository.currentDefinition():repository.definition(existing.version());var q=parse(definition);
@@ -59,10 +62,14 @@ public class ResultsService {
         return new TapAttempt(a.id(),a.generation(),state,now,a.startsAt(),a.endsAt(),a.deadline(),a.count(),a.reason(),"VALID".equals(state));
     }
     public TapAttempt start(AuthPrincipal actor,String key){
+        return start(actor,key,0);
+    }
+    public TapAttempt start(AuthPrincipal actor,String key,long generation){
         if(key==null||!key.matches("[A-Za-z0-9_-]{16,64}"))throw error(400,"INVALID_IDEMPOTENCY_KEY","요청 식별자를 다시 확인해 주세요.");
         limits.check("tap-start-user",Long.toString(actor.userId()),30,60);
         return transactions.execute(status->{
-            guard(actor,MissionCode.FAST_TAP);Instant now=repository.now();var replay=repository.byKey(actor.userId(),key);if(replay!=null)return view(replay,now);
+            guard(actor,MissionCode.FAST_TAP);participation.requireGeneration(actor.userId(),generation);Instant now=repository.now();var replay=repository.byKey(actor.userId(),key);
+            if(replay!=null){if(replay.archived())throw error(409,"PARTICIPATION_RESET","초기화 전 요청이에요. 새 도전을 시작해 주세요.");return view(replay,now);}
             if(repository.gameDuration()!=10)throw error(503,"GAME_CONFIG_INVALID","공식 도전 설정을 확인하고 있어요.");
             if(repository.current(actor.userId())!=null)throw error(409,"TAP_SLOT_USED","공식 도전은 이미 시작했어요. 저장된 상태를 확인해 주세요.");
             Instant starts=now.plusSeconds(5),ends=starts.plusSeconds(10),deadline=ends.plusSeconds(5);
@@ -71,19 +78,45 @@ public class ResultsService {
         });
     }
     private ResultsRepository.Attempt owned(long userId,long id){var value=repository.attempt(userId,id);if(value==null)throw error(404,"ATTEMPT_NOT_FOUND","도전 기록을 찾을 수 없어요.");return value;}
-    public TapAttempt cancel(AuthPrincipal actor,long id){return transactions.execute(status->{
-        participation.lockPrincipal(actor);var attempt=owned(actor.userId(),id);Instant now=repository.now();
+    public TapAttempt cancel(AuthPrincipal actor,long id){return cancel(actor,id,0);}
+    public TapAttempt cancel(AuthPrincipal actor,long id,long generation){return transactions.execute(status->{
+        participation.lockPrincipal(actor);participation.requireGeneration(actor.userId(),generation);var attempt=owned(actor.userId(),id);Instant now=repository.now();
         if(!"COUNTDOWN".equals(attempt.status()))return view(attempt,now);
         repository.cancel(attempt,now.isAfter(attempt.deadline())?"EXPIRED":now.isBefore(attempt.startsAt())?"CANCELLED":"INTERRUPTED");return view(owned(actor.userId(),id),now);
     });}
     private record TapPayload(List<Integer> taps,List<TapValidation.Interruption> interruptions) { }
+    /** Re-evaluate persisted legacy review records using their original events and receipt time. */
+    public void settleReview(long user,long id) {
+        transactions.executeWithoutResult(s->{
+            participation.lockUser(user);var attempt=owned(user,id);
+            if(!"REVIEW_REQUIRED".equals(attempt.status()))return;
+            participation.requireOpen(false);
+            var mission=participation.mission(user,MissionCode.FAST_TAP);
+            if(!mission.active()||"LOCKED".equals(mission.state())||!participation.eligible(user))return;
+            var events=repository.events(id);TapValidation.Verdict verdict;
+            try {
+                verdict=TapValidation.inspect(events.taps(),events.interruptions(),10000);
+                if(attempt.hash()==null||!attempt.hash().equals(digest(encode(new TapPayload(events.taps(),events.interruptions()))))||!Objects.equals(attempt.count(),events.taps().size())||attempt.submittedAt()==null||attempt.submittedAt().isBefore(attempt.endsAt()))
+                    verdict=new TapValidation.Verdict("INVALID","INVALID_STORED_EVENTS",events.taps().size());
+                else if(attempt.submittedAt().isAfter(attempt.deadline()))verdict=new TapValidation.Verdict("EXPIRED","SUBMISSION_EXPIRED",events.taps().size());
+            } catch(IllegalArgumentException invalid){verdict=new TapValidation.Verdict("INVALID","INVALID_STORED_EVENTS",events.taps().size());}
+            repository.reclassify(id,verdict);
+            if("VALID".equals(verdict.status())) {
+                var receipt=participation.receipt(user,"GAME_ATTEMPT",id,attempt.submittedAt());
+                completion.complete(user,MissionCode.FAST_TAP,receipt.id());
+            }
+        });
+    }
     public TapAttempt finish(AuthPrincipal actor,FinishRequest body){
+        return finish(actor,body,0);
+    }
+    public TapAttempt finish(AuthPrincipal actor,FinishRequest body,long generation){
         limits.check("tap-finish-user",Long.toString(actor.userId()),30,60);Instant received=repository.now();
         final TapValidation.Verdict inspected;var interruptions=body.interruptions().stream().map(e->new TapValidation.Interruption(e.type(),e.atMs())).toList();
         try{inspected=TapValidation.inspect(body.taps(),interruptions,10000);}catch(IllegalArgumentException invalid){throw error(400,"INVALID_TAP_EVENTS","도전 이벤트 형식을 확인해 주세요.");}
         String hash=digest(encode(new TapPayload(body.taps(),interruptions)));
         return transactions.execute(status->{
-            participation.lockPrincipal(actor);var attempt=owned(actor.userId(),body.attemptId());Instant now=repository.now();
+            participation.lockPrincipal(actor);participation.requireGeneration(actor.userId(),generation);var attempt=owned(actor.userId(),body.attemptId());Instant now=repository.now();
             if(attempt.hash()!=null){if(!hash.equals(attempt.hash()))throw error(409,"TAP_PAYLOAD_CHANGED","처음 제출한 기록과 다른 요청이에요.");return view(attempt,now);}
             if(!"COUNTDOWN".equals(attempt.status()))throw error(409,"TAP_ALREADY_CLOSED","이미 종료한 도전이에요.");
             if(received.isBefore(attempt.endsAt()))throw error(409,"TAP_TOO_EARLY","도전이 끝난 뒤 결과를 제출해 주세요.");

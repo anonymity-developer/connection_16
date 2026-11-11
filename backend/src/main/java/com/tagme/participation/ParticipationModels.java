@@ -19,7 +19,7 @@ public final class ParticipationModels {
     public record Mission(long id, MissionCode code, String letter, String title, String hint, boolean active,
                           String state, Instant unlockedAt, Instant completedAt) { }
     public record Completion(boolean complete, Instant completedAt, Long completionOrder, boolean awardConfirmed) { }
-    public record Collection(List<Mission> missions, int completedCount, Completion completion) { }
+    public record Collection(List<Mission> missions, int completedCount, Completion completion,long resetGeneration) { }
     public record TagResult(MissionCode missionCode, String state, String route, boolean newlyUnlocked, boolean newlyCompleted) { }
     public record Receipt(long id, long userId, String sourceKind, long sourceId, Instant receivedAt) { }
     public record Pending(boolean present) { }

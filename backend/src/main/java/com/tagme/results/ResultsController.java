@@ -30,10 +30,10 @@ public class ResultsController {
     @GetMapping("/sync/questions") public Questions questions(Authentication auth){return service.questions(actor(auth));}
     @GetMapping("/sync/me") public SyncState sync(Authentication auth){return new SyncState(service.sync(actor(auth).userId()));}
     @GetMapping("/sync/types") public List<Questionnaire.Type> types(Authentication auth){return service.types(actor(auth));}
-    @PostMapping("/sync/submit") public SyncResult submit(Authentication auth,@Valid @RequestBody SyncRequest body){return service.submit(actor(auth),body);}
+    @PostMapping("/sync/submit") public SyncResult submit(Authentication auth,@Valid @RequestBody SyncRequest body,@RequestHeader(value="X-Participation-Generation",defaultValue="0") long generation){return service.submit(actor(auth),body,generation);}
     @GetMapping("/tap/me") public TapState tap(Authentication auth){return service.tap(actor(auth).userId());}
-    @PostMapping("/tap/start") public TapAttempt start(Authentication auth,@RequestHeader("Idempotency-Key") String key){return service.start(actor(auth),key);}
-    @PostMapping("/tap/cancel") public TapAttempt cancel(Authentication auth,@Valid @RequestBody CancelRequest body){return service.cancel(actor(auth),body.attemptId());}
-    @PostMapping("/tap/finish") public TapAttempt finish(Authentication auth,@Valid @RequestBody FinishRequest body){return service.finish(actor(auth),body);}
+    @PostMapping("/tap/start") public TapAttempt start(Authentication auth,@RequestHeader("Idempotency-Key") String key,@RequestHeader(value="X-Participation-Generation",defaultValue="0") long generation){return service.start(actor(auth),key,generation);}
+    @PostMapping("/tap/cancel") public TapAttempt cancel(Authentication auth,@Valid @RequestBody CancelRequest body,@RequestHeader(value="X-Participation-Generation",defaultValue="0") long generation){return service.cancel(actor(auth),body.attemptId(),generation);}
+    @PostMapping("/tap/finish") public TapAttempt finish(Authentication auth,@Valid @RequestBody FinishRequest body,@RequestHeader(value="X-Participation-Generation",defaultValue="0") long generation){return service.finish(actor(auth),body,generation);}
     private AuthPrincipal actor(Authentication auth){if(auth==null||!(auth.getPrincipal() instanceof AuthPrincipal p))throw AuthException.invalid();return p;}
 }

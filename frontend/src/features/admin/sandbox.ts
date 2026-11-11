@@ -75,9 +75,9 @@ export function createSandbox(definition: PreviewDefinition, interests: Interest
       },
       finish: async payload => {
         if (!tap.attempt || tap.attempt.attemptId !== payload.attemptId) throw new Error('미리보기 도전을 다시 시작해 주세요.');
-        if (tap.attempt.status === 'VALID') return copy(tap.attempt);
+        if (['VALID', 'INVALID', 'INTERRUPTED'].includes(tap.attempt.status)) return copy(tap.attempt);
         if (Date.now() < Date.parse(tap.attempt.endsAt)) throw new Error('미리보기 시간이 끝난 뒤 결과를 확인해 주세요.');
-        const attempt: TapAttempt = { ...tap.attempt, status: 'VALID', tapCount: payload.taps.length, provisional: false }; tap = { officialAvailable: false, attempt }; return copy(attempt);
+        const attempt: TapAttempt = { ...tap.attempt, status: payload.interruptions.length ? 'INTERRUPTED' : payload.taps.some((at, i) => i > 0 && at - payload.taps[i - 1] < 1) ? 'INVALID' : 'VALID', tapCount: payload.taps.length, provisional: false }; tap = { officialAvailable: false, attempt }; return copy(attempt);
       },
     },
     content: {
@@ -92,8 +92,8 @@ export function createSandbox(definition: PreviewDefinition, interests: Interest
         if (!input.content.trim() || input.content.length > 200) throw new Error('내용을 1~200자로 입력해 주세요.');
         const previous = slots[kind];
         if (!!previous.id !== editing || editing && input.expectedVersion !== previous.version) throw new ApiError(409, 'CONTENT_CHANGED', '미리보기 글을 다시 불러와 주세요.');
-        const revision: Revision = { id: ++serial, itemId: previous.id ?? serial, number: (previous.latestRevision?.number ?? 0) + 1, content: input.content.trim(), templateId: input.templateId, style: input.style, anonymous: kind === 'wishes' || input.anonymous, submittedAt: new Date().toISOString(), status: 'REVIEW_REQUIRED', reason: 'ADMIN_PREVIEW' };
-        slots[kind] = { ...previous, id: revision.itemId, version: previous.version + 1, visibility: 'VISIBLE', pendingRevision: revision, latestRevision: revision };
+        const revision: Revision = { id: ++serial, itemId: previous.id ?? serial, number: (previous.latestRevision?.number ?? 0) + 1, content: input.content.trim(), templateId: input.templateId, style: input.style, anonymous: kind === 'wishes' || input.anonymous, submittedAt: new Date().toISOString(), status: 'APPROVED', reason: null };
+        slots[kind] = { ...previous, id: revision.itemId, version: previous.version + 1, visibility: 'VISIBLE', approvedRevision: revision, pendingRevision: null, latestRevision: revision, missionCompleted: true };
         submissions.set(requestKey, { fingerprint, result: copy(slots[kind]) }); return copy(slots[kind]);
       },
     },
@@ -107,16 +107,10 @@ export function createSandbox(definition: PreviewDefinition, interests: Interest
         const rows = comments.get(id) ?? [], previous = rows.find(c => c.requestKey === key);
         if (previous) return copy(previous);
         if (!content.trim() || content.length > 200) throw new Error('댓글을 1~200자로 입력해 주세요.');
-        const row: OwnComment = { id: ++serial, content: content.trim(), revealProfile, requestKey: key, status: 'REVIEW_REQUIRED', reason: 'ADMIN_PREVIEW', submittedAt: new Date().toISOString() };
+        const row: OwnComment = { id: ++serial, content: content.trim(), revealProfile, requestKey: key, status: 'APPROVED', reason: null, submittedAt: new Date().toISOString() };
         comments.set(id, [row, ...rows]); return copy(row);
       },
     },
   };
-  function moderate(kind: ContentKind, decision: 'APPROVED' | 'REJECTED') {
-    const slot = slots[kind]; if (!slot.pendingRevision) return;
-    const revision: Revision = { ...slot.pendingRevision, status: decision, reason: 'ADMIN_PREVIEW' };
-    slots[kind] = { ...slot, approvedRevision: decision === 'APPROVED' ? revision : slot.approvedRevision, pendingRevision: null, latestRevision: revision, missionCompleted: decision === 'APPROVED' || slot.missionCompleted };
-  }
-  function moderateComments() { for (const [id, rows] of comments) comments.set(id, rows.map(row => ({ ...row, status: 'APPROVED' }))); }
-  return { runtime, moderate, moderateComments };
+  return { runtime };
 }

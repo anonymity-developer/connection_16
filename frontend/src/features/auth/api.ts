@@ -11,14 +11,18 @@ export class ApiError extends Error {
   }
 }
 let csrf: { headerName: string; token: string } | null = null;
+let participationGeneration = 0, sessionRevision = 0;
 export function clearCsrf() { csrf = null; }
+function resetSession() { clearCsrf(); participationGeneration = 0; sessionRevision++; }
 
 export async function request<T>(path: string, method = 'GET', body?: object, options: { headers?: Record<string, string>; keepalive?: boolean } = {}): Promise<T> {
+  const revision = sessionRevision;
   const headers: Record<string, string> = { ...options.headers };
   if (method !== 'GET') {
     if (!csrf) csrf = await request<{ headerName: string; token: string }>('/csrf');
     headers[csrf.headerName] = csrf.token;
     headers['Content-Type'] = 'application/json';
+    if (/^\/(tap|sync|wishes|cheers)(?:\/|$)/.test(path)) headers['X-Participation-Generation'] = String(participationGeneration);
   }
   let response: Response;
   try { response = await fetch(`/api/v1${path}`, { method, credentials: 'same-origin', cache: 'no-store', keepalive: options.keepalive, headers, body: body === undefined ? undefined : JSON.stringify(body) }); }
@@ -29,19 +33,22 @@ export async function request<T>(path: string, method = 'GET', body?: object, op
   catch { throw new ApiError(503, 'AUTH_UNAVAILABLE', '서버 응답을 확인할 수 없어요. 잠시 후 다시 시도해 주세요.'); }
   if (!response.ok) {
     if (response.status === 401 || response.status === 403) clearCsrf();
+    if (response.status === 401) resetSession();
     if (response.status === 401 && path !== '/users/me' && ['UNAUTHENTICATED', 'SESSION_EXPIRED'].includes(data.code)) window.dispatchEvent(new Event('tagme:unauthenticated'));
     throw new ApiError(response.status, data.code ?? 'REQUEST_FAILED', data.message ?? '요청을 처리하지 못했어요.', Number(response.headers.get('Retry-After') ?? data.retryAfter ?? 0));
   }
+  if (method === 'GET' && path === '/missions/collection' && revision === sessionRevision && Number.isSafeInteger(data.resetGeneration) && data.resetGeneration >= 0)
+    participationGeneration = Math.max(participationGeneration, data.resetGeneration);
   return data as T;
 }
 export const authApi = {
   config: () => request<AuthConfig>('/auth/config'),
   me: () => request<SessionUser>('/users/me'),
-  async login(username: string, password: string) { const user = await request<SessionUser>('/auth/login', 'POST', { username, password }); clearCsrf(); return user; },
-  async signup(challengeId: string, code: string, password: string) { const user = await request<SessionUser>('/auth/signup', 'POST', { challengeId, code, password }); clearCsrf(); return user; },
+  async login(username: string, password: string) { const user = await request<SessionUser>('/auth/login', 'POST', { username, password }); resetSession(); return user; },
+  async signup(challengeId: string, code: string, password: string) { const user = await request<SessionUser>('/auth/signup', 'POST', { challengeId, code, password }); resetSession(); return user; },
   otp: (purpose: OtpPurpose, username?: string) => request<OtpChallenge>('/auth/otp/request', 'POST', { purpose, ...(username === undefined ? {} : { username }) }),
   async password(mode: 'reset' | 'change', challengeId: string, code: string, newPassword: string) {
-    await request<void>(mode === 'change' ? '/users/me/password' : '/auth/password/reset', mode === 'change' ? 'PUT' : 'POST', { challengeId, code, newPassword }); clearCsrf();
+    await request<void>(mode === 'change' ? '/users/me/password' : '/auth/password/reset', mode === 'change' ? 'PUT' : 'POST', { challengeId, code, newPassword }); resetSession();
   },
-  async logout() { await request<void>('/auth/logout', 'POST'); clearCsrf(); },
+  async logout() { await request<void>('/auth/logout', 'POST'); resetSession(); },
 };

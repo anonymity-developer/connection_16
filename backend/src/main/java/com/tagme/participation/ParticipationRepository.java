@@ -18,6 +18,13 @@ public class ParticipationRepository {
     private final JdbcTemplate db;
     private final AuthRepository accounts;
     public ParticipationRepository(JdbcTemplate db, AuthRepository accounts) { this.db = db; this.accounts = accounts; }
+    public long generation(long user) {
+        return db.queryForObject("SELECT COALESCE(MAX(generation),0) FROM game_participation_resets WHERE user_id=?",Long.class,user);
+    }
+    /** Call only after locking the participant, so reset and delayed writes serialize. */
+    public void requireGeneration(long user,long expected) {
+        if(expected<0||generation(user)!=expected)throw error(409,"PARTICIPATION_RESET","관리자가 게임 참여를 초기화했어요. 화면을 새로고침한 뒤 다시 참여해 주세요.");
+    }
     static AuthException error(int status, String code, String message) { return new AuthException(status, code, message); }
     public void lockUser(long id) {
         accounts.lockUser(id);

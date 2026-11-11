@@ -1,10 +1,10 @@
 package com.tagme.content;
 
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnExpression;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
-@Component @ConditionalOnProperty(name="tagme.content.worker-enabled",havingValue="true",matchIfMissing=true)
+@Component @ConditionalOnExpression("${tagme.moderation.enabled:false} && ${tagme.content.worker-enabled:true}")
 public class ModerationWorker {
     private final ModerationService service;
     public ModerationWorker(ModerationService service) { this.service=service; }

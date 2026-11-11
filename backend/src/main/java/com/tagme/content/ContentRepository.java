@@ -17,7 +17,7 @@ public class ContentRepository {
     private Item mapItem(ResultSet r,int n) throws SQLException { return new Item(r.getLong("id"),r.getLong("author_id"),Kind.valueOf(r.getString("kind")),r.getString("visibility_status"),r.getObject("approved_revision_id",Long.class),r.getObject("pending_revision_id",Long.class),r.getObject("luck_score",Integer.class),r.getObject("landing_zone",Integer.class),r.getLong("version")); }
     private Revision mapRevision(ResultSet r,int n) throws SQLException { return new Revision(r.getLong("id"),r.getLong("item_id"),r.getInt("revision_no"),r.getString("content_text"),r.getString("template_id"),r.getString("style"),r.getBoolean("anonymous"),instant(r,"submitted_at"),r.getString("moderation_status"),r.getString("reason_code"),r.getString("payload_hash")); }
     public Item own(long user,Kind kind) { return db.query("SELECT * FROM content_items WHERE author_id=? AND slot_kind=?",this::mapItem,user,kind.name()).stream().findFirst().orElse(null); }
-    public Item item(long id,boolean lock) { return db.query("SELECT * FROM content_items WHERE id=?"+(lock?" FOR UPDATE":""),this::mapItem,id).stream().findFirst().orElse(null); }
+    public Item item(long id,boolean lock) { return db.query("SELECT * FROM content_items WHERE id=? AND archived_at IS NULL"+(lock?" FOR UPDATE":""),this::mapItem,id).stream().findFirst().orElse(null); }
     public Revision revision(long id) { return db.query("SELECT * FROM content_revisions WHERE id=?",this::mapRevision,id).stream().findFirst().orElse(null); }
     public Revision latest(long id) { return db.query("SELECT * FROM content_revisions WHERE item_id=? ORDER BY revision_no DESC LIMIT 1",this::mapRevision,id).stream().findFirst().orElse(null); }
     public Revision byKey(long id,String key) { return db.query("SELECT * FROM content_revisions WHERE item_id=? AND idempotency_key=?",this::mapRevision,id,key).stream().findFirst().orElse(null); }
@@ -36,6 +36,16 @@ public class ContentRepository {
         }
         db.update("UPDATE content_items SET pending_revision_id=?,version=version+1,updated_at=UTC_TIMESTAMP(6) WHERE id=?",revision,item.id());
         db.update("INSERT INTO moderation_jobs(revision_id) VALUES (?)",revision);
+    }
+    /** Publication is immediate when moderation is disabled; no provider job is created. */
+    public void publish(Item item,long revision) {
+        if(item.pendingId()!=null && item.pendingId()!=revision) {
+            db.update("UPDATE moderation_jobs SET status='SUPERSEDED',fence=fence+1,lease_until=NULL WHERE revision_id=?",item.pendingId());
+            db.update("UPDATE content_revisions SET moderation_status='SUPERSEDED',reason_code='NEW_REVISION' WHERE id=?",item.pendingId());
+        }
+        db.update("UPDATE content_revisions SET moderation_status='APPROVED',reason_code='DIRECT_PUBLICATION' WHERE id=?",revision);
+        db.update("UPDATE moderation_jobs SET status='APPROVED',fence=fence+1,lease_until=NULL,last_error_code=NULL,provider='NONE',policy_version='direct-publication-v1' WHERE revision_id=?",revision);
+        db.update("UPDATE content_items SET approved_revision_id=?,pending_revision_id=NULL,version=version+1,updated_at=UTC_TIMESTAMP(6) WHERE id=?",revision,item.id());
     }
     private static final String JOBS="SELECT j.*,r.item_id,i.author_id FROM moderation_jobs j JOIN content_revisions r ON r.id=j.revision_id JOIN content_items i ON i.id=r.item_id";
     private Job mapJob(ResultSet r,int n) throws SQLException { return new Job(r.getLong("id"),r.getLong("revision_id"),r.getLong("author_id"),r.getLong("item_id"),r.getString("status"),r.getInt("attempts"),r.getLong("fence"),instant(r,"lease_until")); }

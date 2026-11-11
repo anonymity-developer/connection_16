@@ -10,7 +10,7 @@ public class OperationsRepository {
     private final JdbcTemplate db;
     public OperationsRepository(JdbcTemplate db) { this.db=db; }
     public List<Long> contentIds(long cursor,int limit,String kind,String visibility) {
-        String sql="SELECT id FROM content_items WHERE id<?";List<Object> args=new ArrayList<>();args.add(cursor);
+        String sql="SELECT id FROM content_items WHERE archived_at IS NULL AND id<?";List<Object> args=new ArrayList<>();args.add(cursor);
         if(kind!=null){sql+=" AND kind=?";args.add(kind);}if(visibility!=null){sql+=" AND visibility_status=?";args.add(visibility);}
         sql+=" ORDER BY id DESC LIMIT ?";args.add(limit);return db.queryForList(sql,Long.class,args.toArray());
     }
@@ -48,9 +48,10 @@ public class OperationsRepository {
         ), public_items AS (
           SELECT i.id,i.author_id,i.kind,i.approved_revision_id,r.submitted_at
           FROM content_items i JOIN content_revisions r ON r.id=i.approved_revision_id AND r.item_id=i.id
-          JOIN moderation_jobs approved_job ON approved_job.revision_id=r.id AND approved_job.status='APPROVED'
+          LEFT JOIN moderation_jobs approved_job ON approved_job.revision_id=r.id
           JOIN public_users u ON u.id=i.author_id JOIN event_settings ev ON ev.id=1
-          WHERE i.visibility_status='VISIBLE' AND r.moderation_status='APPROVED'
+          WHERE i.archived_at IS NULL AND i.visibility_status='VISIBLE' AND r.moderation_status='APPROVED'
+            AND (approved_job.status='APPROVED' OR (approved_job.id IS NULL AND r.reason_code='DIRECT_PUBLICATION'))
             AND r.submitted_at>=ev.opens_at AND r.submitted_at<ev.submit_closes_at AND r.submitted_at<=UTC_TIMESTAMP(6)
         )
         """;
@@ -84,16 +85,16 @@ public class OperationsRepository {
                  AND sync.submitted_at=receipt.received_at AND sync.submitted_at>=ev.opens_at AND sync.submitted_at<ev.submit_closes_at
                WHEN 'FAST_TAP' THEN e.source_kind='GAME_ATTEMPT' AND tap.id IS NOT NULL AND slot.current_attempt_id=tap.id
                  AND tap.status='VALID' AND CHAR_LENGTH(tap.payload_hash)=64 AND tap.review_reason IS NULL AND tap.tap_count>=0
-                 AND tap.tap_count<=TIMESTAMPDIFF(MICROSECOND,tap.starts_at,tap.ends_at)/50000
+                 AND tap.tap_count<=1000 AND tap.archived_at IS NULL
                  AND tap.starts_at>=p.unlocked_at AND tap.submitted_at>=tap.ends_at AND tap.submitted_at<=tap.submit_deadline
                  AND tap.ends_at<ev.submit_closes_at AND tap.submitted_at=receipt.received_at
                  AND tap.tap_count=(SELECT COUNT(*) FROM tap_attempt_events t WHERE t.attempt_id=tap.id AND t.event_type='TAP')
                  AND NOT EXISTS (SELECT 1 FROM tap_attempt_events t WHERE t.attempt_id=tap.id AND (t.event_type<>'TAP' OR t.relative_time_ms<0 OR t.relative_time_ms>=TIMESTAMPDIFF(MICROSECOND,tap.starts_at,tap.ends_at)/1000))
-               WHEN 'MAKE_A_WISH' THEN e.source_kind='WISH_REVISION' AND original_job.id IS NOT NULL
+               WHEN 'MAKE_A_WISH' THEN e.source_kind='WISH_REVISION' AND (original_job.id IS NOT NULL OR original.reason_code='DIRECT_PUBLICATION')
                  AND original.submitted_at=receipt.received_at AND original.submitted_at>=ev.opens_at AND original.submitted_at<ev.submit_closes_at
                  AND item.author_id=e.user_id AND item.kind='WISH' AND live.id IS NOT NULL
                  AND qualified_receipt.received_at>=receipt.received_at AND qualified_receipt.received_at<ev.submit_closes_at
-               WHEN 'SAY_SOMETHING' THEN e.source_kind='CHEER_REVISION' AND original_job.id IS NOT NULL
+               WHEN 'SAY_SOMETHING' THEN e.source_kind='CHEER_REVISION' AND (original_job.id IS NOT NULL OR original.reason_code='DIRECT_PUBLICATION')
                  AND original.submitted_at=receipt.received_at AND original.submitted_at>=ev.opens_at AND original.submitted_at<ev.submit_closes_at
                  AND item.author_id=e.user_id AND item.kind='CHEER' AND live.id IS NOT NULL
                  AND qualified_receipt.received_at>=receipt.received_at AND qualified_receipt.received_at<ev.submit_closes_at
@@ -112,8 +113,8 @@ public class OperationsRepository {
           LEFT JOIN public_items live ON live.id=item.id
           LEFT JOIN content_revisions qualified ON qualified.id=(
             SELECT r.id FROM content_revisions r
-            JOIN moderation_jobs j ON j.revision_id=r.id AND j.status='APPROVED'
-            WHERE r.item_id=live.id AND r.moderation_status='APPROVED'
+            LEFT JOIN moderation_jobs j ON j.revision_id=r.id
+            WHERE r.item_id=live.id AND r.moderation_status='APPROVED' AND (j.status='APPROVED' OR (j.id IS NULL AND r.reason_code='DIRECT_PUBLICATION'))
             ORDER BY r.revision_no LIMIT 1
           )
           LEFT JOIN submission_receipts qualified_receipt ON qualified_receipt.source_id=qualified.id
@@ -139,7 +140,7 @@ public class OperationsRepository {
           SELECT tap.user_id,MAX(tap.tap_count) amount FROM tap_slots slot JOIN tap_attempts tap ON tap.id=slot.current_attempt_id AND tap.user_id=slot.user_id
           JOIN eligible u ON u.id=tap.user_id WHERE tap.status='VALID' AND tap.payload_hash IS NOT NULL AND tap.tap_count IS NOT NULL GROUP BY tap.user_id
           """,(r,n)->new AwardModels.Activity(r.getLong("user_id"),r.getLong("amount")),observedAt);
-        var reviews=new ArrayList<>(queryAt("SELECT user_id,id,status FROM tap_attempts WHERE status='REVIEW_REQUIRED' ORDER BY id",
+        var reviews=new ArrayList<>(queryAt("SELECT user_id,id,status FROM tap_attempts WHERE archived_at IS NULL AND status='REVIEW_REQUIRED' ORDER BY id",
             (r,n)->new AwardModels.Review(r.getLong("user_id"),r.getLong("id"),"TAP_REVIEW_REQUIRED"),observedAt));
         reviews.addAll(queryAt(AWARD_BASE+" SELECT e.user_id FROM event_completions e LEFT JOIN eligible u ON u.id=e.user_id WHERE u.id IS NULL ORDER BY e.user_id",
             (r,n)->new AwardModels.Review(r.getLong("user_id"),0L,"INELIGIBLE_PROFILE_OR_CONSENT"),observedAt));

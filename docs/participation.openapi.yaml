@@ -504,6 +504,10 @@ components:
       type: object
       additionalProperties: false
       properties:
+        resetGeneration:
+          type: integer
+          format: int64
+          minimum: 0
         missions:
           type: array
           items:
@@ -518,6 +522,7 @@ components:
       - missions
       - completedCount
       - completion
+      - resetGeneration
     TagRequest:
       type: object
       additionalProperties: false

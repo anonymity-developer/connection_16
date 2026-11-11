@@ -14,7 +14,7 @@ public class ContentCompletionRule {
                 if(!kind.source().equals(receipt.sourceKind()))return false;
                 var revision=repository.revision(receipt.sourceId());if(revision==null)return false;
                 var item=repository.item(revision.itemId(),false);
-                if(item.authorId()!=user||item.kind()!=kind||!"VISIBLE".equals(item.visibility()))return false;
+                if(item==null||item.authorId()!=user||item.kind()!=kind||!"VISIBLE".equals(item.visibility()))return false;
                 var id=Long.valueOf(revision.id());
                 return ("QUEUED".equals(revision.status())&&id.equals(item.pendingId()))
                     || ("APPROVED".equals(revision.status())&&id.equals(item.approvedId()));

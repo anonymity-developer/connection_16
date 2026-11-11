@@ -1,4 +1,10 @@
 /* Framed sheet, seed 576897122. 228px sidebar + 24px gutters; content shares one edge. */
+.admin-reset-form { display: grid; gap: 12px; }
+.admin-reset-form label { font-size: 14px; font-weight: 600; }
+.admin-reset-form input, .admin-reset-form textarea { width: 100%; min-width: 0; min-height: 44px; padding: 10px 12px; box-sizing: border-box; font: inherit; color: var(--ink); background: var(--surface); border: 1px solid var(--border); border-radius: 8px; }
+.admin-reset-history { display: grid; gap: 12px; padding-inline-start: 24px; }
+.admin-reset-history span { display: block; font-size: 13px; color: var(--muted); }
+.admin-reset-panel .admin-panel-heading { flex-wrap: wrap; }
 .admin-console { --admin-ground: #f6f5f7; --admin-rule: #edeaec; display: grid; grid-template-columns: 228px minmax(0, 1fr); min-height: 100svh; background: var(--admin-ground); padding: 0 8px 8px 0; }
 .admin-sidebar { display: flex; flex-direction: column; gap: 16px; padding: 24px 16px; }
 .admin-navigation { display: contents; }
