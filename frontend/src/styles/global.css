@@ -6,6 +6,7 @@
   font-display: swap;
 }
 :root {
+  scrollbar-gutter: stable;
   font-family: 'DM Sans', 'Apple SD Gothic Neo', 'Noto Sans CJK KR', 'Malgun Gothic', sans-serif;
   color: #202029; background: #fbf9fa; font-synthesis: none;
   text-rendering: optimizeLegibility; -webkit-font-smoothing: antialiased;
