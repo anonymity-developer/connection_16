@@ -20,13 +20,14 @@ export function MissionPage({ mission, data }: { mission: Mission; data: ScreenD
   const [error, setError] = useState('');
   const [earned, setEarned] = useState(false);
   const input = useRef<HTMLTextAreaElement>(null);
-  const resultMission = data.serverLoaded && state !== 'LOCKED' && (mission.code === 'SYNC_ME' || mission.code === 'FAST_TAP');
-  const contentMission = data.serverLoaded && state !== 'LOCKED' && (mission.code === 'MAKE_A_WISH' || mission.code === 'SAY_SOMETHING');
+  const unlocked = data.serverLoaded && auth.ready && !!auth.user && ['UNLOCKED', 'PENDING', 'COMPLETED'].includes(state);
+  const resultMission = unlocked && (mission.code === 'SYNC_ME' || mission.code === 'FAST_TAP');
+  const contentMission = unlocked && (mission.code === 'MAKE_A_WISH' || mission.code === 'SAY_SOMETHING');
   const canPreviewWish = data.preview && state === 'UNLOCKED' && mission.code === 'MAKE_A_WISH';
   return <div className="page mission-page participant-page" data-mission={mission.code}><Link className="back-link" href="/"><Icon name="arrowLeft" size={16} />뒤로가기</Link>
     <header className="mission-detail-heading"><span className={`mission-letter ${state === 'COMPLETED' ? 'is-collected' : ''}`} aria-hidden="true"><LetterSticker code={mission.code} collectionState={state === 'COMPLETED' ? 'collected' : undefined} /></span><div><p className="context-label">{mission.name}</p><h1>{mission.name}</h1></div>{(data.preview || data.serverLoaded) && <StateBadge state={state} missionCode={mission.code} />}</header>
     <div className="mission-detail-grid"><section className="mission-detail" aria-label={`${mission.name} 참여 화면`}><p className="detail-intro">{mission.description}</p><p className="mission-encouragement">{mission.encouragement}</p>
-      {mission.code === 'MAKE_A_WISH' && !contentMission && <WishLake />}
+      {canPreviewWish && <WishLake />}
       {state === 'LOCKED' && mission.code !== 'SHOW_ME' && <div className="mission-access-note"><Icon name="tag" size={20} /><p>현장 NFC·QR로 참여해요. 상세 페이지를 여는 것만으로는 해금되지 않아요.</p>{!auth.user && !data.preview && <Link className="text-link" href="/auth">로그인하기<Icon name="arrow" size={16} /></Link>}</div>}
       {state === 'PENDING' && !contentMission && !resultMission && <div className="mission-message" role="status"><Icon name="clock" size={28} /><h2>참여 중인 미션이에요</h2><p>진행 상태를 확인하고 미션을 이어가요. 글자 지급 여부는 서버 기록을 따라요.</p></div>}
       {state === 'COMPLETED' && !resultMission && !contentMission && <div className="mission-message"><span className="earned-letter" aria-label={`획득 글자 ${mission.letter}`}><LetterSticker code={mission.code} collectionState="collected" /></span><h2>연결의 한 조각을 모았어요</h2><p>{data.preview ? '개발용 완료 화면 미리보기예요. 실제 기록은 저장되지 않아요.' : '서버에 저장된 최초 완료 기록이에요. 다시 접속해도 글자는 유지돼요.'}</p></div>}

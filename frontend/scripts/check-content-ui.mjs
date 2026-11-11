@@ -15,7 +15,7 @@ try {
   const blank = () => ({ id: null, version: 0, visibility: null, approvedRevision: null, pendingRevision: null, latestRevision: null, missionCompleted: false, luckScore: null, landingZone: null });
   const slots = { wishes: blank(), cheers: blank() }; let rejectWish = false; let posts = 0, unknown = false, failFeed = false, stale = false, locked = false, lastRequest = null;
   const feeds = { wishes: { items: [], nextCursor: null }, cheers: { items: [], nextCursor: null } };
-  let olderWishes = [];
+  let olderWishes = [], contentReads = 0;
   function revision(input, number, status = 'QUEUED') { return { id: 100 + number, itemId: 10, number, content: input.content, templateId: input.templateId, style: input.style, anonymous: input.anonymous, status, submittedAt: '2026-01-01T00:00:00Z', reason: null }; }
   await page.route('**/api/v1/**', async route => {
     try {
@@ -32,6 +32,7 @@ try {
       if (method === 'POST' && path === '/wishes' && rejectWish) return reply(400, {code:'INVALID_CONTENT',message:'테스트 전용 제출 실패'});
       const kind = path.startsWith('/wishes') ? 'wishes' : path.startsWith('/cheers') ? 'cheers' : null;
       if (!kind) throw new Error(`Unexpected ${method} ${path}`);
+      if (method === 'GET') contentReads++;
       if (method === 'GET' && path === '/cheers/likes') return reply(200, { 10: { liked: false, count: 0, canLike: true } });
       if (method === 'GET' && /^\/wishes\/\d+\/comments(?:\/me)?$/.test(path)) return reply(200, { items: [], nextCursor: null });
       if (method === 'GET' && path.endsWith('/me')) return reply(200, slots[kind]);
@@ -142,7 +143,20 @@ try {
   await page.getByRole('button',{name:'분수로 보기',exact:true}).click();
   feeds.wishes={items:[],nextCursor:null}; await refresh(); await page.getByRole('button',{name:'소원 21 열기',exact:true}).waitFor({state:'hidden'}); assert.equal(await page.locator('.wish-lake-coin').count(),0);
   record('three stacked coins and seven drifting shadows page without overlap, respect reduced motion and open accessible details');
-  locked = true; await visit('/missions/make-a-wish'); await page.getByText('현장 NFC·QR로 참여해요. 상세 페이지를 여는 것만으로는 해금되지 않아요.',{exact:true}).waitFor(); assert.equal(await page.locator('#content-text').count(), 0);
-  assert.deepEqual(errors, []); assert.deepEqual(routeErrors, []); record('locked missions never expose the writing form');
+  // Finish the previous unlocked screen's refresh before measuring requests from locked screens.
+  await page.waitForLoadState('networkidle');
+  locked = true;
+  for (const width of [360,390,430,768,1440]) {
+    await page.setViewportSize({width,height:900});
+    for (const slug of ['make-a-wish','say-something']) {
+      const readsBefore = contentReads;
+      await visit('/missions/'+slug); await page.waitForLoadState('networkidle');
+      await page.getByText('현장 NFC·QR로 참여해요. 상세 페이지를 여는 것만으로는 해금되지 않아요.',{exact:true}).waitFor();
+      assert.equal(await page.locator('.fountain-art, .wish-lake-intro, .content-mission, #content-text').count(),0);
+      assert.equal(contentReads,readsBefore,'locked content never requests a feed or private slot');
+      await page.screenshot({path:resolve(output,`locked-${slug}-${width}.png`),fullPage:true});
+    }
+  }
+  assert.deepEqual(errors, []); assert.deepEqual(routeErrors, []); record('locked wish and cheer missions hide the fountain, feed and form without content API requests at five widths');
   await writeFile(resolve(output, 'content-contract-checks.json'), JSON.stringify({ kind: 'explicit browser API fixtures; no live submissions or moderation decisions', checks, errors, routeErrors }, null, 2));
 } finally { await browser?.close(); await server.httpServer.close(); }
