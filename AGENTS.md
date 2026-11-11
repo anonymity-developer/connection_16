@@ -36,6 +36,8 @@ These are pinned repository copies, not links to instructions you should assume 
 
 ## Checks and change delivery
 
+- UI review workflow (user instruction, 2026-11-11): commit on a work branch and open/update a PR, then wait for the user's explicit OK before merging or deploying. This supersedes earlier standing permission to merge/deploy automatically for these UI iterations.
+- Propose exact copy and material screen/interaction changes for review first; implement them after the user approves. Current participant guidance is NFC-only. Do not invent floor locations or gift/award conditions.
 - Setup: `node scripts/codex-doctor.mjs`; source integrity: `node scripts/verify-skills.mjs`.
 - Frontend changes: `cd frontend && npm run lint && npm run build`. Add/run meaningful behavior tests when changing interactions. Follow `frontend/AGENTS.md` for visual checks.
 - Backend changes: `cd backend && ./gradlew test bootJar`; data/concurrency changes also require `./gradlew integrationTest` with Docker.
