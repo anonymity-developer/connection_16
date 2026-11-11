@@ -51,11 +51,12 @@ try {
   await check('production layouts, fonts and headings at 360/390/430/768/1440', async () => {
     for (const width of [360, 390, 430, 768, 1440]) {
       await page.setViewportSize({ width, height: 900 });
-      for (const [name, path] of [['home', '/'], ['login', '/auth'], ['signup', '/auth/signup'], ['wish-locked', '/missions/make-a-wish'], ['discovery', '/discovery']]) {
+      for (const [name, path] of [['home', '/'], ['login', '/auth'], ['signup', '/auth/signup'], ['wish-locked', '/missions/make-a-wish'], ['cheer-locked', '/missions/say-something'], ['sync-locked', '/missions/sync-me'], ['tap-locked', '/missions/fast-tap'], ['discovery', '/discovery']]) {
         await visit(productionUrl + path);
         assert.equal(await visibleCount('main h1'), 1, `${name}: one visible page heading`);
         assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), `${name} at ${width}: horizontal overflow`);
         assert.ok(await page.evaluate(() => [...document.fonts].some((font) => font.family.replace(/['"]/g, '') === 'DM Sans' && font.status === 'loaded')), 'self-hosted DM Sans loaded');
+        if (name.endsWith('-locked')) assert.equal(await page.locator('.fountain-art, .wish-lake-intro, .content-mission, .tap-panel, .sync-question-list, #content-text').count(),0,'anonymous locked missions do not show the game');
         if (name === 'home') {
           const cards = page.locator('.mission-list > .mission-row');
           assert.equal(await cards.count(), 5);

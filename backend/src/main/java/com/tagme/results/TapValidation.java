@@ -11,11 +11,11 @@ public final class TapValidation {
         boolean dense=false;int previous=-1;
         for(Integer at:taps){
             if(at==null||at<0||at>=durationMs||at<previous)throw new IllegalArgumentException();
-            if(previous>=0&&at-previous<20)dense=true;previous=at;
+            if(previous>=0&&at-previous<1)dense=true;previous=at;
         }
         for(var event:interruptions)if(event==null||!List.of("HIDDEN","PAGE_HIDE").contains(event.type())||event.atMs()<-5000||event.atMs()>durationMs+5000)throw new IllegalArgumentException();
         if(!interruptions.isEmpty())return new Verdict("INTERRUPTED","PAGE_INTERRUPTED",taps.size());
-        if(dense||taps.size()>durationMs/50)return new Verdict("REVIEW_REQUIRED","UNUSUAL_RATE",taps.size());
+        if(dense)return new Verdict("REVIEW_REQUIRED","UNUSUAL_RATE",taps.size());
         return new Verdict("VALID",null,taps.size());
     }
 }

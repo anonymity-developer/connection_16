@@ -11,7 +11,7 @@ const server = await preview({ preview: { host: '127.0.0.1', port: 4473, strictP
 try {
   browser = await chromium.launch(); const page = await browser.newPage({ viewport: { width: 390, height: 900 } });
   const pageErrors = [], routeErrors = [], checks = []; page.on('pageerror', error => pageErrors.push(error.message));
-  let sync = null, available = true, changed = false, state = { officialAvailable: true, attempt: null }, starts = 0, finishes = 0, cancels = 0, key = null, failStart = false, cancelledReplay = false, cancelRace = false, failFinish = false, submitted = null;
+  let sync = null, available = true, changed = false, state = { officialAvailable: true, attempt: null }, starts = 0, finishes = 0, cancels = 0, key = null, failStart = false, cancelledReplay = false, cancelRace = false, failFinish = false, submitted = null, locked = false, resultReads = 0;
   const codes = ['SHOW_ME', 'SYNC_ME', 'MAKE_A_WISH', 'FAST_TAP', 'SAY_SOMETHING'];
   const questions = { available: true, version: 'test-v1', title: '테스트 전용 취향 질문', questions: [{ id: 'q1', text: '테스트용 첫 번째 선택', options: [{ id: 'a', label: '먼저 말 걸기' }, { id: 'b', label: '먼저 들어보기' }] }, { id: 'q2', text: '테스트용 두 번째 선택', options: [{ id: 'a', label: '같이 만들기' }, { id: 'b', label: '깊게 살펴보기' }] }] };
   const stored = { questionnaireVersion: 'test-v1', type: { code: 'TEST', title: '테스트 전용 연결형', description: '브라우저 검사 전용 결과이며 실제 운영 성향이 아닙니다.' }, axisScores: { example: 1 }, submittedAt: '2026-01-01T00:00:00Z' };
@@ -27,7 +27,8 @@ try {
       if (method === 'GET' && path === '/tags/pending') return reply(200, { present: false });
       if (method === 'GET' && path === '/csrf') return reply(200, { headerName: 'X-XSRF-TOKEN', token: 'result-test-csrf' });
       if (method === 'GET' && path === '/event') return reply(200, { status: 'OPEN', opensAt: null, submitClosesAt: null, profilePreparationEnabled: false });
-      if (method === 'GET' && path === '/missions/collection') return reply(200, { missions: codes.map((code, index) => ({ id: index + 1, code, state: code === 'SYNC_ME' && sync || code === 'FAST_TAP' && state.attempt?.status === 'VALID' ? 'COMPLETED' : ['SYNC_ME', 'FAST_TAP'].includes(code) ? 'UNLOCKED' : 'LOCKED', active: true })), completedCount: Number(!!sync) + Number(state.attempt?.status === 'VALID'), completion: { complete: false, completionOrder: null, completedAt: null, awardConfirmed: false } });
+      if (method === 'GET' && path === '/missions/collection') return reply(200, { missions: codes.map((code, index) => ({ id: index + 1, code, state: locked ? 'LOCKED' : code === 'SYNC_ME' && sync || code === 'FAST_TAP' && state.attempt?.status === 'VALID' ? 'COMPLETED' : ['SYNC_ME', 'FAST_TAP'].includes(code) ? 'UNLOCKED' : 'LOCKED', active: true })), completedCount: Number(!!sync) + Number(state.attempt?.status === 'VALID'), completion: { complete: false, completionOrder: null, completedAt: null, awardConfirmed: false } });
+      if (method === 'GET' && (path.startsWith('/sync/') || path.startsWith('/tap/'))) resultReads++;
       if (method === 'GET' && path === '/sync/me') return reply(200, { result: sync });
       if (method === 'GET' && path === '/sync/questions') return reply(200, available ? questions : { available: false, version: null, title: null, questions: [] });
       if (method === 'GET' && path === '/tap/me') return reply(200, state);
@@ -91,5 +92,27 @@ try {
   await page.getByRole('heading', { name: '진행 중인 공식 도전이 있어요', exact: true }).waitFor();
   assert.equal(await page.getByRole('button', { name: '공식 도전 시작하기 (1회)', exact: true }).count(), 0);
   record('late cancelled response reloads a newer slot from another tab and never offers a fake official chance');
+  state={officialAvailable:false,attempt:{...newAttempt(Date.now()-20000),status:'REVIEW_REQUIRED',tapCount:118,reviewReason:'UNUSUAL_RATE'}};
+  await visit('/missions/fast-tap'); await page.getByRole('heading',{name:'기록 저장 완료 · 검토 대기',exact:true}).waitFor();
+  assert.equal(await page.locator('.tap-score').innerText(),'118회');
+  await page.getByText('탭 수와 입력 기록은 서버에 저장됐어요. 입력 간격 검토 대상으로 분류돼 F 지급과 유효 순위 반영은 보류돼요.',{exact:true}).waitFor();
+  assert.equal(await page.getByText('F를 획득했어요!',{exact:true}).count(),0);
+  await page.reload(); await page.getByRole('heading',{name:'기록 저장 완료 · 검토 대기',exact:true}).waitFor();
+  assert.equal(await page.locator('.tap-score').innerText(),'118회');
+  await page.setViewportSize({width:390,height:900});
+  await page.screenshot({path:resolve(output,'tap-review-stored-390.png'),fullPage:true});
+  record('review-required scores remain visible after reload and are explicitly stored without claiming F');
+  locked=true;
+  for(const width of [360,390,430,768,1440]) {
+    await page.setViewportSize({width,height:900});
+    for(const slug of ['sync-me','fast-tap']) {
+      const before=resultReads;
+      await visit('/missions/'+slug); await page.waitForLoadState('networkidle');
+      await page.getByText('현장 NFC·QR로 참여해요. 상세 페이지를 여는 것만으로는 해금되지 않아요.',{exact:true}).waitFor();
+      assert.equal(await page.locator('.tap-panel, .sync-question-list, .sync-result, .tap-area').count(),0);
+      assert.equal(resultReads,before,'locked result missions do not load game APIs');
+    }
+  }
+  record('locked tap and sync pages never mount games or load result APIs at five widths');
   assert.deepEqual(pageErrors, []); assert.deepEqual(routeErrors, []); await writeFile(resolve(output, 'results-contract-checks.json'), JSON.stringify({ kind: 'explicit browser API fixtures; no live questionnaire or official participant records', checks, pageErrors, routeErrors }, null, 2));
 } finally { await browser?.close(); await server.httpServer.close(); }
