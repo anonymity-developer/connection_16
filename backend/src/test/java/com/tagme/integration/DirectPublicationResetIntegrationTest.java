@@ -165,6 +165,15 @@ class DirectPublicationResetIntegrationTest {
         assertThat(db.queryForObject("SELECT status FROM moderation_jobs WHERE revision_id=?",String.class,wish.approvedRevision().id())).isEqualTo("APPROVED");
         verifyNoInteractions(provider);
     }
+    @Test void settlingLegacyHiddenContentClosesTheQueueWithoutRestoringPublication() {
+        var wish=content.submit(alice,WISH,"legacy-hidden-wish-001",text("숨김을 유지할 소원",null),false);
+        db.update("UPDATE content_revisions SET moderation_status='REVIEW_REQUIRED',reason_code='CONTENT_HIDDEN' WHERE id=?",wish.approvedRevision().id());
+        db.update("UPDATE content_items SET visibility_status='HIDDEN',pending_revision_id=approved_revision_id,approved_revision_id=NULL WHERE id=?",wish.id());
+        db.update("INSERT INTO moderation_jobs(revision_id,status) VALUES (?,'REVIEW_REQUIRED')",wish.approvedRevision().id());
+        settlement.processBatch();
+        assertThat(content.own(alice.userId(),WISH).visibility()).isEqualTo("HIDDEN");assertThat(content.own(alice.userId(),WISH).pendingRevision()).isNull();
+        assertThat(content.feed(WISH,null).items()).isEmpty();assertThat(contentRows.reviewQueue()).isEmpty();verifyNoInteractions(provider);
+    }
     @Test void resetRacingAnOldEditNeverResurrectsAnActiveSlot() throws Exception {
         var wish=content.submit(alice,WISH,"race-old-wish-001",text("이전 소원",null),false);var start=new CountDownLatch(1);
         try(var pool=Executors.newFixedThreadPool(2)) {

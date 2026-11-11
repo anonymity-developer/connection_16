@@ -7,7 +7,8 @@ const markers: Celebration[] = [...missions.map(mission => mission.code), finish
 
 // Keep presentation acknowledgements separate from the server's collection record.
 export function createCollectionCelebrations(userId?: number) {
-  const key = userId === undefined ? null : `tagme:collection-celebration:${userId}`;
+  const baseKey = userId === undefined ? null : `tagme:collection-celebration:${userId}`;
+  let key = baseKey, generation = 0;
   let seen: Set<Celebration> | null = null;
 
   function read() {
@@ -29,6 +30,12 @@ export function createCollectionCelebrations(userId?: number) {
   }
 
   return {
+    setGeneration(next: number) {
+      if (next === generation) return;
+      generation = next;
+      key = baseKey === null ? null : next === 0 ? baseKey : `${baseKey}:round:${next}`;
+      seen = null;
+    },
     observe(baseline: readonly MissionCode[], latest = baseline) {
       const stored = read();
       if (!seen) {

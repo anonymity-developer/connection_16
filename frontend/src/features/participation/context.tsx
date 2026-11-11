@@ -26,7 +26,9 @@ export function ParticipationProvider({ children }: { children: ReactNode }) {
     try {
       const { collection: next, initial, event: schedule } = await loadParticipation(participationApi, () => version === revision.current);
       if (version === revision.current) {
-        celebrations?.observe(collectedCodes(initial), collectedCodes(next));
+        celebrations?.setGeneration(next.resetGeneration ?? 0);
+        const sameRound = (initial.resetGeneration ?? 0) === (next.resetGeneration ?? 0);
+        celebrations?.observe(collectedCodes(sameRound ? initial : next), collectedCodes(next));
         setCollection(next); setCollectionOwner(userId); setEvent(schedule);
       }
     } catch (failure) {
