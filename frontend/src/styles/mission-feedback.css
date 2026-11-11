@@ -1,0 +1,16 @@
+.tag-discovery { max-width: 640px; margin: 0 auto 24px; padding: 28px; border: 1px solid var(--border); border-radius: 24px; background: var(--surface); text-align: center; }
+.tag-discovery h2 { margin: 16px 0 8px; }
+.tag-discovery > p { color: var(--muted); }
+.tag-discovery > .button { margin-top: 24px; }
+.tag-discovery > .tag-stickers { width: 144px; height: 120px; margin-bottom: 20px; }
+.tag-discovery-artwork { display: flex; justify-content: center; animation: tag-discovered .55s ease-out; }
+.tag-discovery-artwork .letter-sticker { width: 120px; height: 150px; }
+.tag-discovery .tag-registration-note { font-size: 13px; margin-top: 16px; }
+.participant-shell .mission-detail .mission-encouragement { margin: 24px 0 0; padding-top: 16px; border-top: 1px solid var(--border); color: var(--muted); font-size: 13px; }
+.mission-earned-artwork { display: flex; justify-content: center; flex-wrap: wrap; gap: 12px; margin: 24px 0 16px; }
+.mission-earned-artwork .letter-sticker { width: 112px; height: 140px; }
+.mission-earned-names { text-align: center; color: var(--muted); }
+.mission-earned-actions { display: grid; gap: 12px; margin-top: 24px; }
+@keyframes tag-discovered { from { opacity: 0; transform: translateY(8px) scale(.96); } to { opacity: 1; transform: none; } }
+@media (max-width: 640px) { .tag-discovery { padding: 24px 20px; } }
+@media (prefers-reduced-motion: reduce) { .tag-discovery-artwork { animation: none; } }

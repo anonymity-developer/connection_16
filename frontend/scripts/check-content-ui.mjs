@@ -10,7 +10,8 @@ const output = resolve('../output/playwright'); await mkdir(output, { recursive:
 const server = await preview({ preview: { host: '127.0.0.1', port: 4474, strictPort: true } }); let browser;
 try {
   browser = await chromium.launch(); const page = await browser.newPage({ viewport: { width: 390, height: 900 } });
-  const errors = [], routeErrors = [], checks = []; page.on('pageerror', error => errors.push(error.message));
+  const errors = [], routeErrors = [], checks = []; await page.addLocatorHandler(page.locator('.mission-earned-actions'), async () => { await page.getByRole('button', {name:'계속 참여하기',exact:true}).click(); });
+  page.on('pageerror', error => errors.push(error.message));
   const codes = ['SHOW_ME', 'SYNC_ME', 'MAKE_A_WISH', 'FAST_TAP', 'SAY_SOMETHING'];
   const blank = () => ({ id: null, version: 0, visibility: null, approvedRevision: null, pendingRevision: null, latestRevision: null, missionCompleted: false, luckScore: null, landingZone: null });
   const slots = { wishes: blank(), cheers: blank() }; let rejectWish = false; let posts = 0, unknown = false, failFeed = false, stale = false, locked = false, lastRequest = null;
@@ -152,7 +153,7 @@ try {
     for (const slug of ['make-a-wish','say-something']) {
       const readsBefore = contentReads;
       await visit('/missions/'+slug); await page.waitForLoadState('networkidle');
-      await page.getByText('현장 NFC·QR로 참여해요. 상세 페이지를 여는 것만으로는 해금되지 않아요.',{exact:true}).waitFor();
+      await page.getByText('현장의 NFC 태그를 찾아 휴대폰을 가까이 대주세요.',{exact:true}).waitFor();
       assert.equal(await page.locator('.fountain-art, .wish-lake-intro, .content-mission, #content-text').count(),0);
       assert.equal(contentReads,readsBefore,'locked content never requests a feed or private slot: '+JSON.stringify(contentRequests.slice(readsBefore)));
       await page.screenshot({path:resolve(output,`locked-${slug}-${width}.png`),fullPage:true});

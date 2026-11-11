@@ -91,7 +91,7 @@ try {
         await fits();
         const card = page.locator('.mission-progress-guide');
         await card.getByText('나의 진행 현황', { exact: true }).waitFor();
-        const summary = card.getByText('미션 힌트 보기', { exact: true });
+        const summary = card.getByText('미션 안내', { exact: true });
         await summary.focus(); await page.keyboard.press('Enter');
         assert.equal(await card.locator('details').getAttribute('open'), '');
         assert.equal(await card.locator('.letter-sticker.is-collected').count(), state === 'COMPLETED' ? 1 : 0);

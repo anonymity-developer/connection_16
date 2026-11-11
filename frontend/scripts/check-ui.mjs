@@ -24,17 +24,27 @@ try {
   // Dedicated auth contracts exercise successful requests with their own fixtures.
   await context.route('**/api/v1/**', async route => {
     const path = new URL(route.request().url()).pathname.slice(7);
+    if (path === '/tags/inspect' && route.request().method() === 'POST') {
+      assert.equal(route.request().headers()['x-xsrf-token'], 'layout-test-csrf');
+      return route.fulfill({status:200,json:{missionCode:'MAKE_A_WISH',letter:'A',title:'A WISH COME TRUE'}});
+    }
     if (route.request().method() !== 'GET') return route.abort();
     const data = path === '/auth/config' ? { available: false, passwordMinLength: 15, passwordMaxLength: 64 }
       : path === '/users/me' ? { code: 'UNAUTHENTICATED', message: '로그인이 필요해요.' }
-      : path === '/tags/pending' ? { present: false } : { code: 'FIXTURE_ONLY', message: '화면 검사 범위 밖이에요.' };
-    return route.fulfill({ status: path === '/users/me' ? 401 : ['/auth/config','/tags/pending'].includes(path) ? 200 : 503, json: data });
+      : path === '/tags/pending' ? { present: false } : path === '/csrf' ? {headerName:'X-XSRF-TOKEN',token:'layout-test-csrf'} : { code: 'FIXTURE_ONLY', message: '화면 검사 범위 밖이에요.' };
+    return route.fulfill({ status: path === '/users/me' ? 401 : ['/auth/config','/tags/pending','/csrf'].includes(path) ? 200 : 503, json: data });
   });
   const page = await context.newPage();
   const failures = [];
   const writes = [];
+  const metadataReads = [];
   page.on('pageerror', (error) => failures.push(error.message));
-  page.on('request', (request) => { if (request.method() !== 'GET') writes.push(request.url()); });
+  page.on('request', (request) => {
+    if (request.method() === 'GET') return;
+    // inspect is a CSRF-protected metadata read, not a credential or participation write.
+    if (new URL(request.url()).pathname === '/api/v1/tags/inspect') metadataReads.push('/tags/inspect');
+    else writes.push(request.url());
+  });
   const productionUrl = 'http://127.0.0.1:4173';
   const developmentUrl = 'http://127.0.0.1:5174';
 
@@ -83,7 +93,8 @@ try {
     await visit(`${productionUrl}/complete?preview=complete`);
     assert.equal(await page.locator('h1').innerText(), '페이지를 찾을 수 없어요');
     await visit(`${productionUrl}/t/${'a'.repeat(43)}`);
-    assert.ok((await page.locator('main').innerText()).includes('로그인하고 태그로 이어가요'));
+    await page.getByRole('heading',{name:'A 미션을 찾았어요',exact:true}).waitFor();
+    assert.equal(await page.locator('.tag-discovery .is-collected').count(),0,'metadata cannot grant a letter');
   });
   await check('login validation, password visibility, navigation and credential isolation', async () => {
     await visit(`${productionUrl}/auth`);
@@ -274,7 +285,7 @@ try {
     }
   });
   assert.deepEqual(failures, [], 'browser page errors');
-  await writeFile(resolve(output, 'checks.json'), JSON.stringify({ passed: results, pageErrors: failures, writes }, null, 2));
+  await writeFile(resolve(output, 'checks.json'), JSON.stringify({ passed: results, pageErrors: failures, writes, metadataReads }, null, 2));
 } finally {
   await browser?.close();
   await development?.close();

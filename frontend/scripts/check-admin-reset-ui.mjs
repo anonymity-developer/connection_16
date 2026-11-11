@@ -10,7 +10,8 @@ const output=resolve('../output/playwright');await mkdir(output,{recursive:true}
 const server=await preview({preview:{host:'127.0.0.1',port:4578,strictPort:true}});let browser;
 try {
   browser=await chromium.launch();const page=await browser.newPage({viewport:{width:390,height:900}});
-  const errors=[],routeErrors=[],checks=[],writes=[];page.on('pageerror',e=>errors.push(e.message));
+  const errors=[],routeErrors=[],checks=[],writes=[];await page.addLocatorHandler(page.locator('.mission-earned-actions'), async () => { await page.getByRole('button', {name:'계속 참여하기',exact:true}).click(); });
+  page.on('pageerror',e=>errors.push(e.message));
   const codes=['SHOW_ME','SYNC_ME','MAKE_A_WISH','FAST_TAP','SAY_SOMETHING'];const now='2026-11-11T04:00:00Z';
   let generation=0,participated=true,actor='admin',allowed=true,resetMode='lost',resetOperations=0,moderationReads=0;
   let savedReset=null,lastReset=null;const history=[];

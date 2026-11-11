@@ -1,5 +1,7 @@
 # 유저 플로우와 상태 전이
 
+현재 참가자 안내는 NFC만 사용한다. `/t/{token}`에서 CSRF `POST /tags/inspect`로 활성 미션의 이름·글자만 표시하고, 해당 게임 시작 버튼을 누르면 기존 로그인·프로필 복귀와 인증된 해금 흐름으로 이어진다. 미션 발견은 글자 획득과 구분한다. 새 완료의 획득 연출을 닫으면 현재 화면에 머물며 수집판 이동은 선택이다.
+
 현재 소원·응원·댓글은 검수 없이 즉시 공개하며 TAP은 서버가 정상/무효를 즉시 판정한다. 관리자 초기화 후에는 계정·첫 S·기존 태그를 유지하고 새로고침해 재참여한다. [현재 공개·초기화 계약](direct-publication-and-reset.md).
 
 이 문서는 목표 사용자 경험의 설계다. 실제 구현 범위는 [문서 안내](README.md)의 상태 표를 따른다. 로그인과 미션 해금 여부는 화면 표시와 별개로 서버에서 확인한다.
@@ -8,7 +10,7 @@
 
 ```mermaid
 flowchart TD
-    Entry["메인 또는 NFC/QR 접속"] --> Session{"로그인 상태인가?"}
+    Entry["메인 또는 NFC 태그 발견 화면"] --> Session{"로그인 상태인가?"}
     Session -->|아니오| Auth["아이디/비밀번호 로그인 또는 DM 인증 후 가입"]
     Session -->|예| Profile{"필수 프로필과 동의가 있는가?"}
     Auth --> Profile
@@ -20,11 +22,14 @@ flowchart TD
     Resolve -->|유효| Mission["해금한 미션 수행"]
     Resolve -->|무효| TagError["태그 오류와 홈 복귀"]
     Mission --> Result{"서버가 완료를 확정했는가?"}
-    Result -->|대기| Pending["검수 또는 기록 확인 대기"]
+    Result -->|처리 중| Pending["기록 저장·응답 확인"]
     Pending --> Result
     Result -->|예| Letter["해당 글자 최초 획득"]
-    Letter --> All{"다섯 글자가 모였는가?"}
-    All -->|아니오| Home
+    Letter --> Feedback["현재 화면에서 획득 연출"]
+    Feedback -->|계속 참여| Mission
+    Feedback -->|수집판 보기| Home
+    Home --> All{"다섯 글자가 모였는가?"}
+    All -->|아니오| Mission
     All -->|예| Complete["완성 화면과 후속 활동"]
     Home --> Mission
     Complete --> Discovery["소원 댓글과 동료 탐색"]

@@ -57,8 +57,8 @@ test('five mission progress cards preserve pending versus earned states and expo
     for (const state of ['LOCKED', 'UNLOCKED', 'PENDING', 'COMPLETED']) {
       const html = progress(mission, state);
       assert.ok(html.includes(mission.name));
-      assert.match(html, mission.code === 'SHOW_ME' ? /프로필을 완성하면 첫 번째 S/ : /위치는 현장 안내를 확인해 주세요/);
-      assert.match(html, /<details><summary>미션 힌트 보기<\/summary>/);
+      assert.match(html, mission.code === 'SHOW_ME' ? /NFC 태그 없이 프로필/ : /위치는 현장 안내를 확인해 주세요/);
+      assert.match(html, /<details><summary>미션 안내<\/summary>/);
       if (state === 'COMPLETED') assert.match(html, /글자 획득 완료/);
       else assert.doesNotMatch(html, /글자 획득 완료|letter-sparkle/);
       if (state === 'PENDING') assert.match(html, /진행 중이에요/);
@@ -125,7 +125,7 @@ test('five cards use two desktop columns with a half-width final card and one mo
 });
 
 test('location hints preserve future configured text without inventing a floor', () => {
-  const html = renderToStaticMarkup(createElement(MissionProgress, { mission: { ...missions[0], hint: '테스트 전용 위치 안내' }, signedIn: false, data: {preview:false,progress:lockedProgress,nickname:null} }));
+  const html = renderToStaticMarkup(createElement(MissionProgress, { mission: { ...missions[1], hint: '테스트 전용 위치 안내' }, signedIn: false, data: {preview:false,progress:lockedProgress,nickname:null} }));
   assert.match(html, /테스트 전용 위치 안내/);
   assert.doesNotMatch(html, /위치는 현장 안내|미션 주소만으로/);
 });

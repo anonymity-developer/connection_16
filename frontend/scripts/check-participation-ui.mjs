@@ -57,6 +57,7 @@ try {
       assert.equal(req.headers()['x-xsrf-token'], 'contract-csrf');
       const body = req.postDataJSON();
       if (path === '/auth/login') { signedIn = true; return reply(200, user()); }
+      if (path === '/tags/inspect') { if(!body.token && !pending)return reply(404,{code:'TAG_INTENT_EXPIRED',message:'태그 연결이 만료됐어요. 현장 태그를 다시 읽어주세요.'}); return reply(200,{missionCode:'SYNC_ME',letter:'S',title:'SYNC ME'}); }
       if (path === '/tags/pending') { assert.equal(body.token, token); pending = true; return reply(202); }
       if (path === '/tags/resume' || path === '/tags/resolve') {
         resolves++;
@@ -125,9 +126,11 @@ try {
   await page.locator('form[aria-busy="true"]').waitFor(); assert.equal(await page.getByRole('button', { name: '저장 중…', exact: true }).isEnabled(), false);
   releaseSave(); heldSave = null; await page.waitForURL('**/me');
   assert.equal(saves, 1); assert.equal(completed, true);
+  await page.getByRole('dialog',{name:'첫 번째 S를 획득했어요',exact:true}).waitFor();
+  await page.getByRole('button',{name:'계속 참여하기',exact:true}).click();
   await visit('/'); await page.getByRole('progressbar', { name: '나의 글자 수집' }).waitFor();
   assert.equal(await page.getByRole('progressbar').getAttribute('aria-valuenow'), '1');
-  await page.getByText('S를 획득했어요!', { exact: true }).waitFor();
+  assert.equal(await page.getByText('S를 획득했어요!', { exact: true }).count(),0,'already acknowledged first S does not announce twice');
   assert.equal(await page.locator('input[name="realName"],input[name="classNo"]').count(), 0);
   record('profile imports readonly identity, groups domain and stack interests, requires one acknowledgement and automatically awards the first S without a tag');
 
@@ -148,7 +151,7 @@ try {
   await page.getByRole('button', { name: '로그인하기', exact: true }).click(); await page.waitForURL('**/me');
   await page.getByRole('link', { name: '프로필 등록하기', exact: true }).click(); await fill(); await agree();
   await page.getByRole('button', { name: '프로필 저장하기', exact: true }).click(); await page.waitForURL('**/t/resume');
-  await page.reload(); await page.getByRole('button', { name: '태그로 미션 열기', exact: true }).click(); await page.waitForURL('**/missions/sync-me');
+  await page.reload(); await page.getByRole('button', { name: '취향 알아보기', exact: true }).click(); await page.waitForURL('**/missions/sync-me');
   assert.equal(completed, true); assert.equal(pending, false);
   assert.deepEqual(await page.evaluate(() => ({ local: Object.entries(localStorage), session: sessionStorage.length })), {
     local: [['tagme:collection-celebration:1', 'SHOW_ME']], session: 0,
@@ -169,7 +172,7 @@ try {
   sourceReady = false; await visit('/me/profile'); await page.getByRole('heading', { name: 'Mattermost 정보를 다시 확인해 주세요', exact: true }).waitFor();assert.equal(await page.locator('input[name="nickname"]').count(), 0);sourceReady = true;
   record('nickname-only onboarding accepts empty optional fields and unavailable photos; missing source identity requires login rather than manual names');
 
-  pending = false; await visit('/t/resume'); await page.getByRole('button', { name: '태그로 미션 열기', exact: true }).click();
+  pending = false; await visit('/t/resume');
   await page.getByRole('alert').waitFor(); assert.ok((await page.getByRole('alert').innerText()).includes('만료'));
   ready = false; await visit('/me/profile'); await page.getByRole('heading', { name: '참여 안내를 준비하고 있어요', exact: true }).waitFor();
   assert.equal(await page.locator('input[name="nickname"]').count(), 0);
@@ -178,7 +181,7 @@ try {
   assert.equal(await page.locator('meta[name="referrer"]').getAttribute('content'), 'no-referrer');
   record('expired tag, unconfigured policies and collection failure never advance or display fake counts');
   assert.deepEqual(pageErrors, []); assert.deepEqual(routeErrors, []);
-  assert.equal(resolves, 2, 'one SYNC resume and one expired resume; automatic SHOW ME never resolves a tag');
+  assert.equal(resolves, 1, 'only valid SYNC resolves; expired intent is rejected by metadata inspection and SHOW ME never resolves a tag');
   await writeFile(resolve(output, 'participation-contract-checks.json'), JSON.stringify({ kind: 'browser API contract fixtures; no real participants, policies or event tags', checks, pageErrors, routeErrors }, null, 2));
   const inspector = resolve('../.taste-skill/profile-render'); await mkdir(inspector, { recursive: true }); const launcher = process.platform === 'win32' ? chromium.executablePath() : resolve(inspector, 'chromium.sh'); if (process.platform !== 'win32') { await writeFile(launcher, `#!/usr/bin/env bash\nexec "${chromium.executablePath()}" --no-sandbox "$@"\n`); await chmod(launcher, 0o700); }
   await new Promise((done, reject) => { const child = spawn(process.execPath, ['scripts/taste.mjs', 'inspect', 'http://127.0.0.1:4373/me/profile', '--app', '--widths', '1440,768,390', '--out', '.taste-skill/profile-render'], { cwd: resolve('..'), env: { ...process.env, CHROME_PATH: launcher }, stdio: 'inherit' }); child.on('error', reject); child.on('exit', code => code === 0 ? done() : reject(new Error(`Profile render check exited ${code}`))); });

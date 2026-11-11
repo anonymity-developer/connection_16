@@ -10,7 +10,8 @@ const output = resolve('../output/playwright'); await mkdir(output, { recursive:
 const server = await preview({ preview: { host: '127.0.0.1', port: 4473, strictPort: true } }); let browser;
 try {
   browser = await chromium.launch(); const page = await browser.newPage({ viewport: { width: 390, height: 900 } });
-  const pageErrors = [], routeErrors = [], checks = []; page.on('pageerror', error => pageErrors.push(error.message));
+  const pageErrors = [], routeErrors = [], checks = []; await page.addLocatorHandler(page.locator('.mission-earned-actions'), async () => { await page.getByRole('button', {name:'계속 참여하기',exact:true}).click(); });
+  page.on('pageerror', error => pageErrors.push(error.message));
   let sync = null, available = true, changed = false, state = { officialAvailable: true, attempt: null }, starts = 0, finishes = 0, cancels = 0, key = null, failStart = false, cancelledReplay = false, cancelRace = false, failFinish = false, submitted = null, locked = false, resultReads = 0;
   const codes = ['SHOW_ME', 'SYNC_ME', 'MAKE_A_WISH', 'FAST_TAP', 'SAY_SOMETHING'];
   const questions = { available: true, version: 'test-v1', title: '테스트 전용 취향 질문', questions: [{ id: 'q1', text: '테스트용 첫 번째 선택', options: [{ id: 'a', label: '먼저 말 걸기' }, { id: 'b', label: '먼저 들어보기' }] }, { id: 'q2', text: '테스트용 두 번째 선택', options: [{ id: 'a', label: '같이 만들기' }, { id: 'b', label: '깊게 살펴보기' }] }] };
@@ -108,7 +109,7 @@ try {
     for(const slug of ['sync-me','fast-tap']) {
       const before=resultReads;
       await visit('/missions/'+slug); await page.waitForLoadState('networkidle');
-      await page.getByText('현장 NFC·QR로 참여해요. 상세 페이지를 여는 것만으로는 해금되지 않아요.',{exact:true}).waitFor();
+      await page.getByText('현장의 NFC 태그를 찾아 휴대폰을 가까이 대주세요.',{exact:true}).waitFor();
       assert.equal(await page.locator('.tap-panel, .sync-question-list, .sync-result, .tap-area').count(),0);
       assert.equal(resultReads,before,'locked result missions do not load game APIs');
     }

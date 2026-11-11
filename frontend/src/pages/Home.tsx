@@ -80,7 +80,7 @@ export function Home({ data }: { data: ScreenData }) {
   const auth = useAuth();
   const participation = useParticipation();
   return <div className="page home-page participant-page">
-    <div className="page-heading home-welcome"><div><p className="context-label">엘리베이터를 기다리는 짧은 틈, 새로운 동료를 만나요.</p><h1>태그로 시작하는 연결</h1><p>태그 한 번, 우리 사이 한 걸음.</p></div><div className="home-artwork"><ConnectionStickers className="welcome-stickers" /><WinterDecor /></div></div>
+    <div className="page-heading home-welcome"><div><h1>태그를 찾고, SSAFY를 모아요</h1><p>곳곳의 NFC 태그를 찾아 미션을 완료하고, 새로운 동료를 만나보세요.</p></div><div className="home-artwork"><ConnectionStickers className="welcome-stickers" /><WinterDecor /></div></div>
     {!data.preview && auth.user && participation.error && <div className="collection-error" role="alert"><p>{participation.error}</p><button className="text-button" onClick={() => void participation.refresh()}>기록 다시 불러오기</button></div>}
     <div className="home-overview" aria-busy={participation.loading}><Collection key={data.preview ? 'preview' : auth.user?.id ?? 'guest'} data={data} celebrations={data.preview ? null : participation.celebrations} />
 
