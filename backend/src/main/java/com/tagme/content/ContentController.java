@@ -20,11 +20,11 @@ public class ContentController {
     @GetMapping("/wishes") public Feed wishes(@RequestParam(required=false) Long cursor) { return service.feed(Kind.WISH,cursor); }
     @GetMapping("/cheers") public Feed cheers(@RequestParam(required=false) Long cursor) { return service.feed(Kind.CHEER,cursor); }
     @PostMapping("/wishes") @ResponseStatus(HttpStatus.ACCEPTED)
-    public OwnSlot addWish(Authentication auth,@RequestHeader("Idempotency-Key") String key,@Valid @RequestBody Submit body) { return service.submit(actor(auth),Kind.WISH,key,body,false); }
+    public OwnSlot addWish(Authentication auth,@RequestHeader("Idempotency-Key") String key,@Valid @RequestBody Submit body,@RequestHeader(value="X-Participation-Generation",defaultValue="0") long generation) { return service.submit(actor(auth),Kind.WISH,key,body,false,generation); }
     @PostMapping("/cheers") @ResponseStatus(HttpStatus.ACCEPTED)
-    public OwnSlot addCheer(Authentication auth,@RequestHeader("Idempotency-Key") String key,@Valid @RequestBody Submit body) { return service.submit(actor(auth),Kind.CHEER,key,body,false); }
+    public OwnSlot addCheer(Authentication auth,@RequestHeader("Idempotency-Key") String key,@Valid @RequestBody Submit body,@RequestHeader(value="X-Participation-Generation",defaultValue="0") long generation) { return service.submit(actor(auth),Kind.CHEER,key,body,false,generation); }
     @PutMapping("/wishes/me") @ResponseStatus(HttpStatus.ACCEPTED)
-    public OwnSlot editWish(Authentication auth,@RequestHeader("Idempotency-Key") String key,@Valid @RequestBody Submit body) { return service.submit(actor(auth),Kind.WISH,key,body,true); }
+    public OwnSlot editWish(Authentication auth,@RequestHeader("Idempotency-Key") String key,@Valid @RequestBody Submit body,@RequestHeader(value="X-Participation-Generation",defaultValue="0") long generation) { return service.submit(actor(auth),Kind.WISH,key,body,true,generation); }
     @PutMapping("/cheers/me") @ResponseStatus(HttpStatus.ACCEPTED)
-    public OwnSlot editCheer(Authentication auth,@RequestHeader("Idempotency-Key") String key,@Valid @RequestBody Submit body) { return service.submit(actor(auth),Kind.CHEER,key,body,true); }
+    public OwnSlot editCheer(Authentication auth,@RequestHeader("Idempotency-Key") String key,@Valid @RequestBody Submit body,@RequestHeader(value="X-Participation-Generation",defaultValue="0") long generation) { return service.submit(actor(auth),Kind.CHEER,key,body,true,generation); }
 }

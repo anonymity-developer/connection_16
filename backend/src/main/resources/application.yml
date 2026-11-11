@@ -62,6 +62,7 @@ tagme:
     bootstrap-id: ${ADMIN_BOOTSTRAP_ID:}
     bootstrap-password: ${ADMIN_BOOTSTRAP_PASSWORD:}
   moderation:
+    enabled: false
     provider: ${TAGME_MODERATION_PROVIDER:NONE}
     gms-base-url: ${TAGME_GMS_BASE_URL:}
     gms-key: ${GMS_KEY:}

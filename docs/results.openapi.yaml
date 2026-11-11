@@ -2,7 +2,7 @@ openapi: 3.1.0
 info:
   title: TAG ME SYNC/FAST TAP API
   version: 0.4.1
-  description: 정책/프로필/해금/기간을 서버 확인. 문항은 운영자가 버전별 별도 등록. 순위/관리자 검토·재도전은 후속.
+  description: 정책/프로필/해금/기간을 서버 확인. TAP은 정상/무효를 자동 판정한다. 변경 요청은 수집판의 resetGeneration을 X-Participation-Generation 헤더로 전송하며 초기화 전 요청은 409다.
 servers:
 - url: /api/v1
 paths:
@@ -305,6 +305,7 @@ components:
           - CANCELLED
           - INTERRUPTED
           - VALID
+          - INVALID
           - REVIEW_REQUIRED
           - EXPIRED
         serverNow:

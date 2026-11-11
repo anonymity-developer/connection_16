@@ -57,7 +57,8 @@ public class OperationsService {
                     "최종 스냅샷 확정·정정·공개·지급 정책 미확정: 잠정 조회만 제공"));
         });
     }
-    public Access access(AuthPrincipal actor) { return tx.execute(s->{admin(actor);return new Access(true);}); }
+    @org.springframework.beans.factory.annotation.Value("${tagme.moderation.enabled:false}") private boolean moderationEnabled;
+    public Access access(AuthPrincipal actor) { return tx.execute(s->{admin(actor);return new Access(true,moderationEnabled);}); }
     private int size(Integer limit) { int size=limit==null?20:limit;if(size<1||size>50)throw error(400,"INVALID_FILTER","한 번에 최대 50건까지 확인할 수 있어요.");return size; }
     private long cursor(Long cursor,long fallback) { if(cursor!=null&&cursor<1)throw error(400,"INVALID_FILTER","목록 위치를 확인해 주세요.");return cursor==null?fallback:cursor; }
     private String filter(String value,List<String> allowed) { if(value!=null&&!allowed.contains(value))throw error(400,"INVALID_FILTER","목록 조건을 확인해 주세요.");return value; }
@@ -81,7 +82,7 @@ public class OperationsService {
         return tx.execute(s->{admin(actor);var ids=repository.contentIds(before,size+1,k,v);var rows=ids.stream().limit(size).map(id->snapshot(content.item(id,false))).toList();return new Page<>(rows,ids.size()>size?ids.get(size-1):null);});
     }
     public Page<Audit> audits(AuthPrincipal actor,Long cursor,Integer limit,String action) {
-        access(actor);int size=size(limit);long before=cursor(cursor,Long.MAX_VALUE);String a=filter(action,List.of("MODERATION_DECISION","MODERATION_RETRY","CONTENT_VISIBILITY"));
+        access(actor);int size=size(limit);long before=cursor(cursor,Long.MAX_VALUE);String a=filter(action,List.of("MODERATION_DECISION","MODERATION_RETRY","CONTENT_VISIBILITY","GAME_PARTICIPATION_RESET"));
         return tx.execute(s->{admin(actor);var rows=audit.list(before,size+1,a);return new Page<>(rows.stream().limit(size).toList(),rows.size()>size?rows.get(size-1).id():null);});
     }
     private long[] owners(AuthPrincipal actor,Item item) {
@@ -98,6 +99,7 @@ public class OperationsService {
         });
     }
     public void retry(AuthPrincipal actor,long id,long expectedFence,String reason) {
+        access(actor);if(!moderationEnabled)throw error(409,"MODERATION_DISABLED","현재는 검수 없이 바로 공개해요.");
         access(actor);reason(reason);if(expectedFence<0)throw error(400,"INVALID_RETRY","검수 버전을 확인해 주세요.");var selected=content.job(id,false);if(selected==null)throw error(404,"JOB_NOT_FOUND","검수 작업을 찾을 수 없어요.");long[] owners=owners(actor,content.item(selected.itemId(),false));
         limits.check("admin-operation",Long.toString(actor.userId()),60,60);
         tx.executeWithoutResult(s->{mutateGuard(actor,owners);var item=content.item(selected.itemId(),true);var job=content.job(id,true);

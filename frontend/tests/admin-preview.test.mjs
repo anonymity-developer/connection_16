@@ -38,14 +38,13 @@ test('all preview content, comments, hearts, profile and SYNC actions work with 
     const saved = await runtime.content.submit('wishes', false, 'same-key', wish);
     assert.deepEqual(await runtime.content.submit('wishes', false, 'same-key', wish), saved);
     await assert.rejects(runtime.content.submit('wishes', false, 'same-key', { ...wish, content: '다른 내용' }));
-    assert.equal((await runtime.content.feed('wishes')).items.some(row => row.id === saved.id), false);
-    sandbox.moderate('wishes', 'APPROVED');
+    assert.equal(saved.pendingRevision, null);
+    assert.equal(saved.missionCompleted, true);
     assert.equal((await runtime.content.feed('wishes')).items.find(row => row.id === saved.id).content, wish.content);
     await runtime.reactions.submit(saved.id, 'comment-key', '댓글 검사', true);
     await runtime.reactions.submit(saved.id, 'comment-key', '댓글 검사', true);
     assert.equal((await runtime.reactions.own(saved.id)).items.length, 1);
-    assert.equal((await runtime.reactions.comments(saved.id)).items.length, 0);
-    sandbox.moderateComments();
+    assert.equal((await runtime.reactions.comments(saved.id)).items.length, 1);
     assert.equal((await runtime.reactions.comments(saved.id)).items[0].profileId, null);
     const cheer = (await runtime.content.feed('cheers')).items[0];
     await runtime.reactions.setHeart(cheer.id, true); await runtime.reactions.setHeart(cheer.id, true);

@@ -15,7 +15,7 @@ public final class TapValidation {
         }
         for(var event:interruptions)if(event==null||!List.of("HIDDEN","PAGE_HIDE").contains(event.type())||event.atMs()<-5000||event.atMs()>durationMs+5000)throw new IllegalArgumentException();
         if(!interruptions.isEmpty())return new Verdict("INTERRUPTED","PAGE_INTERRUPTED",taps.size());
-        if(dense)return new Verdict("REVIEW_REQUIRED","UNUSUAL_RATE",taps.size());
+        if(dense)return new Verdict("INVALID","DUPLICATE_MILLISECOND",taps.size());
         return new Verdict("VALID",null,taps.size());
     }
 }

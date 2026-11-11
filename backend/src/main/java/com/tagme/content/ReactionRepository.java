@@ -53,7 +53,7 @@ public class ReactionRepository {
     }
     public OwnComments own(long wish,long user,long cursor) {
         var rows=db.query("""
-            SELECT c.id AS comment_id,c.idempotency_key AS request_key,r.* FROM wish_comments c JOIN content_revisions r ON r.item_id=c.content_item_id
+            SELECT c.id AS comment_id,c.idempotency_key AS request_key,r.* FROM wish_comments c JOIN content_items active ON active.id=c.content_item_id AND active.archived_at IS NULL JOIN content_revisions r ON r.item_id=c.content_item_id
             WHERE c.wish_id=? AND c.author_id=? AND c.id<? ORDER BY c.id DESC LIMIT 21
             """,(r,n)->new OwnComment(r.getLong("comment_id"),r.getString("content_text"),!r.getBoolean("anonymous"),r.getString("moderation_status"),r.getString("reason_code"),r.getTimestamp("submitted_at").toInstant(),r.getString("request_key")),wish,user,cursor);
         var items=rows.stream().limit(20).toList();return new OwnComments(items,rows.size()>20?items.getLast().id():null);

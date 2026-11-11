@@ -35,7 +35,7 @@ import static org.mockito.Mockito.*;
 /** HTTP+real MySQL/Redis rehearsal. Only MM and the external moderation provider are mocked; no fixture-completion rules. */
 @Tag("integration") @Testcontainers
 @SpringBootTest(webEnvironment=SpringBootTest.WebEnvironment.RANDOM_PORT,properties={
-    "tagme.content.worker-enabled=false","spring.data.redis.timeout=1s","spring.data.redis.connect-timeout=1s",
+    "tagme.content.worker-enabled=false","tagme.moderation.enabled=true","spring.data.redis.timeout=1s","spring.data.redis.connect-timeout=1s",
     "spring.datasource.hikari.connection-timeout=2000","spring.datasource.hikari.validation-timeout=1000",
     "spring.datasource.hikari.data-source-properties.socketTimeout=1500","spring.datasource.hikari.data-source-properties.connectTimeout=1500"})
 class EventRehearsalIntegrationTest {

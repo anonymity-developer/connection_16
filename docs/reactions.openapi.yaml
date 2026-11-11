@@ -2,8 +2,7 @@ openapi: 3.1.0
 info:
   title: TAG ME 소원 댓글과 응원 하트 API
   version: 0.4.3
-  description: 읽기는 세션, 쓰기는 CSRF/해금/행사/현재 프로필·동의 필요. 부모·작성자의 현재 공개 상태 필터. 댓글 승인은 미션
-    추가 완료와 분리.
+  description: 읽기는 세션, 쓰기는 CSRF/해금/행사/현재 프로필·동의 필요. 기본 모드에서 댓글은 즉시 공개하며 검수 작업을 만들지 않는다. 쓰기는 X-Participation-Generation 헤더로 현재 세대를 전송한다. 댓글은 미션 글자를 추가 지급하지 않는다.
 servers:
 - url: /api/v1
 paths:

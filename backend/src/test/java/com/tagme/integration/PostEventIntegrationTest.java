@@ -31,7 +31,7 @@ import static org.mockito.Mockito.*;
 
 /** Isolated fixtures only. No MM, live participant data or environment-provided database URL. */
 @Tag("integration") @Testcontainers
-@SpringBootTest(webEnvironment=SpringBootTest.WebEnvironment.RANDOM_PORT,properties="tagme.content.worker-enabled=false")
+@SpringBootTest(webEnvironment=SpringBootTest.WebEnvironment.RANDOM_PORT,properties={"tagme.content.worker-enabled=false","tagme.moderation.enabled=true"})
 class PostEventIntegrationTest {
     @Container static final MySQLContainer<?> MYSQL=new MySQLContainer<>("mysql:8.4").withUrlParam("connectionTimeZone","UTC").withUrlParam("forceConnectionTimeZoneToSession","true");
     @Container static final GenericContainer<?> REDIS=new GenericContainer<>(DockerImageName.parse("redis:7.4-alpine")).withExposedPorts(6379);

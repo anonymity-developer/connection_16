@@ -10,6 +10,24 @@ function withFetch(handler, run) {
   return Promise.resolve().then(run).finally(() => { globalThis.fetch = original; clearCsrf(); });
 }
 const json = (body, status=200) => new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } });
+test('game writes carry the loaded reset generation, keep it after 403 and discard another session’s delayed collection', async () => {
+  let delayed, hold=false, denied=false;const generations=[];
+  await withFetch(async(url,options)=>{
+    if(url.endsWith('/csrf'))return json({headerName:'X-XSRF-TOKEN',token:'fixture'});
+    if(url.endsWith('/missions/collection'))return hold?new Promise(resolve=>{delayed=resolve;}):json({resetGeneration:3});
+    if(url.endsWith('/tap/start')){generations.push(options.headers['X-Participation-Generation']);return json({attemptId:1});}
+    if(denied)return json({code:'SELF_LIKE',message:'test-only rejection'},403);
+    return json({id:1});
+  },async()=>{
+    await authApi.login('fixture','fixture-password-only');await request('/missions/collection');
+    await request('/tap/start','POST');denied=true;
+    await assert.rejects(request('/cheers/1/like','PUT'));denied=false;
+    await request('/tap/start','POST');
+    hold=true;const old=request('/missions/collection');
+    await authApi.login('another-fixture','fixture-password-only');delayed(json({resetGeneration:9}));await old;
+    await request('/tap/start','POST');assert.deepEqual(generations,['3','3','0']);
+  });
+});
 test('writes require CSRF and never send a service password in the URL or CSRF request', async () => {
   const calls=[];
   await withFetch(async(url, options) => {

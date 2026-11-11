@@ -29,7 +29,7 @@ import org.testcontainers.utility.DockerImageName;
 import static org.assertj.core.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
-@Tag("integration") @Testcontainers @SpringBootTest(webEnvironment=SpringBootTest.WebEnvironment.RANDOM_PORT,properties="tagme.content.worker-enabled=false")
+@Tag("integration") @Testcontainers @SpringBootTest(webEnvironment=SpringBootTest.WebEnvironment.RANDOM_PORT,properties={"tagme.content.worker-enabled=false","tagme.moderation.enabled=true"})
 class ReactionIntegrationTest {
     @Container static final MySQLContainer<?> MYSQL=new MySQLContainer<>("mysql:8.4");
     @Container static final GenericContainer<?> REDIS=new GenericContainer<>(DockerImageName.parse("redis:7.4-alpine")).withExposedPorts(6379);

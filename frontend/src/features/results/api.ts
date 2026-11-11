@@ -1,7 +1,7 @@
 import { request } from '../auth/api';
 export interface SyncQuestions { available: boolean; version: string | null; title: string | null; questions: { id: string; text: string; options: { id: string; label: string }[] }[] }
 export interface SyncResult { questionnaireVersion: string; type: { code: string; title: string; description: string }; axisScores: Record<string, number>; submittedAt: string }
-export interface TapAttempt { attemptId: number; generation: number; status: 'COUNTDOWN' | 'PLAYING' | 'AWAITING_SUBMISSION' | 'CANCELLED' | 'INTERRUPTED' | 'VALID' | 'REVIEW_REQUIRED' | 'EXPIRED'; serverNow: string; startsAt: string; endsAt: string; submitDeadline: string; tapCount: number | null; reviewReason: string | null; provisional: boolean }
+export interface TapAttempt { attemptId: number; generation: number; status: 'COUNTDOWN' | 'PLAYING' | 'AWAITING_SUBMISSION' | 'CANCELLED' | 'INTERRUPTED' | 'VALID' | 'INVALID' | 'REVIEW_REQUIRED' | 'EXPIRED'; serverNow: string; startsAt: string; endsAt: string; submitDeadline: string; tapCount: number | null; reviewReason: string | null; provisional: boolean }
 export interface TapState { officialAvailable: boolean; attempt: TapAttempt | null }
 export interface TapPayload { attemptId: number; taps: number[]; interruptions: { type: 'HIDDEN' | 'PAGE_HIDE'; atMs: number }[] }
 export const resultsApi = {

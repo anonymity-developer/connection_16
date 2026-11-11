@@ -21,12 +21,14 @@ public class ModerationService {
     private final ModerationProvider provider;
     private final ReactionRepository reactions;
     private final AdminAuditRepository audit;
+    @org.springframework.beans.factory.annotation.Value("${tagme.moderation.enabled:false}") private boolean moderationEnabled;
     private static final Pattern CONTACT=Pattern.compile("(?i)(?:[a-z0-9._%+-]+@[a-z0-9.-]+\\.[a-z]{2,}|0\\d{1,2}[- .]?\\d{3,4}[- .]?\\d{4}|https?://|www\\.)");
     public ModerationService(ContentRepository repository,ParticipationRepository participation,MissionCompletionService completion,AuthRepository accounts,PlatformTransactionManager manager,ModerationProvider provider,ReactionRepository reactions,AdminAuditRepository audit) {
         this.repository=repository;this.participation=participation;this.completion=completion;this.accounts=accounts;this.tx=new TransactionTemplate(manager);this.provider=provider;this.reactions=reactions;this.audit=audit;
     }
     public Work claim() { return tx.execute(s->repository.claim()); }
     public void processOne() {
+        if(!moderationEnabled)return;
         Work work=claim();if(work==null)return;
         if(work.job().attempts()>3){apply(work,new ModerationProvider.Decision("REVIEW_REQUIRED","RETRY_EXHAUSTED","SYSTEM","rules-v1"));return;}
         try {
@@ -41,7 +43,7 @@ public class ModerationService {
     private boolean token(String value,int max) { return value!=null&&value.length()<=max&&value.matches("[A-Za-z0-9._-]+"); }
     private Job current(Work work) {
         var item=repository.item(work.job().itemId(),true);var job=repository.job(work.job().id(),true);
-        if(job==null||job.fence()!=work.job().fence()||!"PROCESSING".equals(job.status())||job.leaseUntil()==null||!job.leaseUntil().isAfter(repository.now())||item.pendingId()==null||item.pendingId()!=job.revisionId())return null;
+        if(item==null||job==null||job.fence()!=work.job().fence()||!"PROCESSING".equals(job.status())||job.leaseUntil()==null||!job.leaseUntil().isAfter(repository.now())||item.pendingId()==null||item.pendingId()!=job.revisionId())return null;
         return job;
     }
     public void apply(Work work,ModerationProvider.Decision decision) {
@@ -93,6 +95,7 @@ public class ModerationService {
     public OwnSlot review(AuthPrincipal actor,long jobId,ReviewRequest body) {
         if(body.reason()==null||body.reason().isBlank()||body.reason().length()>300||!List.of("APPROVED","REJECTED").contains(body.decision()))throw error(400,"INVALID_REVIEW","판정과 사유를 확인해 주세요.");
         tx.executeWithoutResult(s->admin(actor));
+        if(!moderationEnabled)throw error(409,"MODERATION_DISABLED","현재는 검수 없이 바로 공개해요.");
         var selected=repository.job(jobId,false);if(selected==null)throw error(404,"JOB_NOT_FOUND","검수 작업을 찾을 수 없어요.");
         long[] owners=owners(selected.authorId(),selected.itemId(),actor.userId());
         return tx.execute(s->{

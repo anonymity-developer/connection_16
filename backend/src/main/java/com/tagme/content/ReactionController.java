@@ -17,10 +17,10 @@ public class ReactionController {
     @GetMapping("/wishes/{id}/comments") public Comments comments(@PathVariable long id,@RequestParam(required=false) Long cursor) { return service.comments(id,cursor); }
     @GetMapping("/wishes/{id}/comments/me") public OwnComments own(Authentication auth,@PathVariable long id,@RequestParam(required=false) Long cursor) { return service.own(actor(auth).userId(),id,cursor); }
     @PostMapping("/wishes/{id}/comments") @ResponseStatus(HttpStatus.ACCEPTED)
-    public OwnComment submit(Authentication auth,@PathVariable long id,@RequestHeader("Idempotency-Key") String key,@Valid @RequestBody CommentRequest body) { return service.submit(actor(auth),id,key,body); }
+    public OwnComment submit(Authentication auth,@PathVariable long id,@RequestHeader("Idempotency-Key") String key,@Valid @RequestBody CommentRequest body,@RequestHeader(value="X-Participation-Generation",defaultValue="0") long generation) { return service.submit(actor(auth),id,key,body,generation); }
     @GetMapping("/cheers/likes") public java.util.Map<Long,LikeState> states(Authentication auth,@RequestParam java.util.List<Long> ids) { return service.states(actor(auth),ids); }
     @GetMapping("/cheers/{id}/like") public LikeState state(Authentication auth,@PathVariable long id) { return service.state(actor(auth),id); }
-    @PutMapping("/cheers/{id}/like") public LikeState like(Authentication auth,@PathVariable long id) { return service.like(actor(auth),id,true); }
+    @PutMapping("/cheers/{id}/like") public LikeState like(Authentication auth,@PathVariable long id,@RequestHeader(value="X-Participation-Generation",defaultValue="0") long generation) { return service.like(actor(auth),id,true,generation); }
     @DeleteMapping("/cheers/{id}/like") @ResponseStatus(HttpStatus.NO_CONTENT)
-    public void unlike(Authentication auth,@PathVariable long id) { service.like(actor(auth),id,false); }
+    public void unlike(Authentication auth,@PathVariable long id,@RequestHeader(value="X-Participation-Generation",defaultValue="0") long generation) { service.like(actor(auth),id,false,generation); }
 }

@@ -93,11 +93,11 @@ try {
   assert.equal(await page.getByRole('button', { name: '공식 도전 시작하기 (1회)', exact: true }).count(), 0);
   record('late cancelled response reloads a newer slot from another tab and never offers a fake official chance');
   state={officialAvailable:false,attempt:{...newAttempt(Date.now()-20000),status:'REVIEW_REQUIRED',tapCount:118,reviewReason:'UNUSUAL_RATE'}};
-  await visit('/missions/fast-tap'); await page.getByRole('heading',{name:'기록 저장 완료 · 검토 대기',exact:true}).waitFor();
+  await visit('/missions/fast-tap'); await page.getByRole('heading',{name:'이전 규칙의 기록을 정리하고 있어요',exact:true}).waitFor();
   assert.equal(await page.locator('.tap-score').innerText(),'118회');
-  await page.getByText('탭 수와 입력 기록은 서버에 저장됐어요. 입력 간격 검토 대상으로 분류돼 F 지급과 유효 순위 반영은 보류돼요.',{exact:true}).waitFor();
+  await page.getByText('저장된 입력을 서버가 현재 규칙으로 자동 확인하고 있어요. 잠시 뒤 기록을 새로고침해 주세요.',{exact:true}).waitFor();
   assert.equal(await page.getByText('F를 획득했어요!',{exact:true}).count(),0);
-  await page.reload(); await page.getByRole('heading',{name:'기록 저장 완료 · 검토 대기',exact:true}).waitFor();
+  await page.reload(); await page.getByRole('heading',{name:'이전 규칙의 기록을 정리하고 있어요',exact:true}).waitFor();
   assert.equal(await page.locator('.tap-score').innerText(),'118회');
   await page.setViewportSize({width:390,height:900});
   await page.screenshot({path:resolve(output,'tap-review-stored-390.png'),fullPage:true});

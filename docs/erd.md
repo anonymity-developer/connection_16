@@ -1,5 +1,7 @@
 # 전체 도메인 ERD와 관계 규칙
 
+V12는 `users 1 — N game_participation_resets`(user_id/actor_id FK), 콘텐츠/탭 archived_at과 현재 슬롯 UNIQUE를 추가한다. 초기화 전 결과는 보관하고 현재 참여와 순위에서 제외한다. [현재 공개·초기화 계약](direct-publication-and-reset.md).
+
 V10에서 `users 1 — 0..1 local_admin_accounts`, `users 1 — N connection_sessions`가 추가됐다. local_admin_accounts는 user_id PK/FK·login_id UNIQUE, connection_sessions는 UUID PK·user_id FK·credential_version·started_at/last_seen_at/expires_at/ended_at·end_reason을 가진다. 상세 계약은 [관리자 콘솔](admin-console.md)이다.
 
 이 문서는 읽기 편하게 도메인별로 나눈 전체 설계다. **1~3절의 기본 도식은 V1 테이블이며 1절의 소스 컬럼/관심사 분류는 V9 확장**이며, **1.1절 로그인 확장은 V3다. 8절의 접수/완료 근거와 9절의 동의/행사 설정 일부는 V4, 성향/게임은 V5, 콘텐츠/검수는 V6, 댓글/하트는 V7, 관리자 감사/재처리 한도는 V8 절에 구현했다. 시상/신고와 나머지 활동은 후속 계획**이다. 후속 컬럼/타입은 migration 작성 시 검증하며, 존재하지 않는 FK나 테이블을 이미 적용한 것처럼 사용하지 않는다. 전체 테이블 사전과 인덱스 요약은 [데이터 모델](data-model.md)에 있다.

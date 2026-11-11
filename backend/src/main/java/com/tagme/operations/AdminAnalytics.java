@@ -17,12 +17,14 @@ public class AdminAnalytics {
     public record Overview(long members,long activeMembers,long completeMembers,long activeSessions,long connectedMembers,Long connectionSeconds,Instant trackedSince,List<MissionStat> missions,Instant generatedAt) { }
     public record MissionDetail(String code,String title,String state,Instant unlockedAt,Instant completedAt,boolean participated,String resultStatus,Integer tapCount,String syncType,String moderationStatus) { }
     public record Connection(Instant startedAt,Instant lastSeenAt,Instant expiresAt,Instant endedAt,String status,long seconds) { }
-    public record Detail(Member member,List<MissionDetail> missions,List<Connection> connections,String bio,List<String> interests,String githubUrl,String blogUrl) { }
+    public record Detail(Member member,List<MissionDetail> missions,List<Connection> connections,String bio,List<String> interests,String githubUrl,String blogUrl,long resetGeneration,List<ParticipationResetService.ResetRecord> resets) { }
     public record Rank(long rank,long userId,String nickname,String realName,String region,Integer classNo,long metric,Instant completedAt) { }
     public record Ranking(String mission,String basis,List<Rank> items,long total,int offset,Integer nextOffset) { }
     private final JdbcTemplate db;
     private final OperationsService operations;
-    public AdminAnalytics(JdbcTemplate db,OperationsService operations){this.db=db;this.operations=operations;}
+    private final com.tagme.participation.ParticipationRepository participation;
+    private final ParticipationResetService resets;
+    public AdminAnalytics(JdbcTemplate db,OperationsService operations,com.tagme.participation.ParticipationRepository participation,ParticipationResetService resets){this.db=db;this.operations=operations;this.participation=participation;this.resets=resets;}
     private static Instant time(ResultSet r,String field)throws SQLException {var t=r.getTimestamp(field);return t==null?null:t.toInstant();}
     private static final String PARTICIPANT="NOT EXISTS(SELECT 1 FROM local_admin_accounts la WHERE la.user_id=u.id)";
     private static final String DURATION="GREATEST(0,TIMESTAMPDIFF(SECOND,s.started_at,COALESCE(s.ended_at,LEAST(UTC_TIMESTAMP(6),s.expires_at))))";
@@ -53,7 +55,7 @@ public class AdminAnalytics {
           WHEN 'SHOW_ME' THEN mp.status='COMPLETED'
           WHEN 'SYNC_ME' THEN EXISTS(SELECT 1 FROM sync_results sr WHERE sr.user_id=u.id)
           WHEN 'FAST_TAP' THEN EXISTS(SELECT 1 FROM tap_slots ts WHERE ts.user_id=u.id AND ts.current_attempt_id IS NOT NULL)
-          ELSE EXISTS(SELECT 1 FROM content_items ci WHERE ci.author_id=u.id AND ci.kind=IF(m.code='MAKE_A_WISH','WISH','CHEER')) END
+          ELSE EXISTS(SELECT 1 FROM content_items ci WHERE ci.author_id=u.id AND ci.archived_at IS NULL AND ci.kind=IF(m.code='MAKE_A_WISH','WISH','CHEER')) END
         """;
     @Transactional
     public Overview overview(AuthPrincipal actor){
@@ -77,7 +79,7 @@ public class AdminAnalytics {
             FROM users u CROSS JOIN missions m LEFT JOIN mission_progress mp ON mp.user_id=u.id AND mp.mission_id=m.id
             LEFT JOIN sync_results sr ON sr.user_id=u.id AND m.code='SYNC_ME'
             LEFT JOIN tap_slots ts ON ts.user_id=u.id AND m.code='FAST_TAP' LEFT JOIN tap_attempts t ON t.id=ts.current_attempt_id
-            LEFT JOIN content_items ci ON ci.author_id=u.id AND ci.kind=CASE m.code WHEN 'MAKE_A_WISH' THEN 'WISH' WHEN 'SAY_SOMETHING' THEN 'CHEER' ELSE NULL END
+            LEFT JOIN content_items ci ON ci.author_id=u.id AND ci.archived_at IS NULL AND ci.kind=CASE m.code WHEN 'MAKE_A_WISH' THEN 'WISH' WHEN 'SAY_SOMETHING' THEN 'CHEER' ELSE NULL END
             LEFT JOIN content_revisions cr ON cr.id=COALESCE(ci.pending_revision_id,ci.approved_revision_id)
             WHERE u.id=? ORDER BY m.sort_order
             """,(r,n)->new MissionDetail(r.getString("code"),r.getString("title"),r.getString("state"),time(r,"unlocked_at"),time(r,"completed_at"),r.getBoolean("participated"),r.getString("result_status"),r.getObject("tap_count",Integer.class),r.getString("type_code"),r.getString("moderation_status")),id);
@@ -85,7 +87,7 @@ public class AdminAnalytics {
         var profile=db.queryForList("SELECT bio,github_url,blog_url FROM profiles WHERE user_id=?",id);
         var interests=db.queryForList("SELECT i.name FROM interests i JOIN user_interests ui ON ui.interest_id=i.id WHERE ui.user_id=? ORDER BY i.id",String.class,id);
         var p=profile.isEmpty()?Map.<String,Object>of():profile.getFirst();
-        return new Detail(person,missions,sessions,(String)p.get("bio"),interests,(String)p.get("github_url"),(String)p.get("blog_url"));
+        return new Detail(person,missions,sessions,(String)p.get("bio"),interests,(String)p.get("github_url"),(String)p.get("blog_url"),participation.generation(id),resets.history(id));
     }
     private String eligible(String alias){return alias+".status='ACTIVE' AND "+alias+".mattermost_profile_synced_at IS NOT NULL AND TRIM(COALESCE("+alias+".real_name,''))<>'' AND TRIM(COALESCE("+alias+".region,''))<>'' AND "+alias+".class_no>0 AND EXISTS(SELECT 1 FROM profiles vp WHERE vp.user_id="+alias+".id AND vp.is_public=TRUE AND TRIM(vp.nickname)<>'') AND 2=(SELECT COUNT(*) FROM current_consent_policies cp JOIN user_consents uc ON uc.policy_type=cp.policy_type AND uc.policy_version=cp.policy_version AND uc.user_id="+alias+".id AND uc.withdrawn_at IS NULL)";}
     @Transactional

@@ -69,7 +69,7 @@ try {
   record('analytics, members, moderation, content, audit, awards and results share one sidebar and heading at five widths');
   await page.setViewportSize({ width: 1440, height: 1000 }); await visit('/admin');
   await page.locator('.admin-sidebar').evaluate(element => { element.dataset.continuity = 'same-shell'; });
-  for (const name of ['콘텐츠 검수', '시상 후보', '행사 결과', '미션 미리보기', '참가자', '참여 현황']) {
+  for (const name of ['콘텐츠 관리', '시상 후보', '행사 결과', '미션 미리보기', '참가자', '참여 현황']) {
     const navigation = page.getByRole('navigation', { name: '관리자 메뉴', exact: true });
     await navigation.getByRole('link', { name, exact: true }).click(); await page.getByRole('heading', { name, exact: true, level: 1 }).waitFor(); await page.waitForLoadState('networkidle');
     assert.equal(await page.locator('.admin-sidebar').getAttribute('data-continuity'), 'same-shell');
@@ -90,9 +90,9 @@ try {
     await page.getByLabel('미리 볼 미션', { exact: true }).selectOption(code);
     await page.locator('#content-text').fill('미리보기 동작 확인용 문구');
     await page.getByRole('button', { name: code === 'MAKE_A_WISH' ? '동전 던지기' : '응원 보내기', exact: true }).click();
-    await page.getByText('내가 남긴 글', { exact: true }).waitFor(); await page.getByRole('button', { name: '승인 상태 보기', exact: true }).click(); await page.getByText('공개된 글', { exact: true }).waitFor();
+    await page.getByText('공개된 글', { exact: true }).waitFor();
   }
-  record('real wish and cheer components show pending and approved revisions without live moderation or content writes');
+  record('real wish and cheer components publish submitted wishes and cheers immediately in memory with no live content writes');
   const cheer = page.locator('article').filter({ hasText: '관리자 미리보기 예시 응원입니다.' });
   await cheer.getByRole('button', { name: '하트 남기기', exact: true }).click(); await cheer.getByText('하트 1개', { exact: true }).waitFor();
   await cheer.getByRole('button', { name: '하트 취소하기', exact: true }).click(); await cheer.getByText('하트 0개', { exact: true }).waitFor();
@@ -105,10 +105,7 @@ try {
   }
   await openCloudWish();
   await wish.getByRole('button', { name: '댓글 보기', exact: true }).click(); await wish.getByLabel('동료의 소원에 댓글 남기기', { exact: true }).fill('메모리 댓글 승인 확인');
-  await wish.getByRole('button', { name: '댓글 남기기', exact: true }).click(); await wish.getByText('확인 중', { exact: true }).waitFor();
-  await page.getByRole('button', { name: '댓글 승인 상태 보기', exact: true }).click();
-  await openCloudWish();
-  await wish.getByRole('button', { name: '댓글 보기', exact: true }).click(); await wish.locator('.comment-list').first().getByText('메모리 댓글 승인 확인', { exact: true }).waitFor();
+  await wish.getByRole('button', { name: '댓글 남기기', exact: true }).click(); await wish.getByText('공개됨', { exact: true }).waitFor(); await wish.locator('.comment-list').first().getByText('메모리 댓글 승인 확인', { exact: true }).waitFor();
   record('shared fountain, comments and heart controls run entirely in preview memory');
   await page.getByLabel('미리 볼 미션', { exact: true }).selectOption('SHOW_ME'); await page.getByLabel('닉네임', { exact: true }).fill('미리보기 첫인사'); await page.getByRole('checkbox', { name: '참여 안내와 상세 정보 공개 범위를 확인했어요.', exact: true }).check(); await page.getByRole('button', { name: '프로필 저장하기', exact: true }).click(); await page.getByText('미리보기 프로필을 저장했어요.', { exact: false }).waitFor();
   await page.getByRole('heading', { name: '첫 번째 S 준비하기', exact: true }).waitFor();

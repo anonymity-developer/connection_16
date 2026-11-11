@@ -8,7 +8,7 @@ import java.util.List;
 public final class OperationsModels {
     private OperationsModels() { }
     public record Page<T>(List<T> items,Long nextCursor) { }
-    public record Access(boolean admin) { }
+    public record Access(boolean admin,boolean moderationEnabled) { }
     public record Task(ReviewTask review,Kind kind,String visibility,long version,int retryCount) { }
     public record Content(long id,Kind kind,long authorId,String visibility,long version,Long parentWishId,
                           Revision approvedRevision,Revision pendingRevision,Revision latestRevision) { }

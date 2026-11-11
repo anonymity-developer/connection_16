@@ -336,11 +336,14 @@ components:
       type: object
       additionalProperties: false
       properties:
+        moderationEnabled:
+          type: boolean
         admin:
           type: boolean
           const: true
       required:
       - admin
+      - moderationEnabled
     Task:
       type: object
       additionalProperties: false
