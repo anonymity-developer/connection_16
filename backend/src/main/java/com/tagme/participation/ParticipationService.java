@@ -38,6 +38,11 @@ public class ParticipationService {
         catch (NoSuchAlgorithmException impossible) { throw new IllegalStateException(impossible); }
     }
     public Event event() { return repository.event(false); }
+    @Transactional(readOnly=true)
+    public TagInspection inspectTag(String hash,String ip) {
+        limits.check("tag-inspect-ip",ip,30,60);
+        return repository.inspectTag(hash);
+    }
     public String pendingHash(String token,String ip) {
         limits.check("tag-intent-ip",ip,30,60); return tokenHash(token);
     }

@@ -151,6 +151,11 @@ public class ParticipationRepository {
         return db.query("SELECT m.code FROM tags t JOIN missions m ON m.id=t.mission_id WHERE t.token_hash=? AND t.active=TRUE FOR SHARE",(row,n) -> MissionCode.valueOf(row.getString("code")),hash)
                 .stream().findFirst().orElseThrow(() -> error(404,"TAG_NOT_FOUND","태그를 확인할 수 없어요. 현장 안내를 확인해 주세요."));
     }
+    public TagInspection inspectTag(String hash) {
+        return db.query("SELECT m.code,m.letter,m.title FROM tags t JOIN missions m ON m.id=t.mission_id WHERE t.token_hash=? AND t.active=TRUE AND m.active=TRUE",
+            (row,n)->new TagInspection(MissionCode.valueOf(row.getString("code")),row.getString("letter"),row.getString("title")),hash)
+            .stream().findFirst().orElseThrow(()->error(404,"TAG_NOT_FOUND","태그를 확인할 수 없어요. 현장 안내를 확인해 주세요."));
+    }
     public void activeMission(long id) {
         var active = db.queryForObject("SELECT active FROM missions WHERE id=? FOR SHARE",Boolean.class,id);
         if (!Boolean.TRUE.equals(active)) throw error(403,"MISSION_INACTIVE","지금은 사용할 수 없는 미션이에요.");

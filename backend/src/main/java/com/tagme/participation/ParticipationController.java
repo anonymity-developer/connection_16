@@ -19,6 +19,9 @@ public class ParticipationController {
     public record TagRequest(@NotBlank @Pattern(regexp="[A-Za-z0-9_-]{43}") String token) {
         @Override public String toString() { return "TagRequest[redacted]"; }
     }
+    public record TagInspectionRequest(@Pattern(regexp="[A-Za-z0-9_-]{43}") String token) {
+        @Override public String toString(){return "TagInspectionRequest[redacted]";}
+    }
     public record Acceptance(@NotNull PolicyType type,@NotBlank @Pattern(regexp="[A-Za-z0-9._-]{1,64}") String version) { }
     public record ConsentRequest(@NotBlank @Pattern(regexp="[A-Za-z0-9._-]{1,64}") String version,@NotNull Boolean agreed) { }
     public record ProfileRequest(@NotBlank @Size(max=30) String nickname,@Size(max=200) String bio,
@@ -43,6 +46,17 @@ public class ParticipationController {
     public record ShowMeReconciled(boolean newlyCompleted) { }
     @PostMapping("/missions/show-me/reconcile") public ShowMeReconciled reconcile(Authentication auth) { return new ShowMeReconciled(service.reconcileShowMe(principal(auth))); }
     @PostMapping("/tags/resolve") public TagResult resolve(Authentication auth,@Valid @RequestBody TagRequest body) { return service.resolve(principal(auth),ParticipationService.tokenHash(body.token())); }
+    // Metadata only. No unlock, receipt, profile or completion write, including before login.
+    @PostMapping("/tags/inspect") public TagInspection inspect(HttpServletRequest request,@Valid @RequestBody TagInspectionRequest body) {
+        String hash;
+        if(body.token()!=null)hash=ParticipationService.tokenHash(body.token());
+        else {
+            var pending=pendingTag(request);
+            if(pending==null)throw ParticipationRepository.error(404,"TAG_INTENT_EXPIRED","태그 연결이 만료됐어요. 현장 태그를 다시 읽어주세요.");
+            hash=pending.hash();
+        }
+        return service.inspectTag(hash,request.getRemoteAddr());
+    }
     @PostMapping("/tags/pending") @ResponseStatus(HttpStatus.ACCEPTED)
     public void pending(HttpServletRequest request,@Valid @RequestBody TagRequest body) {
         // Anonymous intent only: no tag lookup or unlock. Session ID rotation preserves this hash.
