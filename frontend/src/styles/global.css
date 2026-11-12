@@ -423,6 +423,8 @@ p { word-break: keep-all; overflow-wrap: anywhere; }
 .visit-stats dd { font-size: 30px; line-height: 1.4; margin: 4px 0 0; font-variant-numeric: tabular-nums; }
 .visit-stats dd span { font-size: 13px; margin-left: 6px; color: var(--muted); }
 .people-filters { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 16px; margin-bottom: 32px; }
+.discovery-recommendation-heading { align-items: center; }
+@media (max-width: 480px) { .discovery-page .discovery-refresh { padding-inline: 0; flex-shrink: 0; } }
 .people-filters > div { flex: 1 1 200px; display: grid; gap: 8px; }
 .people-filters input,.people-filters select { width: 100%; min-height: 48px; padding: 10px 12px; border: 1px solid var(--control); border-radius: var(--control-radius); background: var(--surface); color: var(--ink); font: inherit; font-size: 16px; }
 .people-list { list-style: none; padding: 0; margin: 20px 0 28px; }

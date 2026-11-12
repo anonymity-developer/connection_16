@@ -175,6 +175,8 @@ class DirectPublicationResetIntegrationTest {
     }
     @Test void anonymousLikesAndCommentsBoostRecommendationsWithoutDisclosingIdentitySignals() {
         var peer=participant("recommend-peer");
+        // Explicit 5-point class advantage; no dependency on a particular tie lottery outcome.
+        db.update("UPDATE users SET class_no=class_no+1 WHERE id=?",peer.userId());
         assertThat(discovery.recommended(alice).getFirst().id()).isEqualTo(peer.userId());
         var cheer=content.submit(bob,CHEER,UUID.randomUUID().toString(),text("익명 응원",null),false);
         reactions.like(alice,cheer.id(),true);

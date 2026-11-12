@@ -12,7 +12,7 @@ try {
   const codes = ['SHOW_ME', 'SYNC_ME', 'MAKE_A_WISH', 'FAST_TAP', 'SAY_SOMETHING'];
   const blank = { id: null, version: 0, visibility: null, approvedRevision: null, pendingRevision: null, latestRevision: null, missionCompleted: false, luckScore: null, landingZone: null };
   let signedIn = false, required = false, empty = false, hidden = false, unsafe = false, failOpen = false, discoveryReads = 0, opens = 0, holdCursor = false, releaseCursor = null;
-  const visited = new Set(), inbound = new Set([3]);
+  const visited = new Set(), inbound = new Set([3]), recommendationSeeds = [];
   const rawPeople = [2, 3, 4].map(id => ({ id, nickname: id === 2 ? '테스트_%!' : id === 3 ? '테스트 달' : '테스트' + '가'.repeat(27), interests: [{ id: 1, name: '백엔드' }, { id: 2, name: '데이터' }], type: id === 2 ? { code: 'I', title: '테스트 취향', version: 'test-v1' } : null, sharedInterests: id === 2 ? ['백엔드'] : [], sameType: id === 2 }));
   const person = id => ({ ...rawPeople.find(p => p.id === id), visited: visited.has(id), visitedMe: inbound.has(id), mutual: visited.has(id) && inbound.has(id) });
   const stats = () => empty ? { visitedCount: 0, visitorCount: 0, mutualCount: 0 } : { visitedCount: visited.size, visitorCount: inbound.size, mutualCount: [...visited].filter(id => inbound.has(id)).length };
@@ -32,7 +32,7 @@ try {
         discoveryReads++; assert.equal(signedIn, true);
         if (required) return reply(409, { code: 'PROFILE_REQUIRED', message: '내 프로필과 현재 공개 동의를 먼저 확인해 주세요.' });
         if (method === 'GET' && path === '/discovery/stats') return reply(200, stats());
-        if (method === 'GET' && path === '/discovery/recommendations') return reply(200, empty ? [] : [person(4), person(3), person(2)]);
+        if (method === 'GET' && path === '/discovery/recommendations') { recommendationSeeds.push(url.searchParams.get('seed')); return reply(200, empty ? [] : [person(4), person(3), person(2)]); }
         if (method === 'GET' && path === '/discovery/people') {
           if (empty) return reply(200, { items: [], nextCursor: null });
           const cursor = url.searchParams.get('cursor'), q = url.searchParams.get('q');
@@ -75,8 +75,16 @@ try {
   assert.equal(discoveryReads,0);assert.equal(opens,0);
   record('anonymous navigation shows login without fetching discovery data or opening a profile');
   signedIn = true; await page.reload(); await page.locator('.person-row').first().waitFor(); assert.equal(await page.getByText('테스트 실명2', { exact: true }).count(), 0); assert.equal(opens, 0); assert.equal(await page.locator('img').count(), 0);
-  for (const width of [360, 390, 430, 768, 1440]) { await page.setViewportSize({ width, height: 900 }); assert.deepEqual(await headingMetrics(),guestHeadings.get(width),'guest and participant share the same heading layout'); assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth), false); for (const h of await page.locator('h1,h2').all()) assert.ok(await h.evaluate(el => el.getBoundingClientRect().height / Number.parseFloat(getComputedStyle(el).lineHeight) <= 2.1)); await page.screenshot({ path: resolve(output, `discovery-${width}.png`), fullPage: true }); }
+  for (const width of [360, 390, 430, 768, 1440]) { await page.setViewportSize({ width, height: 900 }); assert.deepEqual(await headingMetrics(),guestHeadings.get(width),'guest and participant share the same heading layout'); const action=await page.locator('.discovery-refresh').boundingBox(), title=await page.locator('#people-heading').boundingBox(); assert.ok(Math.abs(action.y+action.height/2-title.y-title.height/2)<2,'recommendation title and refresh stay on one row'); assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth), false); for (const h of await page.locator('h1,h2').all()) assert.ok(await h.evaluate(el => el.getBoundingClientRect().height / Number.parseFloat(getComputedStyle(el).lineHeight) <= 2.1)); await page.screenshot({ path: resolve(output, `discovery-${width}.png`), fullPage: true }); }
   await page.setViewportSize({ width: 390, height: 900 }); record('recommendations show only public nicknames, real reasons and server counts at five widths');
+  await visit('/discovery?seed=batch-a'); await page.locator('.person-row').first().waitFor();
+  assert.equal(recommendationSeeds.at(-1), 'batch-a');
+  assert.equal(await page.getByText('관심사·취향 유형·교류와 새로운 만남을 함께 고려해 추천해요.', {exact:true}).count(), 1);
+  await page.reload(); await page.locator('.person-row').first().waitFor(); assert.equal(recommendationSeeds.at(-1), 'batch-a');
+  await page.getByRole('button', {name:'다른 동료 추천받기',exact:true}).click(); await page.locator('.person-row').first().waitFor();
+  const nextSeed=new URL(page.url()).searchParams.get('seed'); assert.match(nextSeed,/^[0-9a-f-]{36}$/); assert.equal(recommendationSeeds.at(-1),nextSeed);
+  await page.goBack(); await page.locator('.person-row').first().waitFor(); assert.equal(recommendationSeeds.at(-1),'batch-a'); assert.equal(opens,0);
+  record('recommendation batches keep their seed on reload/back and explicit refresh changes only the seed without recording visits');
   await page.getByRole('link', { name: '전체 동료', exact: true }).click(); await page.getByLabel('닉네임 검색', { exact: true }).fill('테스트_%!'); await page.getByLabel('관심사', { exact: true }).selectOption('1'); await page.getByRole('button', { name: '동료 검색하기', exact: true }).click(); await page.getByRole('link', { name: '테스트_%! 프로필 보기', exact: true }).waitFor(); assert.equal(await page.locator('.person-row').count(), 1);
   await page.goBack(); await page.getByRole('button', { name: '동료 더 보기', exact: true }).waitFor(); assert.equal(await page.getByLabel('닉네임 검색', { exact: true }).inputValue(), '');
   holdCursor = true; await page.getByRole('button', { name: '동료 더 보기', exact: true }).click(); await page.getByLabel('닉네임 검색', { exact: true }).fill('테스트'); await page.getByRole('button', { name: '동료 검색하기', exact: true }).click(); await page.getByRole('button', { name: '동료 더 보기', exact: true }).waitFor(); assert.equal(await page.getByRole('button', { name: '동료 더 보기', exact: true }).isDisabled(), false); assert.ok(releaseCursor); releaseCursor();

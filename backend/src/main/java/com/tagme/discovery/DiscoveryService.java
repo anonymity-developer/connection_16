@@ -28,7 +28,11 @@ public class DiscoveryService {
           ||(type==null)!=(version==null)||(type!=null&&(!type.matches("[A-Z]{1,4}")||!version.matches("[A-Za-z0-9._-]{1,64}"))))throw error(400,"INVALID_FILTER","검색어나 목록 조건을 확인해 주세요.");
         return tx.execute(s->{guard(actor);return repository.people(actor.userId(),cursor==null?Long.MAX_VALUE:cursor,size,q,interest,type,version);});
     }
-    public List<Person> recommended(AuthPrincipal actor) { return tx.execute(s->{guard(actor);return repository.recommended(actor.userId());}); }
+    public List<Person> recommended(AuthPrincipal actor) { return recommended(actor,null); }
+    public List<Person> recommended(AuthPrincipal actor,String seed) {
+        if(seed!=null&&!seed.matches("[A-Za-z0-9_-]{1,64}"))throw error(400,"INVALID_RECOMMENDATION_SEED","추천 목록을 다시 열어 주세요.");
+        return tx.execute(s->{guard(actor);return repository.recommended(actor.userId(),seed==null?"initial":seed);});
+    }
     public Detail open(AuthPrincipal actor,long id) {
         if(id<1)throw error(404,"PROFILE_NOT_FOUND","공개된 프로필을 찾을 수 없어요.");
         limits.check("profile-open-user",Long.toString(actor.userId()),60,60);

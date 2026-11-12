@@ -7,7 +7,7 @@ export interface Stats { visitedCount: number; visitorCount: number; mutualCount
 export interface Graph { self: { id: number; nickname: string }; nodes: Person[]; edges: { from: number; to: number; weight?: number; strength?: string }[]; truncated: boolean }
 export const discoveryApi = {
   people: (filters: URLSearchParams, cursor?: number) => { const query = new URLSearchParams(); for (const key of ['q', 'interestId']) { const value = filters.get(key); if (value) query.set(key, value); } if (cursor) query.set('cursor', String(cursor)); return request<People>(`/discovery/people?${query}`); },
-  recommended: () => request<Person[]>('/discovery/recommendations'),
+  recommended: (seed?: string) => request<Person[]>(`/discovery/recommendations${seed ? `?seed=${encodeURIComponent(seed)}` : ''}`),
   open: (id: number) => request<Detail>(`/discovery/profiles/${id}/open`, 'POST'),
   stats: () => request<Stats>('/discovery/stats'),
   graph: (offset = 0) => request<Graph>(`/discovery/graph?limit=30&offset=${offset}`),
