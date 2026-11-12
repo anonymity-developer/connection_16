@@ -74,6 +74,7 @@ try {
   }
   await page.setViewportSize({ width: 390, height: 900 }); await page.getByRole('button', { name: '결과 확인하기', exact: true }).click();
   await page.getByRole('heading', { name: '나의 성향 결과', exact: true }).waitFor(); await page.locator('.mission-progress-summary').getByText('글자 획득 완료', { exact: true }).waitFor(); assert.equal(await page.getByRole('radio').count(), 0);
+  const character = page.getByRole('img', { name: `${stored.type.title} 캐릭터`, exact: true }); await character.waitFor(); assert.equal(await character.getAttribute('src'), '/images/sync-types/ebp.webp'); assert.equal(await character.evaluate(image => image.naturalWidth), 512);
   await page.getByRole('link', { name: '같은유형 하나', exact: false }).waitFor(); assert.equal(await page.locator('.sync-peer-list a').count(), 2); assert.equal(await page.getByRole('link', { name: '같은유형 하나', exact: false }).getAttribute('href'), '/discovery/profiles/2');
   await page.getByRole('button', { name: '동료 더 보기', exact: true }).click(); await page.getByRole('link', { name: '같은유형 셋', exact: false }).waitFor(); assert.equal(await page.locator('.sync-peer-list a').count(), 3);
   for (const width of [360, 390, 430, 768, 1440]) { await page.setViewportSize({ width, height: 900 }); assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth), false); await page.screenshot({ path: resolve(output, `sync-result-${width}.png`), fullPage: true }); }

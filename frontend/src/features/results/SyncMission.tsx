@@ -11,6 +11,16 @@ import { useMissionRuntime } from '../admin/MissionRuntime';
 import { discoveryApi } from '../discovery/api';
 import type { Person } from '../discovery/api';
 import './sync-result.css';
+export const SYNC_TYPE_CHARACTER_IMAGES: Record<string, string> = {
+  EBP: '/images/sync-types/ebp.webp',
+  EBT: '/images/sync-types/ebt.webp',
+  ELP: '/images/sync-types/elp.webp',
+  ELT: '/images/sync-types/elt.webp',
+  XBP: '/images/sync-types/xbp.webp',
+  XBT: '/images/sync-types/xbt.webp',
+  XLP: '/images/sync-types/xlp.webp',
+  XLT: '/images/sync-types/xlt.webp',
+};
 export function SyncMission() { const participation = useParticipation(), runtime = useMissionRuntime(); return <SyncMissionView api={runtime?.results ?? serverApi} refresh={runtime?.refresh ?? participation.refresh} />; }
 export function SyncMissionView({ api, refresh, stepwise = true, sameTypePeople, onPeerSelect }: { api: typeof serverApi; refresh: () => Promise<void>; stepwise?: boolean; sameTypePeople?: Pick<Person, 'id' | 'nickname'>[]; onPeerSelect?: (id: number) => void }) {
   const resultsApi = api; const participation = { refresh }; const [questionIndex, setQuestionIndex] = useState(0); const [questions, setQuestions] = useState<SyncQuestions | null>(null); const [result, setResult] = useState<SyncResult | null>(null);
@@ -42,11 +52,14 @@ export function SyncMissionView({ api, refresh, stepwise = true, sameTypePeople,
 
 export function SyncResultCard({ result, sameTypePeople, onPeerSelect }: { result: SyncResult; sameTypePeople?: Pick<Person, 'id' | 'nickname'>[]; onPeerSelect?: (id: number) => void }) {
   const preview = !!useMissionRuntime();
+  const characterImage = SYNC_TYPE_CHARACTER_IMAGES[result.type.code];
   return <section className="sync-result sync-result-ticket" aria-labelledby="sync-result-heading">
     <header className="sync-ticket-header"><div><p className="context-label">SYNC ME · 나의 최초 결과</p><h2 id="sync-result-heading">나의 성향 결과</h2></div><LetterSticker code="SYNC_ME" /></header>
 
-    <div className="sync-ticket-type"><span className="sync-ticket-code" aria-label={`성향 코드 ${result.type.code}`}>{result.type.code}</span><p className="sync-type-title">{result.type.title}</p></div>
-    <div className="sync-ticket-description"><p className="context-label">나의 성향 한 줄</p><p>{result.type.description}</p></div>
+    <div className={`sync-ticket-identity${characterImage ? ' has-character' : ''}`}>
+      {characterImage && <img className="sync-type-character" src={characterImage} alt={`${result.type.title} 캐릭터`} width="512" height="512" decoding="async" />}
+      <div className="sync-ticket-summary"><div className="sync-ticket-type"><span className="sync-ticket-code" aria-label={`성향 코드 ${result.type.code}`}>{result.type.code}</span><p className="sync-type-title">{result.type.title}</p></div><div className="sync-ticket-description"><p className="context-label">나의 성향 한 줄</p><p>{result.type.description}</p></div></div>
+    </div>
     {!preview && <SameTypePeers result={result} staticPeople={sameTypePeople} onPeerSelect={onPeerSelect} />}
     <footer className="sync-ticket-footer"><p className="result-footnote">동료와 대화를 시작하기 위한 재미용 성향이에요. 전문적인 성격 진단이 아니며 최초 결과는 다시 바뀌지 않아요.</p>{preview ? <p className="result-footnote">관리자 미리보기 결과예요. 실제 동료 조회나 방문 기록은 만들지 않아요.</p> : <Link className="text-link" href="/discovery">전체 동료 둘러보기<Icon name="arrow" size={16} /></Link>}</footer>
   </section>;

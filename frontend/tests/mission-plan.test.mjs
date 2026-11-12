@@ -3,10 +3,11 @@ import assert from 'node:assert/strict';
 import { createServer } from 'vite';
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
+import { stat } from 'node:fs/promises';
 const server = await createServer({ server: { middlewareMode: true, hmr: false }, appType: 'custom', logLevel: 'error' });
 after(() => server.close());
 const { loadParticipation } = await server.ssrLoadModule('/src/features/participation/refresh.ts');
-const { SyncResultCard } = await server.ssrLoadModule('/src/features/results/SyncMission.tsx');
+const { SyncResultCard, SYNC_TYPE_CHARACTER_IMAGES } = await server.ssrLoadModule('/src/features/results/SyncMission.tsx');
 const { createWishFeedback, WishToss } = await server.ssrLoadModule('/src/features/content/WishToss.tsx');
 const { missions } = await server.ssrLoadModule('/src/features/missions/model.ts');
 const collection = (state = 'LOCKED') => ({ missions: [{ code: 'SHOW_ME', state, active: true }], completedCount: state === 'COMPLETED' ? 1 : 0 });
@@ -45,6 +46,20 @@ test('SYNC result shows the same-type colleague list without using the relations
     assert.match(html, /나와 같은 성향의 동료/);
     assert.match(html, /href="\/discovery"[^>]*>전체 동료 둘러보기/);
     assert.doesNotMatch(html, /graph|궁합|%/);
+  } finally { if(previous === undefined) delete globalThis.window; else globalThis.window = previous; }
+});
+test('all approved SYNC types have a bundled character image and an accessible result image', async () => {
+  const types = { EBP:'따뜻한 전략가', EBT:'다정한 모험가', ELP:'조용한 리더', ELT:'든든한 해결사', XBP:'분위기 조율사', XBT:'에너지 메이커', XLP:'계획형 리더', XLT:'열정 개척자' };
+  const previous = globalThis.window; globalThis.window = { location: { href: 'http://localhost/', origin: 'http://localhost' } };
+  try {
+    assert.deepEqual(Object.keys(SYNC_TYPE_CHARACTER_IMAGES), Object.keys(types));
+    for (const [code, title] of Object.entries(types)) {
+      const path = SYNC_TYPE_CHARACTER_IMAGES[code];
+      assert.ok((await stat(new URL(`../public${path}`, import.meta.url))).size > 0);
+      const html = renderToStaticMarkup(createElement(SyncResultCard, { result: { questionnaireVersion:'test-v1', type: { code, title, description:'테스트 결과' } } }));
+      assert.match(html, new RegExp(`src="${path}"`));
+      assert.match(html, new RegExp(`alt="${title} 캐릭터"`));
+    }
   } finally { if(previous === undefined) delete globalThis.window; else globalThis.window = previous; }
 });
 test('wish feedback deduplicates fulfilled revisions and does not depend on luck or reward completion', () => {
