@@ -16,7 +16,7 @@
 |미션|재사용|가상/별도 부분|
 |---|---|---|
 |SHOW ME|Field, LetterSticker, Collection의 상태 표현|간소화한 프로필 폼. MM 정보·법적 동의·실제 저장/행사 OPEN 처리는 체험하지 않음|
-|SYNC ME|실제 SyncMissionView/SyncResultCard|기존 검토용 6문항 JSON의 로컬 점수/유형 계산, 단계 이동 UI, 가상 추천. 운영 문항 등록·서버 계산 검증 아님|
+|SYNC ME|실제 SyncMissionView/SyncResultCard|승인본과 같은 9문항 JSON의 로컬 점수/유형 계산, 단계 이동 UI, 가상 추천. 실제 결과 저장·동료 조회 아님|
 |A WISH COME TRUE|FountainArtwork, 실제 WishGallery/WishComments|동전 발급·드래그/탭·안착/낙하 판정·가상 A 획득. 착지 결과는 개발 세션 메모리만 사용|
 |FAST TAP|실제 TapMissionView, gameWindow/localPhase, 취소·복구 코드|server port 대신 메모리 시계/슬롯. 5초 준비+10초 입력은 실제 시간으로 플레이. 가상 공식과 연습 구분, 초기화로 반복|
 |YOU GOT THIS|실제 ContentMissionView·HeartControl·템플릿·WishComments와 분리된 CHEER 구조|메모리 소원/응원 슬롯·검수·하트. 하트 취소·중복 재시도 및 익명 선택 체험|

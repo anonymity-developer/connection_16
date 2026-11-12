@@ -1,173 +1,92 @@
 {
-  "title": "우리의 취향 주파수 — 검토용 초안",
+  "title": "나를 소개하는 성향 테스트",
   "axes": [
-    {
-      "id": "conversation",
-      "negative": "L",
-      "positive": "W",
-      "tie": "NEGATIVE"
-    },
-    {
-      "id": "activity",
-      "negative": "D",
-      "positive": "M",
-      "tie": "NEGATIVE"
-    }
+    { "id": "social", "negative": "E", "positive": "X", "tie": "NEGATIVE" },
+    { "id": "teamwork", "negative": "B", "positive": "L", "tie": "NEGATIVE" },
+    { "id": "action", "negative": "P", "positive": "T", "tie": "NEGATIVE" }
   ],
   "questions": [
     {
-      "id": "opening",
-      "text": "처음 만난 동료와 마주쳤을 때 더 편한 쪽은?",
+      "id": "first_meeting",
+      "text": "처음 만난 사람과 있을 때 나는?",
       "options": [
-        {
-          "id": "a",
-          "label": "상대 이야기를 듣고 자연스럽게 이어간다",
-          "scores": {
-            "conversation": -1,
-            "activity": 0
-          }
-        },
-        {
-          "id": "b",
-          "label": "궁금한 것을 먼저 물으며 말을 건다",
-          "scores": {
-            "conversation": 1,
-            "activity": 0
-          }
-        }
+        { "id": "a", "label": "상대 이야기를 들으며 대화를 이어간다", "scores": { "social": -1, "teamwork": 0, "action": 0 } },
+        { "id": "b", "label": "먼저 질문하며 대화를 시작한다", "scores": { "social": 1, "teamwork": 0, "action": 0 } }
       ]
     },
     {
-      "id": "break",
-      "text": "쉬는 시간에 새로운 대화를 시작한다면?",
+      "id": "new_group",
+      "text": "새로운 모임에 참여하면?",
       "options": [
-        {
-          "id": "a",
-          "label": "옆에서 들리는 주제에 공감하며 들어간다",
-          "scores": {
-            "conversation": -1,
-            "activity": 0
-          }
-        },
-        {
-          "id": "b",
-          "label": "같이 이야기할 주제를 먼저 꺼낸다",
-          "scores": {
-            "conversation": 1,
-            "activity": 0
-          }
-        }
+        { "id": "a", "label": "분위기를 살피며 자연스럽게 어울린다", "scores": { "social": -1, "teamwork": 0, "action": 0 } },
+        { "id": "b", "label": "먼저 다가가 사람들과 친해진다", "scores": { "social": 1, "teamwork": 0, "action": 0 } }
       ]
     },
     {
-      "id": "topic",
-      "text": "모임에서 내가 자주 맡는 역할은?",
+      "id": "with_friends",
+      "text": "친구들과 함께 있을 때 나는?",
       "options": [
-        {
-          "id": "a",
-          "label": "말 속의 공통점을 찾아 연결한다",
-          "scores": {
-            "conversation": -1,
-            "activity": 0
-          }
-        },
-        {
-          "id": "b",
-          "label": "누구나 참여할 수 있도록 말을 건넨다",
-          "scores": {
-            "conversation": 1,
-            "activity": 0
-          }
-        }
+        { "id": "a", "label": "이야기에 공감하고 반응하는 편", "scores": { "social": -1, "teamwork": 0, "action": 0 } },
+        { "id": "b", "label": "새로운 화제를 꺼내는 편", "scores": { "social": 1, "teamwork": 0, "action": 0 } }
       ]
     },
     {
-      "id": "learning",
-      "text": "새로운 기술이 궁금해졌을 때 나는?",
+      "id": "different_opinions",
+      "text": "팀에서 의견이 갈린다면?",
       "options": [
-        {
-          "id": "a",
-          "label": "원리와 사례를 차근차근 살펴본다",
-          "scores": {
-            "conversation": 0,
-            "activity": -1
-          }
-        },
-        {
-          "id": "b",
-          "label": "작은 결과물을 만들면서 알아간다",
-          "scores": {
-            "conversation": 0,
-            "activity": 1
-          }
-        }
+        { "id": "a", "label": "서로의 의견을 듣고 접점을 찾는다", "scores": { "social": 0, "teamwork": -1, "action": 0 } },
+        { "id": "b", "label": "내 생각을 제안하고 방향을 잡는다", "scores": { "social": 0, "teamwork": 1, "action": 0 } }
       ]
     },
     {
-      "id": "project",
-      "text": "동료와 짧은 시간을 함께 쓴다면?",
+      "id": "prepare_together",
+      "text": "함께 무언가를 준비할 때?",
       "options": [
-        {
-          "id": "a",
-          "label": "서로 고민하는 문제를 깊게 이야기한다",
-          "scores": {
-            "conversation": 0,
-            "activity": -1
-          }
-        },
-        {
-          "id": "b",
-          "label": "작은 아이디어를 같이 만들어 본다",
-          "scores": {
-            "conversation": 0,
-            "activity": 1
-          }
-        }
+        { "id": "a", "label": "각자의 역할이 잘 맞물리도록 돕는다", "scores": { "social": 0, "teamwork": -1, "action": 0 } },
+        { "id": "b", "label": "먼저 계획을 세우고 진행을 이끈다", "scores": { "social": 0, "teamwork": 1, "action": 0 } }
       ]
     },
     {
-      "id": "session",
-      "text": "마음에 남는 교류의 순간은?",
+      "id": "team_stuck",
+      "text": "팀원들이 고민에 빠졌을 때?",
       "options": [
-        {
-          "id": "a",
-          "label": "몰랐던 관점을 발견하고 생각이 넓어졌을 때",
-          "scores": {
-            "conversation": 0,
-            "activity": -1
-          }
-        },
-        {
-          "id": "b",
-          "label": "함께 뭔가를 시도하고 결과를 남겼을 때",
-          "scores": {
-            "conversation": 0,
-            "activity": 1
-          }
-        }
+        { "id": "a", "label": "다양한 의견을 정리해 합의점을 찾는다", "scores": { "social": 0, "teamwork": -1, "action": 0 } },
+        { "id": "b", "label": "해결 방향을 제시해 결정을 돕는다", "scores": { "social": 0, "teamwork": 1, "action": 0 } }
+      ]
+    },
+    {
+      "id": "start_new_work",
+      "text": "새로운 일을 시작할 때?",
+      "options": [
+        { "id": "a", "label": "충분히 알아보고 계획을 세운다", "scores": { "social": 0, "teamwork": 0, "action": -1 } },
+        { "id": "b", "label": "먼저 해보면서 방법을 찾아간다", "scores": { "social": 0, "teamwork": 0, "action": 1 } }
+      ]
+    },
+    {
+      "id": "learn_new_field",
+      "text": "처음 접하는 분야를 배운다면?",
+      "options": [
+        { "id": "a", "label": "개념과 원리부터 이해한다", "scores": { "social": 0, "teamwork": 0, "action": -1 } },
+        { "id": "b", "label": "직접 만들어 보면서 익힌다", "scores": { "social": 0, "teamwork": 0, "action": 1 } }
+      ]
+    },
+    {
+      "id": "unexpected_chance",
+      "text": "예상하지 못한 기회가 찾아오면?",
+      "options": [
+        { "id": "a", "label": "가능성과 위험을 먼저 따져본다", "scores": { "social": 0, "teamwork": 0, "action": -1 } },
+        { "id": "b", "label": "흥미롭다면 우선 도전해 본다", "scores": { "social": 0, "teamwork": 0, "action": 1 } }
       ]
     }
   ],
   "types": [
-    {
-      "code": "WM",
-      "title": "대화를 여는 메이커",
-      "description": "먼저 건넨 질문을 작은 시도로 이어가는 편이에요. 오늘은 함께 만들어 보고 싶은 것을 동료에게 물어보세요."
-    },
-    {
-      "code": "WD",
-      "title": "대화를 여는 탐험가",
-      "description": "궁금한 질문으로 대화를 열고 새로운 관점을 발견하는 편이에요. 동료가 요즘 빠져 있는 주제를 찾아보세요."
-    },
-    {
-      "code": "LM",
-      "title": "차분히 잇는 메이커",
-      "description": "상대의 이야기를 들으며 같이 시도할 접점을 찾는 편이에요. 관심사가 닮은 동료와 작은 아이디어를 나눠보세요."
-    },
-    {
-      "code": "LD",
-      "title": "깊게 듣는 탐험가",
-      "description": "이야기를 차근차근 듣고 생각을 넓히는 편이에요. 동료의 경험 속에서 기억에 남는 한 가지를 물어보세요."
-    }
+    { "code": "EBP", "title": "따뜻한 전략가", "description": "상대의 마음을 읽고, 모두가 납득할 답을 찾는 사람이에요." },
+    { "code": "EBT", "title": "다정한 모험가", "description": "함께하는 즐거움을 알고 새로운 경험을 즐기는 사람이에요." },
+    { "code": "ELP", "title": "조용한 리더", "description": "이야기를 충분히 듣고 확신이 생기면 이끄는 사람이에요." },
+    { "code": "ELT", "title": "든든한 해결사", "description": "필요한 순간 앞장서서 문제를 해결하는 사람이에요." },
+    { "code": "XBP", "title": "분위기 조율사", "description": "누구와도 잘 어울리면서 균형을 잡는 사람이에요." },
+    { "code": "XBT", "title": "에너지 메이커", "description": "사람들을 연결하고 즐거운 시도를 만들어내는 사람이에요." },
+    { "code": "XLP", "title": "계획형 리더", "description": "명확한 방향을 제시하고 차근차근 이끄는 사람이에요." },
+    { "code": "XLT", "title": "열정 개척자", "description": "아이디어가 떠오르면 사람들과 바로 움직이는 사람이에요." }
   ]
 }

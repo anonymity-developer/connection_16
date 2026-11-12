@@ -20,7 +20,7 @@ class ResultRulesTest {
     @Test void reviewOnlyQuestionnaireProposalPassesTheSameServerValidator() throws Exception {
         var source=java.nio.file.Files.readString(java.nio.file.Path.of("../docs/sync-questionnaire.proposal.json"));
         var q=Questionnaire.parse(source,new com.fasterxml.jackson.databind.ObjectMapper());
-        assertThat(q.questions()).hasSize(6);assertThat(q.types()).hasSize(4);
+        assertThat(q.questions()).hasSize(9);assertThat(q.axes()).hasSize(3);assertThat(q.types()).hasSize(8);
         for(var type:q.types()) {
             var answers=q.questions().stream().map(question -> new Questionnaire.Answer(question.id(),question.options().stream().max(java.util.Comparator.comparingInt(option -> {
                 int total=0;for(int axis=0;axis<q.axes().size();axis++)total+=option.scores().get(q.axes().get(axis).id())*(type.code().charAt(axis)==q.axes().get(axis).positive().charAt(0)?1:-1);return total;

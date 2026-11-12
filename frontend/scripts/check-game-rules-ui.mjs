@@ -35,6 +35,7 @@ try {
       if(path==='/users/me/profile')return reply(200,{identity:{realName:'가상 참가자',region:'서울',classNo:1,photoUrl:null,ready:true},profile:{nickname:'내 프로필 닉네임',bio:'프로필에 저장한 한 줄 소개',interestIds:[1],githubUrl:null,blogUrl:null},consents:{ready:true,policies:[]},profileComplete:true,participationReady:true});
       if(path==='/interests')return reply(200,[{id:1,name:'백엔드',category:'DOMAIN'}]);
       if(path==='/sync/me')return reply(200,{result:{questionnaireVersion:'fixture-v1',type:{code:'T',title:'검사 성향',description:'서버가 확정한 성향'},axisScores:{},submittedAt:now}});
+      if(path==='/discovery/people')return reply(200,{items:[],nextCursor:null});
       if(path==='/tap/me')return reply(200,{officialAvailable:false,attempt:{attemptId:73,generation:1,status:'VALID',serverNow:now,startsAt:now,endsAt:now,submitDeadline:now,tapCount:100,reviewReason:null,provisional:false}});
       if(path==='/tap/leaderboard'){rankingReads++;return reply(200,board);}
       if(path==='/tap/record-message') {

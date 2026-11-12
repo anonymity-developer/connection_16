@@ -1,6 +1,6 @@
 # SYNC ME와 FAST TAP 구현
 
-성향 결과와 공식 탭 도전을 서버에 연결한다. 현재 공개 순위·기록 갱신 소감은 [확정 미션 규칙](mission-rules.md), 네 게임 초기화는 [소프트리셋 계약](direct-publication-and-reset.md)을 따른다. 실제 운영 문항/일정/참가자/태그나 외부 발송은 만들지 않는다.
+성향 결과와 공식 탭 도전을 서버에 연결한다. 현재 공개 순위·기록 갱신 소감은 [확정 미션 규칙](mission-rules.md), 네 게임 초기화는 [소프트리셋 계약](direct-publication-and-reset.md)을 따른다. 실제 참가자 결과·일정·태그나 외부 발송은 만들지 않는다.
 
 ## 공통 조건과 저장
 
@@ -10,7 +10,7 @@ V1~V4는 수정하지 않고 V5를 추가했다. 새 테이블은 sync_questionn
 
 ## SYNC ME
 
-운영 문항은 시드하지 않는다. 설정이 없으면 questions.available=false, 빈 문항/NULL 버전을 반환하고 제출은 503 QUESTIONNAIRE_NOT_READY로 거절한다. 잘못된 설정도 가짜 결과로 처리하지 않는다.
+V18은 사용자 승인 문항 `sync-2026-11-13-v1`을 등록하고 현재 포인터를 이 버전으로 바꾼다. 설정이 없으면 questions.available=false, 빈 문항/NULL 버전을 반환하고 제출은 503 QUESTIONNAIRE_NOT_READY로 거절한다. 잘못된 설정도 가짜 결과로 처리하지 않는다.
 
 문항 버전은 sync_questionnaires.version에 고정하고 current_sync_questionnaire.id=1이 현재 버전을 가리킨다. 운영자는 기존 버전 JSON을 수정하지 않고 새 버전과 현재 포인터를 별도로 관리한다. 결과는 당시 버전, 정규화된 답변, 축 점수, type_code, payload_hash, 최초 서버 접수 시각을 보관한다. 현재 버전을 바꿔도 기존 결과를 재계산하지 않는다.
 
@@ -28,20 +28,13 @@ id는 `[A-Za-z0-9_-]{1,32}`다. 사용자 제출은 questionnaireVersion과 ques
 
 같은 버전/답변 재시도는 최초 결과를 반환하고 다른 답변/새 버전으로 결과를 바꾸는 요청은 409다. 같은 답변의 동시 제출도 결과/receipt/evidence를 하나만 만든다. 이전 결과 재조회와 같은 제출 재시도는 행사 종료/공개 철회 후에도 본인에게 허용하지만 신규 수행은 차단한다.
 
-### 검토용 문항 초안
+### 승인 문항과 유형
 
-[sync-questionnaire.proposal.json](sync-questionnaire.proposal.json)은 대화 방식/함께하는 방식의 두 축, 여섯 질문과 네 유형을 담은 **운영 미반영 초안**이다. Java 서버의 실제 파서/점수 계산으로 네 결과가 도달 가능한지 자동 검증한다. migration에 넣지 않고 프론트 fallback으로 사용하지 않는다. 운영자가 내용과 버전/동점 정책을 검토한 뒤 Git 밖에서 DB에 등록해야 한다.
+[sync-questionnaire.proposal.json](sync-questionnaire.proposal.json)은 사용자 승인본과 동일한 세 축·아홉 문항·여덟 유형을 담는다. 축은 사교 방식(공감/표현), 협업 방식(조율/추진), 행동 방식(신중/도전)이며 축마다 세 문항이 있어 점수 동점은 발생하지 않는다. Java 서버의 실제 파서와 점수 계산으로 여덟 결과가 모두 도달 가능한지 자동 검증한다.
 
-```sql
--- 값/원문은 운영자가 검토한 실제 JSON으로 교체한다. 이 예시를 그대로 실행하지 않는다.
-START TRANSACTION;
-INSERT INTO sync_questionnaires(version,definition_json)
-VALUES ('<확정한-ASCII-버전>', CAST('<검토한-JSON>' AS JSON));
-INSERT INTO current_sync_questionnaire(id,version) VALUES (1,'<확정한-ASCII-버전>');
-COMMIT;
-```
+V18은 이 승인본을 새 불변 버전으로 추가하고 현재 포인터만 갱신한다. 기존 질문 버전과 결과는 삭제하거나 재계산하지 않는다. 프론트엔드는 문항이나 점수표를 하드코딩하지 않고 서버가 반환한 질문과 결과만 표시한다.
 
-기존 포인터가 있으면 승인된 변경으로 그 버전만 갱신한다. 질문/유형 원문은 불변으로 관리하고 결과 FK가 참조하는 이전 버전을 삭제하지 않는다. 같은 운영 트랜잭션에서 사용자 행이나 다른 종류 설정을 임의 순서로 함께 잠그지 않는다.
+결과 화면은 같은 `questionnaire_version`과 `type_code`를 가진 현재 공개 가능 동료를 닉네임 목록으로 제공한다. 조회 자체는 방문을 만들지 않고, 닉네임을 눌러 기존 프로필 열기 POST에 성공할 때만 방문 관계를 기록한다. 관리자 미리보기는 실제 동료 목록을 조회하지 않는다.
 
 ## FAST TAP 공식 도전
 
