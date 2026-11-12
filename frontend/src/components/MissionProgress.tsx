@@ -21,11 +21,13 @@ export function MissionProgress({ mission, data, signedIn }: { mission: Mission;
   return <aside className="mission-guide mission-progress-guide" aria-label={`${mission.name} 진행 현황과 힌트`}>
     <section className="mission-progress-summary" aria-labelledby={headingId}>
       <h2 id={headingId}>나의 진행 현황</h2>
-      <div className="mission-reward"><LetterSticker code={mission.code} collectionState={known && state === 'COMPLETED' ? 'collected' : 'uncollected'} />{(data.preview || !signedIn || !known) && <p>{data.preview ? '개발용 미리보기 · 실제 기록 없음' : !signedIn ? '로그인 후 내 기록을 확인해요.' : '참여 기록을 확인하고 있어요.'}</p>}</div>
-      {known && <StateBadge state={state} missionCode={mission.code} />}
+      <div className="mission-reward"><LetterSticker code={mission.code} collectionState={known && state === 'COMPLETED' ? 'collected' : 'uncollected'} /><div className="mission-reward-copy">
+        {known && <StateBadge state={state} missionCode={mission.code} />}
+        {(data.preview || !signedIn || !known) && <p>{data.preview ? '개발용 미리보기 · 실제 기록 없음' : !signedIn ? '로그인 후 내 기록을 확인해요.' : '참여 기록을 확인하고 있어요.'}</p>}
+      </div></div>
     </section>
     <section className="mission-hint" aria-label="미션 힌트">
-      <details><summary>미션 안내</summary><p>{location}</p><p>{hints[mission.code]}</p></details>
+      <details><summary>미션 안내</summary><p>{location}</p><p>{hints[mission.code]}</p><div className="mission-tip-note"><h3>TIP</h3><p>{mission.encouragement}</p></div></details>
     </section>
   </aside>;
 }

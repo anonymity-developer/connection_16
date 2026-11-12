@@ -64,6 +64,17 @@ try {
     }catch(error){errors.push(error.message);return reply(500,{message:'계약 검사 실패'});}
   });
   const visit=slug=>page.goto(`http://127.0.0.1:4279/missions/${slug}`);
+  async function checkProgressRow() {
+    const letter=await page.locator('.mission-reward .letter-sticker').boundingBox();
+    const badge=await page.locator('.mission-reward .state-badge').boundingBox();
+    assert.ok(letter&&badge&&badge.x>=letter.x+letter.width,'status is beside the letter');
+    assert.ok(badge.y<letter.y+letter.height&&badge.y+badge.height>letter.y,'letter and status share a row');
+    assert.equal(await page.locator('.mission-progress-summary > .state-badge').count(),0);
+    const summary=page.locator('.mission-hint summary');
+    if(!await page.locator('.mission-hint details').evaluate(el=>el.open))await summary.click();
+    await page.locator('.mission-tip-note').getByRole('heading',{name:'TIP',exact:true}).waitFor();
+    assert.ok((await page.locator('.mission-tip-note p').innerText()).length>0);
+  }
   for(const width of [360,390,430,768,1440]) {
     await page.setViewportSize({width,height:900});
     for(const slug of slugs) {
@@ -71,9 +82,9 @@ try {
       if(slug==='show-me')await page.locator('.show-me-record-name').getByText('내 프로필 닉네임',{exact:true}).waitFor();
       if(slug==='fast-tap') {
         await page.locator('.tap-ranking-list li').last().waitFor();
-        await page.locator('.mission-hint summary').click();
-        await page.getByText('19층과 20층 사이 계단에서 F를 찾아 NFC 태그를 읽어주세요.',{exact:true}).waitFor();
       }
+      await checkProgressRow();
+      if(slug==='fast-tap')await page.getByText('19층과 20층 사이 계단에서 F를 찾아 NFC 태그를 읽어주세요.',{exact:true}).waitFor();
       assert.equal(await page.getByText('글자 획득 완료',{exact:true}).count(),1);
       assert.equal(await page.getByText('획득한 글자예요.',{exact:true}).count(),0);
       assert.equal(await page.locator('.mission-detail-heading .state-badge,.mission-complete-artwork').count(),0);
@@ -113,6 +124,31 @@ try {
     if(mode==='conflict'){assert.equal(await page.getByRole('button',{name:'소감 남기기',exact:true}).isDisabled(),true);await page.getByRole('button',{name:'순위 새로고침',exact:true}).click();await message.waitFor();assert.equal(await message.isEnabled(),true);}
     else {assert.equal(await page.locator('.tap-ranking-list li').count(),0);assert.equal(await message.count(),0);}
   }
-  locked=true;const reads=rankingReads;await visit('fast-tap');await page.getByText('현장의 NFC 태그를 찾아 휴대폰을 가까이 대주세요.',{exact:true}).waitFor();assert.equal(rankingReads,reads);
+  locked=true;const reads=rankingReads;
+  for(const width of [360,390,430,768,1440]) {
+    await page.setViewportSize({width,height:900});
+    for(const slug of slugs) {
+      await visit(slug);await page.locator('.mission-reward .state-badge').waitFor();await checkProgressRow();
+      assert.equal(await page.getByText('글자 획득 완료',{exact:true}).count(),0);
+      assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>window.innerWidth),false);
+    }
+  }
+  assert.equal(rankingReads,reads);
+  console.log('PASS all five locked/completed missions place status beside the letter and retain TIP at five widths');
+  await page.clock.install({time:new Date('2026-11-12T03:00:00Z')});await page.clock.pauseAt(new Date('2026-11-12T03:00:00Z'));
+  await page.mouse.move(0,0);await page.goto('http://127.0.0.1:4279/');
+  const hint=page.getByRole('region',{name:'전체 미션 힌트',exact:true}),copy=hint.locator('p');await hint.waitFor();
+  assert.equal(await page.getByRole('button',{name:'다른 응원',exact:true}).count(),0);
+  const messages=['미션을 열심히 하는 자에게 행운이!','친구들의 프로필을 탐색하며 친밀감을 쌓아봐!','참여 자체가 행운이 될 수도 있어.'];
+  const height=(await hint.boundingBox()).height;
+  assert.equal(await copy.innerText(),messages[0]);await page.clock.runFor(2999);assert.equal(await copy.innerText(),messages[0]);
+  await page.clock.runFor(1);assert.equal(await copy.innerText(),messages[1]);
+  await page.clock.runFor(3000);assert.equal(await copy.innerText(),messages[2]);
+  await page.clock.runFor(3000);assert.equal(await copy.innerText(),messages[0]);assert.equal((await hint.boundingBox()).height,height);
+  await hint.hover();await page.clock.runFor(6000);assert.equal(await copy.innerText(),messages[0]);
+  await page.mouse.move(0,0);await page.clock.runFor(3000);assert.equal(await copy.innerText(),messages[1]);
+  await hint.focus();await page.clock.runFor(6000);assert.equal(await copy.innerText(),messages[1]);
+  await page.getByRole('link',{name:'TAG ME 홈',exact:true}).focus();await page.clock.runFor(3000);assert.equal(await copy.innerText(),messages[2]);
+  console.log('PASS home hints rotate every three seconds, loop, keep their height and pause for reading without another-message button');
   assert.deepEqual(errors,[]);console.log('PASS reset conflict requires refresh, access denial clears private state, untagged mission never reads rankings');
 }finally{if(browser)await browser.close();await server.close();}

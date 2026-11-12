@@ -16,7 +16,12 @@
 @media (prefers-reduced-motion: reduce) { .tag-discovery-artwork { animation: none; } }
 .mission-detail-heading > div { min-width: 0; flex: 1; }
 .mission-detail-heading .detail-intro { margin: 0 0 6px; color: var(--muted); font-size: 15px; }
-.mission-tip { margin-bottom: 24px; color: var(--muted); font-size: 14px; }
+.mission-reward-copy { min-width: 0; }
+.mission-tip-note { margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--border); }
+.mission-tip-note h3 { font-size: 13px; color: var(--accent-ink); }
+.event-encouragement { min-height: 3.2em; line-height: 1.6; }
+.event-encouragement p { margin: 0; }
+.event-encouragement:focus-visible { outline: 2px solid var(--accent); outline-offset: 4px; }
 .show-me-record h2 { margin-bottom: 20px; }
 .show-me-record-name { font-size: 22px; font-weight: 600; margin-bottom: 12px; }
 .show-me-record-bio { white-space: pre-wrap; }

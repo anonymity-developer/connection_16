@@ -26,7 +26,7 @@ export function MissionPage({ mission, data }: { mission: Mission; data: ScreenD
   const canPreviewWish = data.preview && state === 'UNLOCKED' && mission.code === 'MAKE_A_WISH';
   return <div className="page mission-page participant-page" data-mission={mission.code}><Link className="back-link" href="/"><Icon name="arrowLeft" size={16} />뒤로가기</Link>
     <header className="mission-detail-heading"><span className={`mission-letter ${state === 'COMPLETED' ? 'is-collected' : ''}`} aria-hidden="true"><LetterSticker code={mission.code} collectionState={state === 'COMPLETED' ? 'collected' : undefined} /></span><div><p className="detail-intro">{mission.description}</p><h1>{mission.name}</h1></div></header>
-    <div className="mission-detail-grid"><section className="mission-detail" aria-label={`${mission.name} 참여 화면`}>{['LOCKED', 'UNLOCKED'].includes(state) && <p className="mission-tip">{mission.encouragement}</p>}
+    <div className="mission-detail-grid"><section className="mission-detail" aria-label={`${mission.name} 참여 화면`}>
       {canPreviewWish && <WishLake />}
       {state === 'LOCKED' && mission.code !== 'SHOW_ME' && <div className="mission-access-note"><Icon name="tag" size={20} /><p>현장의 NFC 태그를 찾아 휴대폰을 가까이 대주세요.</p>{!auth.user && !data.preview && <Link className="text-link" href="/auth">로그인하기<Icon name="arrow" size={16} /></Link>}</div>}
       {state === 'PENDING' && !contentMission && !resultMission && <div className="mission-message" role="status"><Icon name="clock" size={28} /><h2>참여 중인 미션이에요</h2><p>진행 상태를 확인하고 미션을 이어가요. 글자 지급 여부는 서버 기록을 따라요.</p></div>}

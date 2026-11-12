@@ -97,8 +97,18 @@ export function MissionCards({ data }: { data: ScreenData }) {
   return <div className="mission-list">{missions.map((mission) => <Link key={mission.code} href={`/missions/${mission.slug}`} className="mission-row" data-visual={collectionVisual(mission.code, data.progress[mission.code], !!(data.preview || data.serverLoaded))} data-mission={mission.code} aria-label={`${mission.name}, ${mission.description}, 상세 안내`}><span className={`mission-letter ${data.progress[mission.code] === 'COMPLETED' ? 'is-collected' : ''}`} aria-hidden="true"><LetterSticker code={mission.code} collectionState={collectionVisual(mission.code, data.progress[mission.code], !!(data.preview || data.serverLoaded)) === 'collected' ? 'collected' : 'uncollected'} /></span><div className="mission-row-copy"><h3>{mission.name}</h3><p>{mission.description}</p></div><div className="mission-row-state">{(data.preview || data.serverLoaded) && <StateBadge state={data.progress[mission.code]} missionCode={mission.code} />}<Icon name="arrow" size={18} /></div></Link>)}</div>;
 }
 
+const encouragementMessages=['미션을 열심히 하는 자에게 행운이!','친구들의 프로필을 탐색하며 친밀감을 쌓아봐!','참여 자체가 행운이 될 수도 있어.'];
 export function EventEncouragement() {
-  const [index,setIndex] = useState(0);
-  const messages=['미션을 열심히 하는 자에게 행운이!','친구들의 프로필을 탐색하며 친밀감을 쌓아봐!','참여 자체가 행운이 될 수도 있어.'];
-  return <div className="event-encouragement"><p aria-live="polite">{messages[index]}</p><button className="text-button" onClick={()=>setIndex((index+1)%messages.length)}>다른 응원</button></div>;
+  const [index,setIndex]=useState(0),[hovered,setHovered]=useState(false),[focused,setFocused]=useState(false),[hidden,setHidden]=useState(false);
+  useEffect(()=>{
+    const changed=()=>setHidden(document.hidden);changed();
+    document.addEventListener('visibilitychange',changed);
+    return()=>document.removeEventListener('visibilitychange',changed);
+  },[]);
+  useEffect(()=>{
+    if(hovered||focused||hidden)return;
+    const timer=window.setInterval(()=>setIndex(previous=>(previous+1)%encouragementMessages.length),3000);
+    return()=>window.clearInterval(timer);
+  },[hovered,focused,hidden]);
+  return <div className="event-encouragement" role="region" aria-label="전체 미션 힌트" tabIndex={0} onPointerEnter={event=>{if(event.pointerType==='mouse')setHovered(true);}} onPointerLeave={()=>setHovered(false)} onFocus={()=>setFocused(true)} onBlur={()=>setFocused(false)}><p aria-live="off">{encouragementMessages[index]}</p></div>;
 }
