@@ -74,8 +74,11 @@ try {
     if(!await page.locator('.mission-hint details').evaluate(el=>el.open))await summary.click();
     await page.locator('.mission-tip-note').getByRole('heading',{name:'TIP',exact:true}).waitFor();
     assert.ok((await page.locator('.mission-tip-note p').innerText()).length>0);
+    const progressBox=await page.locator('.mission-progress-summary').boundingBox(),hintBox=await page.locator('.mission-hint').boundingBox();
+    assert.ok(progressBox&&hintBox&&hintBox.y>=progressBox.y+progressBox.height-1,'mission guide is below progress at every width');
+    assert.ok(Math.abs(hintBox.x-progressBox.x)<1&&Math.abs(hintBox.width-progressBox.width)<1,'mission guide uses the full card width');
   }
-  for(const width of [360,390,430,768,1440]) {
+  for(const width of [360,390,430,640,641,768,1099,1100,1440]) {
     await page.setViewportSize({width,height:900});
     for(const slug of slugs) {
       await visit(slug);await page.locator('.mission-progress-summary').getByText('글자 획득 완료',{exact:true}).waitFor();
@@ -93,7 +96,7 @@ try {
       if(['show-me','fast-tap'].includes(slug))await page.screenshot({path:resolve(output,`rules-${slug}-${width}.png`),fullPage:true});
     }
   }
-  console.log('PASS all five completed missions show one progress badge; SHOW ME restores profile; five widths fit');
+  console.log('PASS all five completed missions show one progress badge; SHOW ME restores profile; nine widths fit');
   editing=true;slots.wishes=blank();slots.cheers=blank();await page.setViewportSize({width:390,height:900});
   for(const [kind,slug] of [['wishes','make-a-wish'],['cheers','say-something']]) {
     await visit(slug);const input=page.locator('#content-text'),anonymous=page.getByRole('checkbox',{name:'익명으로 남기기',exact:true});
@@ -125,7 +128,7 @@ try {
     else {assert.equal(await page.locator('.tap-ranking-list li').count(),0);assert.equal(await message.count(),0);}
   }
   locked=true;const reads=rankingReads;
-  for(const width of [360,390,430,768,1440]) {
+  for(const width of [360,390,430,640,641,768,1099,1100,1440]) {
     await page.setViewportSize({width,height:900});
     for(const slug of slugs) {
       await visit(slug);await page.locator('.mission-reward .state-badge').waitFor();await checkProgressRow();
@@ -134,7 +137,7 @@ try {
     }
   }
   assert.equal(rankingReads,reads);
-  console.log('PASS all five locked/completed missions place status beside the letter and retain TIP at five widths');
+  console.log('PASS all five locked/completed missions place status beside the letter and retain TIP at nine widths');
   await page.clock.install({time:new Date('2026-11-12T03:00:00Z')});await page.clock.pauseAt(new Date('2026-11-12T03:00:00Z'));
   await page.mouse.move(0,0);await page.goto('http://127.0.0.1:4279/');
   const hint=page.getByRole('region',{name:'전체 미션 힌트',exact:true}),copy=hint.locator('p');await hint.waitFor();

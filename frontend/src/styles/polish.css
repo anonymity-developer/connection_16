@@ -124,10 +124,6 @@
   .participant-shell .next-panel { display: flex; flex-direction: column; }
   .participant-shell .next-panel .button { grid-column: auto; grid-row: auto; margin-top: auto; align-self: stretch; }
 }
-@media (min-width: 641px) and (max-width: 1099px) {
-  .participant-shell .mission-progress-guide { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
-  .participant-shell .mission-hint { border-top: 0; border-left: 1px solid var(--border); }
-}
 @media (max-width: 640px) {
   body:has(.participant-shell) { padding-bottom: 0; }
   .participant-shell { padding-bottom: calc(76px + env(safe-area-inset-bottom, 0px)); }
