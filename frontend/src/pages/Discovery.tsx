@@ -1,3 +1,4 @@
+import { ParticipantPage } from '../components/ParticipantPage';
 import { Icon } from '../components/Icon';
 import { useEffect, useRef, useState } from 'react';
 import { Link, navigate, useLocation } from '../app/navigation';
@@ -7,7 +8,7 @@ import { participationApi } from '../features/participation/api';
 import type { Interest } from '../features/participation/api';
 import { discoveryApi } from '../features/discovery/api';
 import type { People, Stats } from '../features/discovery/api';
-import { DiscoveryHeading, DiscoveryNav, PersonRow, VisitStats } from '../features/discovery/components';
+import { DiscoveryNav, PersonRow, VisitStats } from '../features/discovery/components';
 export function DiscoveryPage() {
   const location = useLocation(); const query = new URLSearchParams(location.split('?')[1]); const all = query.get('view') === 'people';
   const [search, setSearch] = useState(query.get('q') || ''); const [interest, setInterest] = useState(query.get('interestId') || '');
@@ -26,11 +27,11 @@ export function DiscoveryPage() {
     catch (failure) { if (version === generation.current) setError(failure instanceof Error ? failure.message : '다음 동료를 확인하지 못했어요.'); }
     finally { if (version === generation.current) setMore(false); }
   }
-  return <div className="page discovery-page participant-page" aria-busy={loading}><DiscoveryHeading /><DiscoveryNav selected={all ? 'people' : 'recommended'} />
+  return <ParticipantPage page="discovery" className="discovery-page" busy={loading}><DiscoveryNav selected={all ? 'people' : 'recommended'} />
     {stats && <VisitStats stats={stats} />}
     {all && <form className="people-filters" onSubmit={event => { event.preventDefault(); const params = new URLSearchParams({ view: 'people' }); if (search.trim()) params.set('q', search.trim()); if (interest) params.set('interestId', interest); navigate(`/discovery?${params}`); }}><div><label htmlFor="people-search">닉네임 검색</label><input id="people-search" maxLength={30} value={search} onChange={e => setSearch(e.target.value)} placeholder="닉네임을 입력해 주세요" /></div><div><label htmlFor="people-interest">관심사</label><select id="people-interest" value={interest} onChange={e => setInterest(e.target.value)}><option value="">전체 관심사</option>{options.map(i => <option key={i.id} value={i.id}>{i.name}</option>)}</select></div><Button type="submit" disabled={loading}>동료 검색하기</Button></form>}
     {loading && <div className="discovery-message is-loading" role="status"><Icon name="clock" size={20} /><p>공개된 동료와 내 열람 현황을 확인하고 있어요.</p></div>}
     {people && <section aria-labelledby="people-heading"><div className="content-section-heading"><h2 id="people-heading">{all ? '함께하는 동료' : '대화를 시작할 동료'}</h2><Button variant="quiet" disabled={loading} onClick={load}>목록 새로고침</Button></div>{!all && <p className="result-footnote">아직 열어보지 않은 프로필을 먼저 보여줘요. 공통 관심사 수와 유형 일치 여부가 동점이면 다른 반 동료가 먼저예요.</p>}{!people.items.length && <div className="discovery-message is-empty"><h3>새로운 연결을 기다리고 있어요</h3><p>{all ? '조건에 맞는 공개 동료가 없어요.' : '지금 추천할 공개 동료가 없어요.'}</p><Link className="text-link" href="/discovery?view=people">전체 동료 보기</Link></div>}<ul className="people-list">{people.items.map(person => <li key={person.id}><PersonRow person={person} recommendation={!all} /></li>)}</ul>{people.nextCursor && <Button variant="secondary" disabled={more} onClick={next}>{more ? '불러오는 중…' : '동료 더 보기'}</Button>}</section>}
     {error && <div className="discovery-message is-error"><p role="alert" className="form-notice is-error">{error}</p>{profileRequired ? <Link className="button button--primary" href="/me/profile">내 프로필과 참여 안내 확인하기</Link> : <Button variant="secondary" onClick={load}>동료 목록 다시 불러오기</Button>}</div>}
-  </div>;
+  </ParticipantPage>;
 }

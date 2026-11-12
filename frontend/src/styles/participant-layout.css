@@ -1,0 +1,38 @@
+.participant-shell .page.participant-page { max-width:1120px; }
+.participant-shell .participant-page > .page-heading { margin-bottom:24px; }
+.participant-shell .participant-page > .page-heading > p:last-child { line-height:1.8;min-height:1.8em; }
+.participant-shell .participant-page .participant-signin-card { width:100%;padding:28px;border-radius:24px;box-shadow:var(--event-shadow); }
+.participant-shell .participant-signin-card .empty-symbol { display:grid;place-items:center;width:52px;height:52px;margin:0 auto 16px;border-radius:18px;background:var(--accent-soft);color:var(--accent-ink); }
+.participant-shell .participant-signin-card h2 { font-size:20px;margin:0 0 12px; }
+.participant-shell .participant-signin-card > p { max-width:42ch;min-height:3.6em;margin:0 auto 20px;line-height:1.8;font-size:14px; }
+.participant-shell .participant-section-heading { min-height:44px;align-items:center;margin-bottom:16px;gap:12px; }
+.participant-shell .participant-section-heading h2 { margin:0;font-size:18px;line-height:1.5; }
+.participant-shell .collection-section { min-width:0; }
+.participant-shell .collection-board-heading { display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;min-height:44px;margin-bottom:12px; }
+.participant-shell .collection-section .collection-board-heading .collection-count { display:inline-flex;align-items:baseline;gap:3px;padding:4px 12px;line-height:1.5;background:var(--accent-soft);border-radius:999px; }
+.participant-shell .collection-section .collection-count b { font-size:20px; }
+.participant-shell .collection-section .collection-invitation { min-height:40px;margin:0;align-items:center; }
+.participant-shell .collection-progress-slot { height:8px;margin-top:20px; }
+.participant-shell .collection-progress-slot .collection-progress { margin:0;height:8px; }
+.participant-shell .collection-footer { display:flex;align-items:center;gap:12px;min-height:44px;margin-top:12px; }
+.participant-shell .collection-footer .collection-caption { flex:1;min-width:0;min-height:1.8em;margin:0; }
+.participant-shell .collection-record-action { flex-shrink:0;min-height:44px; }
+.participant-shell .collection-record-action .collection-complete-link { margin:0; }
+.participant-shell .home-page > .event-encouragement { margin-top:16px;display:flex;align-items:center; }
+.participant-shell .home-page .mission-section { margin-top:24px; }
+.participant-shell .home-page .mission-section .participant-section-heading { margin-bottom:16px; }
+.participant-shell .home-page .mission-row { display:grid;grid-template-columns:48px minmax(0,1fr);gap:12px 16px;align-items:start; }
+.participant-shell .home-page .mission-row .mission-row-state { grid-column:2;width:100%;padding:0;margin:0;min-height:30px; }
+@media(max-width:640px) {
+  .participant-shell .participant-page > .page-heading > p:last-child { min-height:3.6em; }
+  .participant-shell .participant-page .participant-signin-card { padding:24px 20px; }
+  .participant-shell .participant-signin-card h2 { font-size:18px; }
+  .participant-shell .participant-section-heading { min-height:36px; }
+  .participant-shell .participant-section-heading h2 { font-size:16px; }
+  .participant-shell .collection-section .collection-board-heading .collection-count { font-size:11px;padding:3px 8px; }
+  .participant-shell .collection-section .collection-count b { font-size:18px; }
+  .participant-shell .collection-board-heading { min-height:36px; }
+  .participant-shell .collection-section .collection-invitation { min-height:34px; }
+  .participant-shell .collection-progress-slot { margin-top:16px; }
+  .participant-shell .home-page .mission-section { margin-top:20px; }
+}

@@ -46,6 +46,6 @@ export function Dialog({ open, title, hideTitle = false, children, onClose }: { 
   </dialog>;
 }
 
-export function EmptyState({ title, children, action, icon = 'tag' }: { title: string; children: ReactNode; action?: ReactNode; icon?: 'tag' | 'people' | 'person' }) {
-  return <section className="empty-state"><span className="empty-symbol"><Icon name={icon} size={28} /></span><h2>{title}</h2><p>{children}</p>{action}</section>;
+export function EmptyState({ title, children, action, icon = 'tag', className = '' }: { title: string; children: ReactNode; action?: ReactNode; icon?: 'tag' | 'people' | 'person'; className?: string }) {
+  return <section className={`empty-state${className ? ` ${className}` : ''}`}><span className="empty-symbol"><Icon name={icon} size={28} /></span><h2>{title}</h2><p>{children}</p>{action}</section>;
 }
