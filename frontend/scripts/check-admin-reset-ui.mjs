@@ -10,7 +10,8 @@ const output=resolve('../output/playwright');await mkdir(output,{recursive:true}
 const server=await preview({preview:{host:'127.0.0.1',port:4578,strictPort:true}});let browser;
 try {
   browser=await chromium.launch();const page=await browser.newPage({viewport:{width:390,height:900}});
-  const errors=[],routeErrors=[],checks=[],writes=[];page.on('pageerror',e=>errors.push(e.message));
+  const errors=[],routeErrors=[],checks=[],writes=[];await page.addLocatorHandler(page.locator('.mission-earned-actions'), async () => { await page.getByRole('button', {name:'계속 참여하기',exact:true}).click(); });
+  page.on('pageerror',e=>errors.push(e.message));
   const codes=['SHOW_ME','SYNC_ME','MAKE_A_WISH','FAST_TAP','SAY_SOMETHING'];const now='2026-11-11T04:00:00Z';
   let generation=0,participated=true,actor='admin',allowed=true,resetMode='lost',resetOperations=0,moderationReads=0;
   let savedReset=null,lastReset=null;const history=[];
@@ -44,6 +45,7 @@ try {
       if(path==='/event')return reply(200,{status:'OPEN',opensAt:null,submitClosesAt:null,profilePreparationEnabled:false});
       if(path==='/missions/collection')return reply(200,{missions:codes.map((code,index)=>({id:index+1,code,state:code==='SHOW_ME'||slots[code==='MAKE_A_WISH'?'wishes':'cheers'].missionCompleted&&['MAKE_A_WISH','SAY_SOMETHING'].includes(code)?'COMPLETED':'UNLOCKED',active:true})),completedCount:1+Number(slots.wishes.missionCompleted)+Number(slots.cheers.missionCompleted),completion:{complete:false,completionOrder:null,completedAt:null,awardConfirmed:false},resetGeneration:generation});
       if(path==='/tap/me')return reply(200,{officialAvailable:false,attempt:{attemptId:1,generation:1,status:'INVALID',serverNow:now,startsAt:now,endsAt:now,submitDeadline:now,tapCount:118,reviewReason:'DUPLICATE_MILLISECOND',provisional:false}});
+      if(path==='/tap/leaderboard')return reply(200,{top:[],own:null});
       if(path==='/wishes/40/comments/me')return reply(200,{items:comments,nextCursor:null});
       if(path==='/wishes/40/comments'){
         if(method==='POST'){assert.equal(req.headers()['x-participation-generation'],String(generation));const body=req.postDataJSON();const row={id:50,content:body.content,revealProfile:body.revealProfile,status:'APPROVED',reason:null,submittedAt:now,requestKey:req.headers()['idempotency-key']};comments.push(row);return reply(202,row);}

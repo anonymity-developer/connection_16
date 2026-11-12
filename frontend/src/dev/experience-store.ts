@@ -47,7 +47,7 @@ export function createExperience(wait:()=>Promise<void> = async()=>{}) {
   const content:typeof contentApi={
     own:async kind=>{await ready();return clone(slots[kind]);},
     feed:async(kind,cursor)=>{await ready();const all=feeds[kind].filter(x=>!cursor||x.id<cursor).sort((a,b)=>b.id-a.id);return {items:clone(all.slice(0,20)),nextCursor:all.length>20?all[19].id:null};},
-    submit:async(kind,editing,key,input)=>{await ready();const old=requests.get(kind+key);if(old)return clone(old);const code=kind==='wishes'?'MAKE_A_WISH':'SAY_SOMETHING';requireTag(code);const slot=slots[kind];if(editing&&input.expectedVersion!==slot.version)throw new Error('가상 수정본 버전이 달라요. 새로 확인해 주세요.');if(!input.content.trim())throw new Error('내용을 입력해 주세요.');
+    submit:async(kind,editing,key,input)=>{await ready();const old=requests.get(kind+key);if(old)return clone(old);const code=kind==='wishes'?'MAKE_A_WISH':'SAY_SOMETHING';requireTag(code);const slot=slots[kind];if(editing&&input.expectedVersion!==slot.version)throw new Error('가상 수정본 버전이 달라요. 새로 확인해 주세요.');if(!input.content.trim() || input.content.length>400)throw new Error('내용을 400자 이내로 입력해 주세요.');
       const next:Revision={...input,id:++counter,itemId:slot.id||counter,number:(slot.latestRevision?.number||0)+1,submittedAt:new Date().toISOString(),status:'QUEUED',reason:null};
       Object.assign(slot,{id:slot.id||next.itemId,version:slot.version+1,visibility:'VISIBLE',latestRevision:next,pendingRevision:next,missionCompleted:true});requests.set(kind+key,clone(slot));change(code,'COMPLETED');return clone(slot);},
   };
@@ -69,7 +69,7 @@ export function createExperience(wait:()=>Promise<void> = async()=>{}) {
   function moderate(kind:ContentKind,status:'APPROVED'|'REJECTED') {
     for(const [id,rows]of ownComments){ownComments.set(id,rows.map(x=>({...x,status})));publicComments.set(id,status==='APPROVED'?rows.map(x=>({id:x.id,content:x.content,revealProfile:x.revealProfile,nickname:x.revealProfile?'가상 작성자':null,profileId:null})):[]);}
     const slot=slots[kind];if(!slot.latestRevision){notify();return;}slot.latestRevision={...slot.latestRevision,status};slot.pendingRevision=null;slot.version++;
-    if(status==='APPROVED'){slot.approvedRevision=clone(slot.latestRevision);slot.missionCompleted=true;feeds[kind]=[publicItem(slot.approvedRevision.content,slot.id!,kind==='wishes'||slot.approvedRevision.anonymous),...feeds[kind].filter(x=>x.id!==slot.id)];progress[kind==='wishes'?'MAKE_A_WISH':'SAY_SOMETHING']='COMPLETED';}
+    if(status==='APPROVED'){slot.approvedRevision=clone(slot.latestRevision);slot.missionCompleted=true;feeds[kind]=[publicItem(slot.approvedRevision.content,slot.id!,slot.approvedRevision.anonymous),...feeds[kind].filter(x=>x.id!==slot.id)];progress[kind==='wishes'?'MAKE_A_WISH':'SAY_SOMETHING']='COMPLETED';}
     notify();
   }
   function scenario(code:MissionCode,state:MissionState) {

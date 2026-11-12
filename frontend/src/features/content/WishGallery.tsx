@@ -1,6 +1,7 @@
 import { useEffect, useId, useRef, useState } from 'react';
 import type { CSSProperties, ReactNode, Ref } from 'react';
 import { Button } from '../../components/ui';
+import { Link } from '../../app/navigation';
 import type { PublicContent } from './api';
 import { WishComments } from './WishComments';
 import { WishLakeArt } from './WishLake';
@@ -24,8 +25,7 @@ export function lakePage(items: PublicContent[], page: number) {
 const comments = (id: number) => <WishComments id={id} />;
 type WishView = 'lake' | 'cloud';
 export function WishCard({ item, children }: { item: PublicContent; children?: ReactNode }) {
-  // Wishes remain anonymous even if an unexpected display name is present in a response.
-  return <article className="content-card wish-discovery-card"><p className="content-byline">익명의 소원</p><p className="content-body">{item.content}</p>{children}</article>;
+  return <article className="content-card wish-discovery-card"><p className="content-byline">{item.anonymous ? '익명의 소원' : item.profileId ? <Link href={`/discovery/profiles/${item.profileId}`}>{item.nickname || '동료'}의 소원</Link> : `${item.nickname || '동료'}의 소원`}</p><p className="content-body">{item.content}</p>{children}</article>;
 }
 export function WishGallery({ items, receipt = null, earned = false, feedReady = true, initialView = 'lake', sceneOverlay, sceneRef, renderComments = comments, loadMore, loadingMore = false }: {
   sceneOverlay?: ReactNode; sceneRef?: Ref<HTMLDivElement>; items: PublicContent[]; receipt?: number | null; earned?: boolean; feedReady?: boolean; initialView?: WishView; renderComments?: (id: number) => ReactNode; loadMore?: () => Promise<boolean>; loadingMore?: boolean;
@@ -91,7 +91,7 @@ export function WishGallery({ items, receipt = null, earned = false, feedReady =
       {!current.total && feedReady && <p className="content-empty">아직 공개된 소원이 없어요. 동료의 소원이 이곳에 모여요.</p>}
       <ul className="wish-clouds" aria-label="구름 소원 목록">{items.map((item, index) => <li key={item.id}><button type="button" aria-expanded={item.id === selectedId} aria-controls={`${uid}-detail`} onClick={event => { trigger.current = event.currentTarget; setSelectedId(item.id); }}>
         <svg className="wish-cloud-shape" viewBox="0 0 320 154" preserveAspectRatio="none" aria-hidden="true" focusable="false"><path vectorEffect="non-scaling-stroke" d="M48 142C22 142 7 127 7 107c0-18 10-31 27-37-1-23 18-39 42-37 12-24 51-29 74-9 17-22 55-23 73 1 24-8 52 7 55 30 22 4 35 22 35 41 0 27-19 43-44 43-13 11-36 14-54 6-19 9-43 9-64 0-20 8-42 7-58 0-16 7-32 6-45-3Z" /></svg>
-        <span className="content-byline">익명의 소원 {index + 1}</span><span className="wish-cloud-text">{item.content}</span>
+        <span className="content-byline">{item.anonymous ? '익명의 소원' : `${item.nickname || '동료'}의 소원`} {index + 1}</span><span className="wish-cloud-text">{item.content}</span>
       </button></li>)}</ul>
       {loadMore && <Button type="button" variant="secondary" disabled={loadingMore} onClick={() => void loadMore()}>{loadingMore ? '불러오는 중…' : '소원 더 불러오기'}</Button>}
     </div>}

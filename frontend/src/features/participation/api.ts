@@ -12,6 +12,7 @@ export interface ServerMission { id: number; code: MissionCode; letter: string; 
 export interface Completion { complete: boolean; completedAt: string | null; completionOrder: number | null; awardConfirmed: boolean }
 export interface Collection { missions: ServerMission[]; completedCount: number; completion: Completion; resetGeneration?: number }
 export interface TagResult { missionCode: MissionCode; state: ServerMission['state']; route: string; newlyUnlocked: boolean; newlyCompleted: boolean }
+export interface TagInspection { missionCode: MissionCode; letter: string; title: string }
 export interface ProfileInput { nickname: string; bio: string | null; githubUrl: string | null; blogUrl: string | null; expectedVersion: number; interestIds: number[]; acceptPolicies: { type: PolicyType; version: string }[] }
 export const participationApi = {
   event: () => request<EventState>('/event'),
@@ -22,6 +23,7 @@ export const participationApi = {
   saveProfile: (value: ProfileInput) => request<ProfileState>('/users/me/profile', 'PUT', value),
   pending: () => request<{ present: boolean }>('/tags/pending'),
   rememberTag: (token: string) => request<void>('/tags/pending', 'POST', { token }),
+  inspectTag: (token?: string) => request<TagInspection>('/tags/inspect', 'POST', token ? { token } : {}),
   resolve: (token: string) => request<TagResult>('/tags/resolve', 'POST', { token }),
   resume: () => request<TagResult>('/tags/resume', 'POST', {}),
 };

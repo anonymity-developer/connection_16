@@ -48,8 +48,8 @@ public class ContentService {
     }
     public OwnSlot submit(AuthPrincipal actor,Kind kind,String key,ContentController.Submit body,boolean edit,long generation) {
         if(key==null||!key.matches("[A-Za-z0-9_-]{16,64}"))throw error(400,"INVALID_IDEMPOTENCY_KEY","요청 식별자를 확인해 주세요.");
-        if(body.content()==null||body.content().isBlank()||body.content().length()>200||!List.of("PLAIN","NOTE").contains(body.templateId())||!List.of("ROSE","INK").contains(body.style()))throw error(400,"INVALID_CONTENT","문구와 카드 스타일을 확인해 주세요.");
-        if(kind==Kind.WISH&&(!body.anonymous()||!"PLAIN".equals(body.templateId())||!"ROSE".equals(body.style())))throw error(400,"INVALID_WISH_STYLE","소원은 익명 기본 형태로 저장돼요.");
+        if(body.content()==null||body.content().isBlank()||body.content().length()>400||!List.of("PLAIN","NOTE").contains(body.templateId())||!List.of("ROSE","INK").contains(body.style()))throw error(400,"INVALID_CONTENT","문구와 카드 스타일을 확인해 주세요.");
+        if(kind==Kind.WISH&&(!"PLAIN".equals(body.templateId())||!"ROSE".equals(body.style())))throw error(400,"INVALID_WISH_STYLE","소원은 기본 형태로 저장돼요.");
         limits.check("content-user",Long.toString(actor.userId()),30,60);Instant received=repository.now();String hash=hash(body);
         return tx.execute(s->{
             participation.lockPrincipal(actor);participation.requireGeneration(actor.userId(),generation);var item=repository.own(actor.userId(),kind);

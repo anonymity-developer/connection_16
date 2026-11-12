@@ -26,11 +26,12 @@ public class ParticipationResetService {
     private final AdminAuditRepository audit;
     private final ObjectMapper json;
     private final AuthRateLimiter limits;
+    private final com.tagme.results.TapRankingService tapRankings;
     private final TransactionTemplate tx;
     public ParticipationResetService(JdbcTemplate db,AuthRepository accounts,ParticipationRepository participation,
-        OperationsService operations,AdminAuditRepository audit,ObjectMapper json,AuthRateLimiter limits,PlatformTransactionManager manager) {
+        OperationsService operations,AdminAuditRepository audit,ObjectMapper json,AuthRateLimiter limits,PlatformTransactionManager manager,com.tagme.results.TapRankingService tapRankings) {
         this.db=db;this.accounts=accounts;this.participation=participation;this.operations=operations;
-        this.audit=audit;this.json=json;this.limits=limits;this.tx=new TransactionTemplate(manager);
+        this.audit=audit;this.json=json;this.limits=limits;this.tx=new TransactionTemplate(manager);this.tapRankings=tapRankings;
     }
     private AuthException error(int status,String code,String message){return new AuthException(status,code,message);}
     private ResetRecord record(ResultSet r,int n)throws SQLException {
@@ -69,6 +70,7 @@ public class ParticipationResetService {
                 return previous;
             }
             participation.requireGeneration(user,body.expectedGeneration());
+            tapRankings.lockForReset();
             Map<String,Object> snapshot=new LinkedHashMap<>();
             snapshot.put("schemaVersion",1);snapshot.put("userId",user);snapshot.put("previousGeneration",body.expectedGeneration());
             snapshot.put("progress",db.queryForList("SELECT p.* FROM mission_progress p JOIN missions m ON m.id=p.mission_id WHERE p.user_id=? AND m.code<>'SHOW_ME'",user));

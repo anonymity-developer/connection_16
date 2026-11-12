@@ -110,6 +110,34 @@ class ParticipationIntegrationTest {
     ResponseEntity<Map> get(String path){return raw(HttpMethod.GET,path,null,null);}
     ResponseEntity<Map> send(HttpMethod method,String path,Object body){var csrf=get("/csrf");return raw(method,path,body,(String)csrf.getBody().get("token"));}
     void login(){assertThat(send(HttpMethod.POST,"/auth/login",Map.of("username","alice","password",PASSWORD)).getStatusCode().value()).isEqualTo(200);}
+    @Test void anonymousTagInspectionReturnsOnlyActiveMissionMetadataWithoutUnlocking() {
+        db.update("UPDATE tags SET mission_id=2");
+        assertThat(raw(HttpMethod.POST,"/tags/inspect",Map.of("token",token),null).getStatusCode().value()).isEqualTo(403);
+        var inspected=send(HttpMethod.POST,"/tags/inspect",Map.of("token",token));
+        assertThat(inspected.getStatusCode().value()).isEqualTo(200);
+        assertThat(inspected.getBody()).containsOnlyKeys("missionCode","letter","title").containsEntry("missionCode","SYNC_ME").containsEntry("letter","S");
+        assertThat(get("/tags/pending").getBody()).containsEntry("present",false);
+        assertThat(send(HttpMethod.POST,"/tags/resolve",Map.of("token",token)).getStatusCode().value()).isEqualTo(401);
+        login();
+        assertThat(send(HttpMethod.POST,"/tags/inspect",Map.of("token",token)).getStatusCode().value()).isEqualTo(200);
+        assertThat(repository.mission(alice,MissionCode.SYNC_ME).state()).isEqualTo("LOCKED");
+        for(String table:List.of("mission_progress","submission_receipts","mission_completion_evidence","event_completions"))
+            assertThat(db.queryForObject("SELECT COUNT(*) FROM "+table,Integer.class)).isZero();
+        db.update("UPDATE missions SET active=FALSE WHERE id=2");
+        assertThat(send(HttpMethod.POST,"/tags/inspect",Map.of("token",token)).getStatusCode().value()).isEqualTo(404);
+        db.update("UPDATE missions SET active=TRUE WHERE id=2");db.update("UPDATE tags SET active=FALSE");
+        assertThat(send(HttpMethod.POST,"/tags/inspect",Map.of("token",token)).getStatusCode().value()).isEqualTo(404);
+        assertThat(send(HttpMethod.POST,"/tags/inspect",Map.of("token","A".repeat(42)+"B")).getStatusCode().value()).isEqualTo(400);
+    }
+    @Test void inspectingPendingTagDoesNotConsumeIntentOrCreateProgress() {
+        db.update("UPDATE tags SET mission_id=3");
+        assertThat(send(HttpMethod.POST,"/tags/inspect",Map.of()).getStatusCode().value()).isEqualTo(404);
+        assertThat(send(HttpMethod.POST,"/tags/pending",Map.of("token",token)).getStatusCode().value()).isEqualTo(202);
+        assertThat(send(HttpMethod.POST,"/tags/inspect",Map.of()).getBody()).containsEntry("missionCode","MAKE_A_WISH").containsEntry("letter","A");
+        assertThat(get("/tags/pending").getBody()).containsEntry("present",true);
+        assertThat(db.queryForObject("SELECT COUNT(*) FROM mission_progress",Integer.class)).isZero();
+        assertThat(db.queryForObject("SELECT COUNT(*) FROM submission_receipts",Integer.class)).isZero();
+    }
     @Test void completeProfileAutomaticallyGrantsShowMeWithoutTagAndKeepsHistory() {
         service.save(principal,request(true,0));
         assertThat(repository.mission(alice,MissionCode.SHOW_ME).state()).isEqualTo("COMPLETED");

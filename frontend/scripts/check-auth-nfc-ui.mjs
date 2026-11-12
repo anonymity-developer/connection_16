@@ -14,6 +14,7 @@ try {
   const missions = ['SHOW_ME', 'SYNC_ME', 'MAKE_A_WISH', 'FAST_TAP', 'SAY_SOMETHING'];
   let signedIn = false, onboarded = true, pending = null, current = 0, resolves = 0, logins = 0, expireOnResolve = false;
   const tokenFor = i => String.fromCharCode(65 + i).repeat(43);
+  const actionFor = () => ['프로필 완성하기','취향 알아보기','소원 남기기','탭 도전하기','응원 남기기'][current];
   const pathFor = i => missions[i] === 'SHOW_ME' ? '/me/profile' : `/missions/${missions[i].toLowerCase().replaceAll('_', '-')}`;
   let routeOverride = null;
   const user = () => ({ id: 1, username: 'contract-test', nickname: onboarded ? '테스트' : null, onboardingRequired: !onboarded });
@@ -41,6 +42,7 @@ try {
       }
       assert.equal(request.headers()['x-xsrf-token'], 'test-csrf');
       const body = request.postDataJSON();
+      if (path === '/tags/inspect') { const i = body.token ? current : pending; if(i === null)return reply(404,{code:'TAG_INTENT_EXPIRED',message:'태그 연결이 만료됐어요. 현장 태그를 다시 읽어주세요.'}); return reply(200,{missionCode:missions[i],letter:'SSAFY'[i],title:['SHOW ME','SYNC ME','A WISH COME TRUE','FAST TAP','YOU GOT THIS'][i]}); }
       if (path === '/tags/pending') { assert.equal(body.token, tokenFor(current)); pending = current; return reply(202); }
       if (path === '/auth/otp/request') { assert.equal(body.purpose, 'SIGN_UP'); return reply(200, { challengeId: 'Z'.repeat(43), expiresIn: 180, resendAfter: 60 }); }
       if (path === '/auth/login' || path === '/auth/signup') {
@@ -93,7 +95,7 @@ try {
       }
       await page.waitForURL('**/t/resume');
       await page.reload();
-      await page.getByRole('button', { name: '태그로 미션 열기', exact: true }).click();
+      await page.getByRole('button', { name: actionFor(), exact: true }).click();
       await page.waitForURL(`**${pathFor(current)}`);
       assert.equal(resolves, 1); assert.equal(pending, null);
       assert.equal(await page.evaluate(() => localStorage.length + sessionStorage.length), 0);
@@ -104,13 +106,13 @@ try {
   for (const width of [390,1440]) {
     await page.setViewportSize({ width, height: 900 });
     await visit(`/t/${tokenFor(current)}`);
-    await page.getByRole('button', { name: '태그로 미션 열기', exact: true }).click();
+    await page.getByRole('button', { name: actionFor(), exact: true }).click();
     await page.waitForURL('**/me/profile');
   }
   for (const [mission, invalidRoute] of [[0, '/missions/show-me'], [0, 'https://example.com'], [1, '/me/profile']]) {
     current = mission; routeOverride = invalidRoute;
     await visit(`/t/${tokenFor(current)}`);
-    await page.getByRole('button', { name: '태그로 미션 열기', exact: true }).click();
+    await page.getByRole('button', { name: actionFor(), exact: true }).click();
     await page.getByRole('alert').filter({ hasText: '이동할 미션을 확인하지 못했어요.' }).waitFor();
     assert.equal(new URL(page.url()).pathname, `/t/${tokenFor(current)}`);
   }
@@ -119,21 +121,35 @@ try {
   current = 1; const before = logins;
   await visit(`/t/${tokenFor(current)}`);
   await page.reload();
-  await page.getByRole('button', { name: '태그로 미션 열기', exact: true }).click();
+  await page.getByRole('button', { name: actionFor(), exact: true }).click();
   await page.waitForURL(`**${pathFor(current)}`); assert.equal(logins, before);
   console.log('PASS valid session reconnect skips login');
 
   await visit(`/t/${tokenFor(current)}`); expireOnResolve = true;
-  await page.getByRole('button', { name: '태그로 미션 열기', exact: true }).click();
+  await page.getByRole('button', { name: actionFor(), exact: true }).click();
   await page.getByRole('alert').filter({ hasText: '로그인이 만료' }).waitFor();
   await page.getByRole('button', { name: '로그인하고 이어가기', exact: true }).click();
   await page.waitForURL('**/auth'); await login(); await page.waitForURL('**/t/resume');
-  await page.getByRole('button', { name: '태그로 미션 열기', exact: true }).click();
+  await page.getByRole('button', { name: actionFor(), exact: true }).click();
   await page.waitForURL(`**${pathFor(current)}`);
   console.log('PASS expired session 401 recovers through login and original NFC');
 
+  const flash=page.locator('.session-flash');await flash.waitFor();
+  const tagNotice=await flash.evaluate(el=>el.firstChild.textContent);
+  await page.getByRole('banner').getByRole('link',{name:'내 계정',exact:true}).click();
+  await page.getByRole('heading',{name:'계정 연결을 마쳤어요',exact:true}).waitFor();
+  assert.equal(await page.getByRole('button',{name:'읽어 둔 태그 이어가기',exact:true}).count(),0);
+  await page.getByRole('link',{name:'비밀번호 변경',exact:true}).click();
+  await page.getByRole('heading',{name:'비밀번호 변경',exact:true}).waitFor();
+  assert.equal(await flash.count(),0);
+  assert.equal(await page.locator('form .form-notice').innerText(),'');
+  assert.equal(await page.getByText(tagNotice,{exact:true}).count(),0);
+  await page.getByRole('link',{name:'변경을 취소하고 돌아가기',exact:true}).click();
+  await page.getByRole('heading',{name:'계정 연결을 마쳤어요',exact:true}).waitFor();
+  assert.equal(await flash.count(),0);
+  console.log('PASS password settings discard unrelated NFC notices without removing automatic NFC return');
+
   pending = null; await visit('/t/resume');
-  await page.getByRole('button', { name: '태그로 미션 열기', exact: true }).click();
   await page.getByRole('alert').filter({ hasText: '태그 연결이 만료' }).waitFor();
   console.log('PASS expired pending intent asks for a new scan');
   await visit('/me'); await page.getByRole('button', { name: '로그아웃', exact: true }).click();

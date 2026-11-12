@@ -10,7 +10,8 @@ const output = resolve('../output/playwright'); await mkdir(output, { recursive:
 const server = await preview({ preview: { host: '127.0.0.1', port: 4473, strictPort: true } }); let browser;
 try {
   browser = await chromium.launch(); const page = await browser.newPage({ viewport: { width: 390, height: 900 } });
-  const pageErrors = [], routeErrors = [], checks = []; page.on('pageerror', error => pageErrors.push(error.message));
+  const pageErrors = [], routeErrors = [], checks = []; await page.addLocatorHandler(page.locator('.mission-earned-actions'), async () => { await page.getByRole('button', {name:'계속 참여하기',exact:true}).click(); });
+  page.on('pageerror', error => pageErrors.push(error.message));
   let sync = null, available = true, changed = false, state = { officialAvailable: true, attempt: null }, starts = 0, finishes = 0, cancels = 0, key = null, failStart = false, cancelledReplay = false, cancelRace = false, failFinish = false, submitted = null, locked = false, resultReads = 0;
   const codes = ['SHOW_ME', 'SYNC_ME', 'MAKE_A_WISH', 'FAST_TAP', 'SAY_SOMETHING'];
   const questions = { available: true, version: 'test-v1', title: '테스트 전용 취향 질문', questions: [{ id: 'q1', text: '테스트용 첫 번째 선택', options: [{ id: 'a', label: '먼저 말 걸기' }, { id: 'b', label: '먼저 들어보기' }] }, { id: 'q2', text: '테스트용 두 번째 선택', options: [{ id: 'a', label: '같이 만들기' }, { id: 'b', label: '깊게 살펴보기' }] }] };
@@ -32,6 +33,7 @@ try {
       if (method === 'GET' && path === '/sync/me') return reply(200, { result: sync });
       if (method === 'GET' && path === '/sync/questions') return reply(200, available ? questions : { available: false, version: null, title: null, questions: [] });
       if (method === 'GET' && path === '/tap/me') return reply(200, state);
+      if (method === 'GET' && path === '/tap/leaderboard') return reply(200, { top: [], own: null });
       assert.equal(req.headers()['x-xsrf-token'], 'result-test-csrf');
       if (path === '/sync/submit') { const body = req.postDataJSON(); assert.deepEqual(Object.keys(body).sort(), ['answers', 'questionnaireVersion']); if (changed) return reply(409, { code: 'QUESTIONNAIRE_CHANGED', message: '질문 버전이 변경됐어요. 다시 불러와 주세요.' }); assert.equal(body.answers.length, 2); sync = stored; return reply(200, stored); }
       if (path === '/tap/start') { const next = req.headers()['idempotency-key']; assert.match(next, /^[A-Za-z0-9_-]{16,64}$/); if (key) assert.equal(next, key); key = next; starts++; if (failStart) { failStart = false; return reply(503, { code: 'UNAVAILABLE', message: '시작 응답을 확인하지 못했어요.' }); } if (cancelledReplay) { cancelledReplay = false; const old = { ...newAttempt(await page.evaluate(() => Date.now())), status: 'CANCELLED' }; state = { officialAvailable: true, attempt: null }; return reply(200, old); } state = { officialAvailable: false, attempt: newAttempt(await page.evaluate(() => Date.now())) }; return reply(200, state.attempt); }
@@ -53,7 +55,7 @@ try {
     await page.screenshot({ path: resolve(output, `sync-questions-${width}.png`), fullPage: true });
   }
   await page.setViewportSize({ width: 390, height: 900 }); await page.getByRole('button', { name: '나의 성향 확인하기', exact: true }).click();
-  await page.getByRole('heading', { name: '나의 성향 결과', exact: true }).waitFor(); await page.getByText('두 번째 S를 획득했어요!', { exact: true }).waitFor(); assert.equal(await page.getByRole('radio').count(), 0);
+  await page.getByRole('heading', { name: '나의 성향 결과', exact: true }).waitFor(); await page.locator('.mission-progress-summary').getByText('글자 획득 완료', { exact: true }).waitFor(); assert.equal(await page.getByRole('radio').count(), 0);
   await page.reload(); await page.getByRole('heading', { name: '나의 성향 결과', exact: true }).waitFor(); await page.screenshot({ path: resolve(output, 'sync-result-390.png'), fullPage: true });
   record('SYNC answers are required, only option IDs are sent, server result is fixed and restored at five widths');
   sync = null; changed = true; await visit('/missions/sync-me'); await page.getByRole('radio', { name: '먼저 들어보기', exact: true }).check(); await page.getByRole('radio', { name: '깊게 살펴보기', exact: true }).check(); await page.getByRole('button', { name: '나의 성향 확인하기', exact: true }).click(); await page.getByRole('button', { name: '질문과 저장된 결과 다시 불러오기', exact: true }).waitFor(); assert.equal(sync, null);
@@ -80,7 +82,7 @@ try {
   await area.click(); await page.clock.fastForward(100); await area.click(); await page.clock.fastForward(100); await area.focus(); await page.keyboard.press('Space');
   for (const width of [360, 375, 390, 412, 430, 768, 1440]) { await page.setViewportSize({ width, height: 900 }); assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth), false); await page.screenshot({ path: resolve(output, `tap-playing-${width}.png`), fullPage: true }); }
   failFinish = true; await page.clock.fastForward(10000); await page.getByRole('button', { name: '같은 기록 다시 전송하기', exact: true }).waitFor(); await page.getByRole('button', { name: '같은 기록 다시 전송하기', exact: true }).click(); await page.getByRole('heading', { name: '도전을 마쳤어요', exact: true }).waitFor(); assert.equal(finishes, 2); assert.equal(submitted.taps.length, 3);
-  await page.getByText('F를 획득했어요!', { exact: true }).waitFor(); await page.setViewportSize({ width: 390, height: 900 }); await page.screenshot({ path: resolve(output, 'tap-valid-390.png'), fullPage: true }); await page.reload(); await page.getByRole('heading', { name: '도전을 마쳤어요', exact: true }).waitFor(); assert.equal(await page.getByRole('button', { name: '공식 도전 시작하기 (1회)', exact: true }).count(), 0);
+  await page.locator('.mission-progress-summary').getByText('글자 획득 완료', { exact: true }).waitFor(); await page.setViewportSize({ width: 390, height: 900 }); await page.screenshot({ path: resolve(output, 'tap-valid-390.png'), fullPage: true }); await page.reload(); await page.getByRole('heading', { name: '도전을 마쳤어요', exact: true }).waitFor(); assert.equal(await page.getByRole('button', { name: '공식 도전 시작하기 (1회)', exact: true }).count(), 0);
   record('official pointer and keyboard events are submitted once, uncertain finish retries the same payload and saved score restores');
   state = { officialAvailable: true, attempt: null }; key = null; submitted = null; await visit('/missions/fast-tap'); await page.getByRole('button', { name: '공식 도전 시작하기 (1회)', exact: true }).click(); await page.getByRole('button', { name: '준비 중 취소하기', exact: true }).waitFor(); await page.clock.fastForward(5100);
   await page.evaluate(() => window.dispatchEvent(new Event('pagehide'))); await page.getByRole('heading', { name: '공식 도전이 중단됐어요', exact: true }).waitFor(); assert.equal(state.officialAvailable, false);
@@ -108,7 +110,7 @@ try {
     for(const slug of ['sync-me','fast-tap']) {
       const before=resultReads;
       await visit('/missions/'+slug); await page.waitForLoadState('networkidle');
-      await page.getByText('현장 NFC·QR로 참여해요. 상세 페이지를 여는 것만으로는 해금되지 않아요.',{exact:true}).waitFor();
+      await page.getByText('현장의 NFC 태그를 찾아 휴대폰을 가까이 대주세요.',{exact:true}).waitFor();
       assert.equal(await page.locator('.tap-panel, .sync-question-list, .sync-result, .tap-area').count(),0);
       assert.equal(resultReads,before,'locked result missions do not load game APIs');
     }

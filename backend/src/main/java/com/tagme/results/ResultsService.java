@@ -18,7 +18,8 @@ import static com.tagme.results.ResultsController.*;
 public class ResultsService {
     private final ParticipationRepository participation;private final ResultsRepository repository;private final MissionCompletionService completion;
     private final TransactionTemplate transactions;private final ObjectMapper json;private final AuthRateLimiter limits;
-    public ResultsService(ParticipationRepository participation,ResultsRepository repository,MissionCompletionService completion,PlatformTransactionManager manager,ObjectMapper json,AuthRateLimiter limits){this.participation=participation;this.repository=repository;this.completion=completion;this.transactions=new TransactionTemplate(manager);this.json=json;this.limits=limits;}
+    private final TapRankingService rankings;
+    public ResultsService(ParticipationRepository participation,ResultsRepository repository,MissionCompletionService completion,PlatformTransactionManager manager,ObjectMapper json,AuthRateLimiter limits,TapRankingService rankings){this.participation=participation;this.repository=repository;this.completion=completion;this.transactions=new TransactionTemplate(manager);this.json=json;this.limits=limits;this.rankings=rankings;}
     static AuthException error(int status,String code,String message){return new AuthException(status,code,message);}
     private void guard(AuthPrincipal actor,MissionCode code){
         participation.lockPrincipal(actor);participation.requireOpen(false);var mission=participation.mission(actor.userId(),code);participation.activeMission(mission.id());
@@ -100,11 +101,14 @@ public class ResultsService {
                     verdict=new TapValidation.Verdict("INVALID","INVALID_STORED_EVENTS",events.taps().size());
                 else if(attempt.submittedAt().isAfter(attempt.deadline()))verdict=new TapValidation.Verdict("EXPIRED","SUBMISSION_EXPIRED",events.taps().size());
             } catch(IllegalArgumentException invalid){verdict=new TapValidation.Verdict("INVALID","INVALID_STORED_EVENTS",events.taps().size());}
-            repository.reclassify(id,verdict);
             if("VALID".equals(verdict.status())) {
-                var receipt=participation.receipt(user,"GAME_ATTEMPT",id,attempt.submittedAt());
-                completion.complete(user,MissionCode.FAST_TAP,receipt.id());
-            }
+                var accepted=verdict;
+                rankings.complete(user,id,verdict.count(),attempt.submittedAt(),()->{
+                    repository.reclassify(id,accepted);
+                    var receipt=participation.receipt(user,"GAME_ATTEMPT",id,attempt.submittedAt());
+                    completion.complete(user,MissionCode.FAST_TAP,receipt.id());
+                });
+            } else repository.reclassify(id,verdict);
         });
     }
     public TapAttempt finish(AuthPrincipal actor,FinishRequest body){
@@ -122,8 +126,11 @@ public class ResultsService {
             if(received.isBefore(attempt.endsAt()))throw error(409,"TAP_TOO_EARLY","도전이 끝난 뒤 결과를 제출해 주세요.");
             guard(actor,MissionCode.FAST_TAP);
             var verdict=received.isAfter(attempt.deadline())?new TapValidation.Verdict("EXPIRED","SUBMISSION_EXPIRED",body.taps().size()):inspected;
-            repository.finish(attempt,verdict,hash,body.taps(),interruptions,received);
-            if("VALID".equals(verdict.status())){var receipt=participation.receipt(actor.userId(),"GAME_ATTEMPT",attempt.id(),received);completion.complete(actor.userId(),MissionCode.FAST_TAP,receipt.id());}
+            if("VALID".equals(verdict.status()))rankings.complete(actor.userId(),attempt.id(),verdict.count(),received,()->{
+                repository.finish(attempt,verdict,hash,body.taps(),interruptions,received);
+                var receipt=participation.receipt(actor.userId(),"GAME_ATTEMPT",attempt.id(),received);completion.complete(actor.userId(),MissionCode.FAST_TAP,receipt.id());
+            });
+            else repository.finish(attempt,verdict,hash,body.taps(),interruptions,received);
             return view(owned(actor.userId(),attempt.id()),now);
         });
     }

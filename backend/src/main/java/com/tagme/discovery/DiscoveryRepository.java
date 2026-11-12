@@ -58,12 +58,26 @@ public class DiscoveryRepository {
         sql+=" ORDER BY u.id DESC LIMIT ?";args.add(limit+1);var rows=query(sql,args);var items=rows.stream().limit(limit).toList();return new People(items,rows.size()>limit?items.getLast().id():null);
     }
     public List<Person> recommended(long actor) {
-        var args=args(actor);
+        // Anonymous reactions influence ordering only. Never return their author/target or a reason.
+        String interactions="""
+          (EXISTS(SELECT 1 FROM cheer_likes l JOIN content_items i ON i.id=l.card_id
+             JOIN content_revisions r ON r.id=i.approved_revision_id
+             WHERE i.kind='CHEER' AND i.archived_at IS NULL AND i.visibility_status='VISIBLE' AND r.moderation_status='APPROVED'
+               AND ((l.user_id=? AND i.author_id=u.id) OR (l.user_id=u.id AND i.author_id=?)))
+           + EXISTS(SELECT 1 FROM wish_comments wc
+             JOIN content_items comment ON comment.id=wc.content_item_id JOIN content_revisions cr ON cr.id=comment.approved_revision_id
+             JOIN content_items wish ON wish.id=wc.wish_id JOIN content_revisions wr ON wr.id=wish.approved_revision_id
+             WHERE comment.archived_at IS NULL AND wish.archived_at IS NULL
+               AND comment.visibility_status='VISIBLE' AND wish.visibility_status='VISIBLE'
+               AND cr.moderation_status='APPROVED' AND wr.moderation_status='APPROVED'
+               AND ((wc.author_id=? AND wish.author_id=u.id) OR (wc.author_id=u.id AND wish.author_id=?)))) AS interaction_score,
+          """;
+        var args=new ArrayList<Object>(List.of(actor,actor,actor,actor));args.addAll(args(actor));
         args.add(actor);
         args.add(actor);
-        return query(SELECT + """
+        return query("SELECT "+interactions+PROFILE_COLUMNS + """
              AND u.id<>?
-             ORDER BY visited ASC,common_count DESC,same_type DESC,
+             ORDER BY interaction_score DESC,visited ASC,common_count DESC,same_type DESC,
                NOT EXISTS(SELECT 1 FROM users me WHERE me.id=? AND me.region=u.region AND me.class_no=u.class_no) DESC,
                u.id DESC LIMIT 12
             """, args);

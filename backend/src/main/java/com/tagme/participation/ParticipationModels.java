@@ -21,6 +21,7 @@ public final class ParticipationModels {
     public record Completion(boolean complete, Instant completedAt, Long completionOrder, boolean awardConfirmed) { }
     public record Collection(List<Mission> missions, int completedCount, Completion completion,long resetGeneration) { }
     public record TagResult(MissionCode missionCode, String state, String route, boolean newlyUnlocked, boolean newlyCompleted) { }
+    public record TagInspection(MissionCode missionCode,String letter,String title) { }
     public record Receipt(long id, long userId, String sourceKind, long sourceId, Instant receivedAt) { }
     public record Pending(boolean present) { }
 }

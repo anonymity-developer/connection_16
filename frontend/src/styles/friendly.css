@@ -23,9 +23,6 @@
 .participant-shell .people-filters input { border-radius: 14px; background: #fbfdff; }
 .participant-shell .field label { font-weight: 600; }
 .participant-shell .context-label { color: var(--accent-ink); font-size: 13px; }
-.participant-shell .home-welcome { display: grid; grid-template-columns: minmax(0, 1fr) 220px; align-items: center; gap: 24px; padding: 8px 4px 12px; }
-.participant-shell .home-welcome h1 { margin: 10px 0 12px; font-size: 30px; }
-.participant-shell .home-welcome > div > p:last-child { font-size: 16px; line-height: 1.8; }
 .connection-stickers { display: block; width: 220px; height: auto; pointer-events: none; }
 .sticker-thread { fill: none; stroke: var(--accent-track); stroke-width: 5; stroke-linecap: round; }
 .sticker-back { fill: var(--accent-track); }
@@ -79,7 +76,7 @@
 .participant-shell .earned-letter { border: 3px solid var(--surface); border-radius: 22px; transform: rotate(-5deg); box-shadow: var(--event-shadow); }
 .participant-shell .mission-message > svg { color: var(--accent); }
 .participant-shell .wish-lake { border-radius: 24px; background: var(--accent-soft); }
-.participant-shell .auth-page .auth-form-panel { border-radius: 28px; border-color: var(--border); box-shadow: var(--event-shadow); }
+.participant-shell .account-page .account-panel, .participant-shell .auth-page .auth-form-panel { padding: 28px; border-radius: 24px; border-color: var(--border); box-shadow: var(--event-shadow); }
 .participant-shell .account-theme .auth-guide { padding: 24px; border-radius: 28px; background: var(--accent-soft); }
 .participant-shell .auth-stickers { width: 190px; margin: 0 auto 16px; }
 .participant-shell .account-theme .auth-guide h2 { font-size: 24px; color: var(--accent-ink); }
@@ -126,10 +123,6 @@
 .participant-shell .tag-page .empty-state .button { margin-top: 20px; }
 .participant-shell .tag-footnote { text-align: center; }
 @media (max-width: 640px) {
-  .participant-shell .home-welcome { grid-template-columns: minmax(0, 1fr) 104px; gap: 8px; padding: 0; }
-  .participant-shell .home-welcome h1 { font-size: 24px; }
-  .participant-shell .home-welcome > div > p:last-child { font-size: 14px; }
-  .participant-shell .welcome-stickers { width: 104px; }
   .participant-shell .sticker-board { padding: 20px 16px; }
   .participant-shell .letter-slots { gap: 6px; }
   .participant-shell .letter-slot { border-radius: 14px; padding: 14px 2px 10px; }
@@ -140,7 +133,7 @@
   .participant-shell .mission-row-state { padding-left: 68px; }
   .participant-shell .mission-row-copy p { font-size: 14px; }
   .participant-shell .mission-detail, .participant-shell .mission-guide { padding: 22px 20px; }
-  .participant-shell .auth-page .auth-form-panel { padding: 24px 20px; }
+  .participant-shell .account-page .account-panel, .participant-shell .auth-page .auth-form-panel { padding: 24px 20px; }
   .participant-shell .account-theme .auth-guide { padding: 24px; }
   .participant-shell .auth-stickers { width: 150px; }
   .participant-shell .quest-heading { gap: 16px; }
@@ -154,3 +147,7 @@
 @media (prefers-reduced-motion: reduce) {
   .participant-shell *, .participant-shell *::before, .participant-shell *::after { scroll-behavior: auto !important; transition: none !important; animation: none !important; }
 }
+
+/* Shared secondary actions for account and authentication cards. */
+.participant-shell .account-card-footer { display: flex; justify-content: center; align-items: center; flex-wrap: wrap; gap: 4px; margin-top: 20px; color: var(--muted); font-size: 14px; text-align: center; }
+.participant-shell .account-card-footer > :is(a, .button) { display: inline-flex; align-items: center; justify-content: center; min-height: 48px; margin: 0; color: var(--accent-ink); font-size: 14px; font-weight: 500; }

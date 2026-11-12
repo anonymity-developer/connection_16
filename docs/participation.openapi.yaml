@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: TAG ME 페이즈 3 참여 API
-  version: 0.5.4
+  version: 0.5.5
   description: Mattermost 가져온 identity와 닉네임 필수 프로필. 선택 관심사/소개/링크, 참여·상세 공개 안내 확인. 비공개/철회 API 없음.
 servers:
 - url: /api/v1
@@ -180,6 +180,44 @@ paths:
             schema:
               $ref: '#/components/schemas/TagRequest'
       description: 익명 요청은 실제 태그를 조회하거나 해금하지 않는다. CSRF 필요. 15분 만료. 응답 본문 없음.
+  /tags/inspect:
+    post:
+      summary: NFC 태그의 미션명·글자 확인 (해금 없음)
+      description: 로그인 전에도 CSRF로 조회한다. token을 생략하면 같은 세션의 15분 임시 태그를 읽으며 소비하지 않는다. 활성 태그/미션만 반환하고 프로필·태그 원문/hash·상태·이동 URL은 반환하지 않는다. IP당 분당 30회 제한. 행사 전후에도 메타데이터만 읽으며 해금/완료/접수 기록을 만들지 않는다.
+      security:
+      - csrfCookie: []
+        csrfHeader: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              properties:
+                token:
+                  type: string
+                  pattern: ^[A-Za-z0-9_-]{43}$
+      responses:
+        '200':
+          description: 활성 태그의 공개 미션 정보
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required: [missionCode, letter, title]
+                properties:
+                  missionCode:
+                    type: string
+                    enum: [SHOW_ME, SYNC_ME, MAKE_A_WISH, FAST_TAP, SAY_SOMETHING]
+                  letter:
+                    type: string
+                    enum: [S, A, F, Y]
+                  title:
+                    type: string
+        default:
+          $ref: '#/components/responses/Error'
   /tags/resolve:
     post:
       summary: 태그 검증 후 본인 미션 해금

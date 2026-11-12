@@ -63,9 +63,19 @@ try {
   });
   const visit = path => page.goto(`http://127.0.0.1:4476${path}`); const record = text => { checks.push(text); console.log(`PASS ${text}`); };
   await visit('/discovery'); await page.getByRole('heading', { name: '함께할 동료를 만나봐요', exact: true }).waitFor(); assert.equal(discoveryReads, 0); assert.equal(opens, 0);
+  const guestHeadings=new Map();
+  const headingMetrics=()=>page.locator('.page-heading > *').evaluateAll(elements=>elements.map(el=>{const r=el.getBoundingClientRect(),s=getComputedStyle(el);return {text:el.textContent,x:r.x,y:r.y,font:s.fontSize,line:s.lineHeight};}));
+  for(const width of [360,390,430,768,1440]) {
+    await page.setViewportSize({width,height:900});
+    assert.equal(await page.locator('.page.discovery-page.participant-page').count(),1);
+    assert.deepEqual(await page.locator('.page-heading > *').allTextContents(),['TAG ME 네트워크','동료 찾기','같은 관심사에서 대화를 시작해요.']);
+    guestHeadings.set(width,await headingMetrics());
+    await page.screenshot({path:resolve(output,`discovery-guest-${width}.png`),fullPage:true});
+  }
+  assert.equal(discoveryReads,0);assert.equal(opens,0);
   record('anonymous navigation shows login without fetching discovery data or opening a profile');
   signedIn = true; await page.reload(); await page.locator('.person-row').first().waitFor(); assert.equal(await page.getByText('테스트 실명2', { exact: true }).count(), 0); assert.equal(opens, 0); assert.equal(await page.locator('img').count(), 0);
-  for (const width of [360, 390, 430, 768, 1440]) { await page.setViewportSize({ width, height: 900 }); assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth), false); for (const h of await page.locator('h1,h2').all()) assert.ok(await h.evaluate(el => el.getBoundingClientRect().height / Number.parseFloat(getComputedStyle(el).lineHeight) <= 2.1)); await page.screenshot({ path: resolve(output, `discovery-${width}.png`), fullPage: true }); }
+  for (const width of [360, 390, 430, 768, 1440]) { await page.setViewportSize({ width, height: 900 }); assert.deepEqual(await headingMetrics(),guestHeadings.get(width),'guest and participant share the same heading layout'); assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth), false); for (const h of await page.locator('h1,h2').all()) assert.ok(await h.evaluate(el => el.getBoundingClientRect().height / Number.parseFloat(getComputedStyle(el).lineHeight) <= 2.1)); await page.screenshot({ path: resolve(output, `discovery-${width}.png`), fullPage: true }); }
   await page.setViewportSize({ width: 390, height: 900 }); record('recommendations show only public nicknames, real reasons and server counts at five widths');
   await page.getByRole('link', { name: '전체 동료', exact: true }).click(); await page.getByLabel('닉네임 검색', { exact: true }).fill('테스트_%!'); await page.getByLabel('관심사', { exact: true }).selectOption('1'); await page.getByRole('button', { name: '동료 검색하기', exact: true }).click(); await page.getByRole('link', { name: '테스트_%! 프로필 보기', exact: true }).waitFor(); assert.equal(await page.locator('.person-row').count(), 1);
   await page.goBack(); await page.getByRole('button', { name: '동료 더 보기', exact: true }).waitFor(); assert.equal(await page.getByLabel('닉네임 검색', { exact: true }).inputValue(), '');

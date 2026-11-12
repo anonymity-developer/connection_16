@@ -116,13 +116,10 @@
 .participant-shell .account-panel dd { margin: 6px 0 0; overflow-wrap: anywhere; font-size: 15px; }
 .participant-shell .account-actions { display: flex; flex-direction: column; gap: 12px; align-items: stretch; }
 .participant-shell .account-actions > .button { margin: 0; }
-.participant-shell .account-actions > .button--quiet:last-child { align-self: flex-start; margin-top: 4px; }
 .participant-shell .account-record > p { margin-top: 12px; color: var(--muted); font-size: 14px; }
 .participant-shell .account-record .account-collection-count { margin: 24px 0; font-variant-numeric: tabular-nums; }
 .participant-shell .account-collection-count strong { font-size: 32px; color: var(--accent-ink); }
 .participant-shell .account-record > .button { margin-top: 16px; width: 100%; }
-.participant-shell .account-tip { display: flex; gap: 12px; border-top: 1px solid var(--border); margin-top: 24px; padding-top: 24px; color: var(--muted); font-size: 14px; }
-.participant-shell .account-tip > svg { margin-top: 4px; }
 @media (max-width: 1000px) {
   .participant-shell .mission-detail-grid { grid-template-columns: minmax(0, 1fr); }
   .participant-shell .discovery-relationships .people-list { margin-top: 16px; }

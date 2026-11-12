@@ -24,17 +24,27 @@ try {
   // Dedicated auth contracts exercise successful requests with their own fixtures.
   await context.route('**/api/v1/**', async route => {
     const path = new URL(route.request().url()).pathname.slice(7);
+    if (path === '/tags/inspect' && route.request().method() === 'POST') {
+      assert.equal(route.request().headers()['x-xsrf-token'], 'layout-test-csrf');
+      return route.fulfill({status:200,json:{missionCode:'MAKE_A_WISH',letter:'A',title:'A WISH COME TRUE'}});
+    }
     if (route.request().method() !== 'GET') return route.abort();
     const data = path === '/auth/config' ? { available: false, passwordMinLength: 15, passwordMaxLength: 64 }
       : path === '/users/me' ? { code: 'UNAUTHENTICATED', message: '로그인이 필요해요.' }
-      : path === '/tags/pending' ? { present: false } : { code: 'FIXTURE_ONLY', message: '화면 검사 범위 밖이에요.' };
-    return route.fulfill({ status: path === '/users/me' ? 401 : ['/auth/config','/tags/pending'].includes(path) ? 200 : 503, json: data });
+      : path === '/tags/pending' ? { present: false } : path === '/csrf' ? {headerName:'X-XSRF-TOKEN',token:'layout-test-csrf'} : { code: 'FIXTURE_ONLY', message: '화면 검사 범위 밖이에요.' };
+    return route.fulfill({ status: path === '/users/me' ? 401 : ['/auth/config','/tags/pending','/csrf'].includes(path) ? 200 : 503, json: data });
   });
   const page = await context.newPage();
   const failures = [];
   const writes = [];
+  const metadataReads = [];
   page.on('pageerror', (error) => failures.push(error.message));
-  page.on('request', (request) => { if (request.method() !== 'GET') writes.push(request.url()); });
+  page.on('request', (request) => {
+    if (request.method() === 'GET') return;
+    // inspect is a CSRF-protected metadata read, not a credential or participation write.
+    if (new URL(request.url()).pathname === '/api/v1/tags/inspect') metadataReads.push('/tags/inspect');
+    else writes.push(request.url());
+  });
   const productionUrl = 'http://127.0.0.1:4173';
   const developmentUrl = 'http://127.0.0.1:5174';
 
@@ -83,7 +93,8 @@ try {
     await visit(`${productionUrl}/complete?preview=complete`);
     assert.equal(await page.locator('h1').innerText(), '페이지를 찾을 수 없어요');
     await visit(`${productionUrl}/t/${'a'.repeat(43)}`);
-    assert.ok((await page.locator('main').innerText()).includes('로그인하고 태그로 이어가요'));
+    await page.getByRole('heading',{name:'A 미션을 찾았어요',exact:true}).waitFor();
+    assert.equal(await page.locator('.tag-discovery .is-collected').count(),0,'metadata cannot grant a letter');
   });
   await check('login validation, password visibility, navigation and credential isolation', async () => {
     await visit(`${productionUrl}/auth`);
@@ -214,15 +225,17 @@ try {
   await check('new letters animate once and first full collection is dismissible without replay', async () => {
     const codes = ['SHOW_ME', 'SYNC_ME', 'MAKE_A_WISH', 'FAST_TAP', 'SAY_SOMETHING'];
     const completed = new Set(['SHOW_ME', 'MAKE_A_WISH', 'FAST_TAP']);
-    let userId = 71;
+    let userId = 71, completionOrder = null, resetGeneration = 0;
     await page.route('**/api/v1/**', route => {
       const path = new URL(route.request().url()).pathname.slice(7);
       const data = path === '/users/me' ? { id: userId, nickname: '수집 검증', onboardingRequired: true }
         : path === '/event' ? { status: 'CLOSED' }
+        : path === '/users/me/profile' ? { profile: { nickname: '수집 검증', bio: '저장된 프로필', interestIds: [1] }, consents: { ready: true, policies: [] }, profileComplete: true, participationReady: true }
+        : path === '/interests' ? [{ id: 1, name: '백엔드' }]
         : path === '/missions/collection' ? {
-          missions: codes.map(code => ({ code, active: true, state: completed.has(code) ? 'COMPLETED' : code === 'SYNC_ME' ? 'IN_PROGRESS' : 'LOCKED' })),
+          missions: codes.map(code => ({ code, active: true, state: completed.has(code) ? 'COMPLETED' : resetGeneration ? 'UNLOCKED' : code === 'SYNC_ME' ? 'IN_PROGRESS' : 'LOCKED' })),
           completedCount: completed.size,
-          completion: { complete: completed.size === codes.length },
+          completion: { complete: completed.size === codes.length, completionOrder, awardConfirmed: false }, resetGeneration,
         } : undefined;
       return data === undefined ? route.fallback() : route.fulfill({ json: data });
     });
@@ -235,7 +248,8 @@ try {
     assert.match(await page.locator('.mission-row[data-mission="SAY_SOMETHING"]').innerText(), /태그를 찾아주세요/);
     assert.match(await page.locator('.mission-row[data-mission="MAKE_A_WISH"]').innerText(), /글자 획득 완료/);
     await visit(`${productionUrl}/missions/show-me`);
-    await page.getByRole('heading', { name: '연결의 한 조각을 모았어요', exact: true }).waitFor();
+    await page.getByRole('heading', { name: '나의 프로필', exact: true }).waitFor();
+    await page.locator('.show-me-record-name').getByText('수집 검증', { exact: true }).waitFor();
     assert.equal(await page.locator('.letter-sticker.celebrate').count(), 0);
 
     completed.add('SYNC_ME');
@@ -255,11 +269,21 @@ try {
     await page.getByText('Y를 획득했어요!', { exact: true }).waitFor();
     assert.equal(await animated.evaluate(el => window.getComputedStyle(el).animationName), 'none');
     assert.equal(await page.locator('.collection-celebrating').evaluate(el => window.getComputedStyle(el).animationName), 'none');
-    const dialog = page.getByRole('dialog', { name: 'SSAFY 글자를 모두 수집했어요! 축하드려요 🎉', exact: true });
+    const dialog = page.getByRole('dialog', { name: 'SSAFY 글자를 모두 수집했어요!', exact: true });
+    await page.clock.fastForward(900);
+    assert.equal(await dialog.count(),0,'missing server order does not invent a rank or consume the achievement');
+    completionOrder=7;await page.reload();
     await dialog.waitFor();
-    const box = await dialog.boundingBox();
-    assert.ok(box.x > 0 && box.x + box.width < 360 && box.y + box.height < 650, 'compact dialog clears the bottom navigation');
-    await page.screenshot({ path: resolve(output, 'collection-celebration-360.png') });
+    assert.equal(await dialog.getByRole('heading').count(),0,'no separate title');
+    await dialog.getByText('SSAFY 글자를 모두 수집했어요!',{exact:true}).waitFor();
+    await dialog.getByText('7번째로 수집을 완료했어요.',{exact:true}).waitFor();
+    assert.equal(await dialog.getByRole('button',{name:'확인했어요',exact:true}).count(),1);
+    for(const width of [360,390,430,768,1440]) {
+      await page.setViewportSize({width,height:720});
+      const box=await dialog.boundingBox();
+      assert.ok(box.x>0&&box.x+box.width<width&&box.y+box.height<650,'compact achievement clears bottom navigation');
+      await page.screenshot({path:resolve(output,`collection-celebration-${width}.png`)});
+    }
     await dialog.getByRole('button', { name: '확인했어요', exact: true }).click();
     await dialog.waitFor({ state: 'hidden' });
 
@@ -272,9 +296,32 @@ try {
       assert.equal(await animated.count(), 0);
       await page.getByRole('link', { name: '완성 기록 보기' }).waitFor();
     }
+
+    userId=73;completed.delete('SAY_SOMETHING');completionOrder=0;await page.reload();
+    await page.getByRole('progressbar',{name:'나의 글자 수집'}).waitFor();
+    await visit(`${productionUrl}/missions/show-me`);
+    await page.locator('.show-me-record-name').getByText('수집 검증',{exact:true}).waitFor();
+    completed.add('SAY_SOMETHING');
+    await page.getByRole('link',{name:'TAG ME 홈',exact:true}).click();
+    await page.getByText('Y를 획득했어요!',{exact:true}).waitFor();
+    for(const invalid of [0,-1,Number.MAX_SAFE_INTEGER+1]) {
+      completionOrder=invalid;await page.reload();await page.getByRole('progressbar').waitFor();await page.clock.fastForward(900);
+      assert.equal(await dialog.count(),0,'invalid order cannot be displayed as an achievement rank');
+    }
+    completionOrder=1234;await page.reload();await dialog.waitFor();
+    await dialog.getByText('1,234번째로 수집을 완료했어요.',{exact:true}).waitFor();
+    // Same mounted Home receives a reset round from the server on navigation refresh.
+    resetGeneration=1;completed.clear();completed.add('SHOW_ME');completionOrder=null;
+    await page.evaluate(()=>{window.history.pushState(null,'','/?round=1');window.dispatchEvent(new Event('tagme:navigation'));});
+    await page.waitForFunction(()=>document.querySelector('[role="progressbar"]')?.getAttribute('aria-valuenow')==='1');
+    await dialog.waitFor({state:'hidden'});
+    for(const code of codes)completed.add(code);completionOrder=1500;
+    await page.evaluate(()=>{window.history.pushState(null,'','/?round=1&done=1');window.dispatchEvent(new Event('tagme:navigation'));});
+    await dialog.waitFor();await dialog.getByText('1,500번째로 수집을 완료했어요.',{exact:true}).waitFor();
+    await page.keyboard.press('Escape');await dialog.waitFor({state:'hidden'});
   });
   assert.deepEqual(failures, [], 'browser page errors');
-  await writeFile(resolve(output, 'checks.json'), JSON.stringify({ passed: results, pageErrors: failures, writes }, null, 2));
+  await writeFile(resolve(output, 'checks.json'), JSON.stringify({ passed: results, pageErrors: failures, writes, metadataReads }, null, 2));
 } finally {
   await browser?.close();
   await development?.close();

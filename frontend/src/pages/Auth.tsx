@@ -20,6 +20,7 @@ const copy = {
 
 export function Auth({ mode, preview }: { mode: AuthMode; preview: boolean }) {
   const auth = useAuth();
+  const { setFlash } = auth;
   const [busy, setBusy] = useState(false);
   const [challenge, setChallenge] = useState<OtpChallenge | null>(null);
   const [expiresAt, setExpiresAt] = useState(0);
@@ -40,6 +41,10 @@ export function Auth({ mode, preview }: { mode: AuthMode; preview: boolean }) {
   const showPassword = mode === 'login' || step === 'verify';
   const passwordLabel = mode === 'login' || mode === 'signup' ? '비밀번호' : '새 비밀번호';
   const set = (name: keyof AuthValues, value: string) => { setValues((previous) => ({ ...previous, [name]: value })); setErrors((previous) => ({ ...previous, [name]: undefined })); setNotice(''); setFailed(false); auth.setFlash(''); };
+
+  useEffect(() => {
+    if (mode === 'change') setFlash('');
+  }, [mode, setFlash]);
 
   useEffect(() => {
     if (focusInvalid.current) { form.current?.querySelector<HTMLInputElement>('[aria-invalid="true"]')?.focus(); focusInvalid.current = false; }
@@ -106,7 +111,7 @@ export function Auth({ mode, preview }: { mode: AuthMode; preview: boolean }) {
     requestAnimationFrame(() => form.current?.querySelector<HTMLInputElement>('[name="username"]')?.focus());
   }
 
-  return <div className="page auth-page account-theme"><Link className="back-link" href={mode === 'change' ? '/me' : '/'}><Icon name="arrowLeft" size={16} />{mode === 'change' ? '마이페이지' : '미션 모으기'}</Link>
+  return <div className="page auth-page account-theme participant-page">
     <div className="auth-grid"><section className="auth-form-panel" aria-labelledby="auth-heading"><div className="auth-form-heading"><p className="context-label">SSAFY 16기 · TAG ME</p><h1 id="auth-heading">{current.title}</h1><p>{current.description}</p></div>
       <div className="form-boundary"><Icon name={auth.config.available && !preview ? 'lock' : 'clock'} size={17} /><p>{preview ? '개발용 화면 미리보기예요. 실제 인증과 DM 발송은 실행되지 않아요.' : !auth.ready ? '인증 서비스 연결을 확인하고 있어요.' : auth.config.available ? '아이디는 Mattermost와 같아요. 비밀번호는 TAG ME 전용이에요.' : '인증 서비스를 준비하고 있어요. 지금은 화면을 둘러볼 수 있어요.'}</p></div>
       {mode !== 'login' && <ol className="auth-steps" aria-label="본인 확인 단계"><li aria-current={step === 'account' ? 'step' : undefined}>계정 입력<span>Mattermost 아이디</span></li><li aria-current={step === 'verify' ? 'step' : undefined}>DM 인증 · 비밀번호<span>6자리 번호와 새 비밀번호</span></li></ol>}
@@ -117,12 +122,12 @@ export function Auth({ mode, preview }: { mode: AuthMode; preview: boolean }) {
         {showPassword && <Field label={passwordLabel} name="password" password disabled={busy} maxLength={128} hint={mode === 'login' ? undefined : `공백을 포함해 ${auth.config.passwordMinLength}~${auth.config.passwordMaxLength}자. 입력한 값을 그대로 사용해요.`} autoComplete={mode === 'login' ? 'current-password' : 'new-password'} placeholder={mode === 'login' ? 'TAG ME 가입 시 설정한 비밀번호' : 'TAG ME에서 사용할 비밀번호'} value={values.password} error={errors.password} onChange={(event) => set('password', event.target.value)} />}
         {showPassword && mode !== 'login' && <Field label={`${passwordLabel} 확인`} name="confirmation" password disabled={busy} maxLength={128} autoComplete="new-password" placeholder="비밀번호를 한 번 더 입력해 주세요" value={values.confirmation} error={errors.confirmation} onChange={(event) => set('confirmation', event.target.value)} />}
         {mode === 'login' && <div className="auth-extra"><Link href="/auth/password-reset">비밀번호를 잊으셨나요?</Link></div>}
-        <div className={`form-notice ${failed ? 'is-error' : ''}`} role={failed ? 'alert' : 'status'}>{notice || auth.flash}</div>
+        <div className={`form-notice ${failed ? 'is-error' : ''}`} role={failed ? 'alert' : 'status'}>{notice || (mode === 'change' ? '' : auth.flash)}</div>
         <Button type="submit" className="full-width" disabled={busy || !auth.ready || !preview && mode !== 'login' && step === 'account' && resendRemaining > 0}>{busy ? '처리 중…' : mode !== 'login' && step === 'account' ? '인증번호 받기' : current.submit}<Icon name="arrow" size={18} /></Button>
         {step === 'verify' && <Button className="full-width resend-button" variant="quiet" type="button" disabled={busy || resendRemaining > 0} onClick={() => preview ? setNotice('개발용 미리보기에서는 DM을 발송하지 않아요.') : requestCode()}>{resendRemaining > 0 ? `${resendRemaining}초 후 다시 받기` : '인증번호 다시 받기'}</Button>}
       </form>
-      {mode === 'login' ? <p className="auth-switch">처음 오셨나요? <Link href="/auth/signup">회원가입</Link></p> : mode === 'change' ? <p className="auth-switch"><Link href="/me">변경을 취소하고 돌아가기</Link></p> : <p className="auth-switch"><Link href="/auth">로그인으로 돌아가기</Link></p>}
-    </section><aside className="auth-guide" aria-labelledby="account-guide"><ConnectionStickers className="auth-stickers" /><h2 id="account-guide">작은 태그 하나,<br />반가운 연결 하나.</h2><p>태그로 시작한 미션은 로그인·가입과 프로필 설정 후 이어갈 수 있어요.</p><dl><div><dt>아이디</dt><dd>Mattermost에서 사용하는 아이디</dd></div><div><dt>비밀번호</dt><dd>TAG ME에 처음 가입할 때 설정한 값</dd></div><div><dt>6자리 인증</dt><dd>가입과 비밀번호 변경·재설정에만 필요해요.</dd></div></dl><p className="auth-footnote"><Icon name="lock" size={16} />Mattermost 비밀번호를 입력하지 마세요.</p></aside></div>
+      {mode === 'login' ? <p className="auth-switch account-card-footer">처음 오셨나요? <Link href="/auth/signup">회원가입</Link></p> : mode === 'change' ? <p className="auth-switch account-card-footer"><Link href="/me">변경을 취소하고 돌아가기</Link></p> : <p className="auth-switch account-card-footer"><Link href="/auth">로그인으로 돌아가기</Link></p>}
+    </section><aside className="auth-guide" aria-labelledby="account-guide"><ConnectionStickers className="auth-stickers" /><h2 id="account-guide">NFC 태그로 미션을 찾아보세요</h2><p>로그인하고 프로필을 등록하면 태그한 미션을 이어서 할 수 있어요.</p><dl><div><dt>아이디</dt><dd>Mattermost에서 사용하는 아이디</dd></div><div><dt>비밀번호</dt><dd>TAG ME에 처음 가입할 때 설정한 값</dd></div><div><dt>6자리 인증</dt><dd>가입과 비밀번호 변경·재설정에만 필요해요.</dd></div></dl><p className="auth-footnote"><Icon name="lock" size={16} />Mattermost 비밀번호를 입력하지 마세요.</p></aside></div>
     <Dialog open={dialog} title="입력 형식을 확인했어요" onClose={() => setDialog(false)}><p>개발용 미리보기예요. 실제 가입, 로그인, 비밀번호 변경이나 DM 인증은 실행되지 않았어요.</p><Button className="full-width" onClick={() => setDialog(false)}>확인했어요</Button></Dialog>
   </div>;
 }
