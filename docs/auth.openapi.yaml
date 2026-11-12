@@ -146,7 +146,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
         '409':
-          description: 계정/username/credentials 충돌
+          description: 이미 가입된 ACTIVE 계정의 SIGN_UP 요청은 ACCOUNT_ALREADY_REGISTERED로 거절하며 challenge를 발급하지 않는다.
           content:
             application/json:
               schema:
@@ -557,7 +557,7 @@ components:
           const: 8
         passwordMaxLength:
           type: integer
-          const: 64
+          const: 20
     Csrf:
       type: object
       required:
@@ -675,7 +675,7 @@ components:
         password:
           type: string
           minLength: 8
-          maxLength: 64
+          maxLength: 20
           description: Unicode code point 기준, 공백 포함. 공백만 있는 값은 거절하며 원문은 trim/정규화하지 않는다.
     PasswordRequest:
       type: object
@@ -697,5 +697,5 @@ components:
         newPassword:
           type: string
           minLength: 8
-          maxLength: 64
+          maxLength: 20
           description: Unicode code point 기준, 공백 포함. 공백만 있는 값은 거절하며 원문은 trim/정규화하지 않는다.

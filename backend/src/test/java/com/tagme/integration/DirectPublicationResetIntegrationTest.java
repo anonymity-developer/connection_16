@@ -447,7 +447,7 @@ class DirectPublicationResetIntegrationTest {
         assertThatThrownBy(()->discovery.open(bob,alice.userId())).isInstanceOf(AuthException.class);
         var identity=new MattermostClient.Identity(old.mattermostId(),old.username(),new MattermostProfile("통합 검사","서울",1,0));when(mattermost.byId(old.mattermostId())).thenReturn(Optional.of(identity));
         String challenge="S".repeat(43);otpStore.issue(challenge,new OtpStore.Challenge(OtpStore.Purpose.SIGN_UP,old.mattermostId(),0,0,""),"012345");
-        var fresh=authService.signup(challenge,"012345","new isolated participant password","127.0.0.91");
+        var fresh=authService.signup(challenge,"012345","new fixture password","127.0.0.91");
         assertThat(fresh.id()).isNotEqualTo(alice.userId());assertThat(fresh.onboardingRequired()).isTrue();assertThat(participation.missions(fresh.id())).allMatch(m->m.state().equals("LOCKED"));
         var interest=db.queryForObject("SELECT MIN(id) FROM interests",Long.class);
         participationService.save(fresh.principal(),new ParticipationController.ProfileRequest("새 계정","다시 첫 S",null,null,List.of(interest),Arrays.stream(com.tagme.participation.ParticipationModels.PolicyType.values()).map(type->new ParticipationController.Acceptance(type,"reset-v1")).toList(),0));

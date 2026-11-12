@@ -21,7 +21,7 @@ try {
     if (path === '/csrf') return route.fulfill({status:200,json:{headerName:'X-XSRF-TOKEN',token:'polish-fixture'}});
     if (path === '/missions/show-me/reconcile') { assert.equal(req.headers()['x-xsrf-token'],'polish-fixture'); return route.fulfill({status:200,json:{newlyCompleted:false}}); }
     let body;
-    if (path === '/auth/config') body = { available: true, passwordMinLength: 15, passwordMaxLength: 64 };
+    if (path === '/auth/config') body = { available: true, passwordMinLength:8, passwordMaxLength:20 };
     else if (path === '/users/me') {
       if (!signedIn) return route.fulfill({ status: 401, json: { code: 'UNAUTHENTICATED', message: '로그인이 필요해요.' } });
       body = { id: 1, username: 'ui-fixture', nickname: 'UI 검사', onboardingRequired: false, admin };

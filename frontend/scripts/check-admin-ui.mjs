@@ -32,7 +32,7 @@ try {
       if (path === '/auth/logout') { signedIn = false; return reply(204); }
       return reply(500, { message: 'Preview attempted a real write.' });
     }
-    if (path === '/auth/config') return reply(200, { available: true, participantAvailable: false, adminAvailable: true, passwordMinLength: 15, passwordMaxLength: 64 });
+    if (path === '/auth/config') return reply(200, { available: true, participantAvailable: false, adminAvailable: true, passwordMinLength:8, passwordMaxLength:20 });
     if (path === '/csrf') return reply(200, { headerName: 'X-XSRF-TOKEN', token: 'admin-test-csrf' });
     if (path === '/users/me') return signedIn ? reply(200, { id: 1, username: 'admin:contract', nickname: null, onboardingRequired: false, admin: true }) : reply(401, { code: 'UNAUTHENTICATED', message: '로그인이 필요해요.' });
     if (path === '/tags/pending') return reply(200, { present: false });

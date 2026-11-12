@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { LetterSticker } from '../components/LetterSticker';
 import { WinterDecor } from '../components/WinterDecor';
+import { ParticipantPage, ParticipantSectionHeading } from '../components/ParticipantPage';
 import { useParticipation } from '../features/participation/context';
 import type { CollectionCelebrations } from '../features/participation/collection-celebrations';
 import type { Completion } from '../features/participation/api';
@@ -61,18 +62,20 @@ export function Collection({ data, celebrations, completion }: { data: ScreenDat
   const newLetters = missions.filter(mission => earned.includes(mission.code)).map(mission => mission.letter);
   const notice = !newLetters.length ? '' : newLetters.length === 1 ? `${newLetters[0]}를 획득했어요!` : `${newLetters.join(' · ')} 글자를 획득했어요!`;
 
-  return <section className={`collection-panel sticker-board${complete && earned.length ? ' collection-celebrating' : ''}`} aria-labelledby="collection-heading">
-    <WinterDecor /><div className="panel-heading"><h2 id="collection-heading">나의 SSAFY 수집판</h2>{(data.preview || data.serverLoaded) && <span className="collection-count"><b>{completed}</b> / 5 획득</span>}</div>
-    {completed < 5 && <div className="collection-invitation"><span className="collection-bubble" aria-hidden="true">우리를 찾아봐!</span></div>}
+  return <section className="collection-section" aria-labelledby="collection-heading">
+    <ParticipantSectionHeading id="collection-heading" title="나의 SSAFY 수집판">{known && <span className="collection-count"><b>{completed}</b> / 5 획득</span>}</ParticipantSectionHeading>
+    <div className={`collection-panel sticker-board${complete && earned.length ? ' collection-celebrating' : ''}`}>
+    <WinterDecor /><div className="collection-board-heading"><div className="collection-invitation" aria-hidden="true">{!complete && <span className="collection-bubble" aria-hidden="true">우리를 찾아봐!</span>}</div></div>
     <div className="letter-slots">{missions.map((mission) => {
       const state = known ? data.progress[mission.code] : 'LOCKED'; const visual = collectionVisual(mission.code, state, known);
       return <Link key={mission.code} data-mission={mission.code} href={`/missions/${mission.slug}`} data-visual={visual} className={`letter-slot ${visual === 'collected' ? 'is-collected' : ''}`} title={mission.name} aria-label={`${mission.letter}, ${mission.name}, ${data.preview || data.serverLoaded ? missionStatusLabel(state, mission.code) : '미션 알아보기'}`}>
         <LetterSticker code={mission.code} collectionState={state === 'COMPLETED' ? 'collected' : 'uncollected'} celebrate={earned.includes(mission.code)} /><span className="slot-name">{mission.letter}</span><span className="slot-label">{slotLabels[mission.code]}</span><span className="slot-state"><Icon size={14} name={!data.preview && !data.serverLoaded ? 'tag' : state === 'COMPLETED' ? 'check' : state === 'PENDING' ? 'clock' : state === 'UNLOCKED' ? 'arrow' : mission.code === 'SHOW_ME' ? 'person' : 'lock'} /></span>
       </Link>;
     })}</div>
-    {(data.preview || data.serverLoaded) && <div className="collection-progress" role="progressbar" aria-label={data.preview ? '미리보기 글자 수집' : '나의 글자 수집'} aria-valuenow={completed} aria-valuemin={0} aria-valuemax={5}><span style={{ width: `${completed * 20}%` }} /></div>}
-    <p className="collection-caption"><strong className="collection-earned" role="status">{notice}</strong>{!notice && (complete ? 'SSAFY 글자를 모두 모았어요.' : '획득한 글자는 여기에 모여요.')}</p>
-    {complete && <Link className="text-link collection-complete-link" href="/complete">완성 기록 보기<Icon name="arrow" size={16} /></Link>}
+    <div className="collection-progress-slot">{known && <div className="collection-progress" role="progressbar" aria-label={data.preview ? '미리보기 글자 수집' : '나의 글자 수집'} aria-valuenow={completed} aria-valuemin={0} aria-valuemax={5}><span style={{ width: `${completed * 20}%` }} /></div>}</div>
+    <div className="collection-footer"><p className="collection-caption"><strong className="collection-earned" role="status">{notice}</strong>{!notice && (complete ? 'SSAFY 글자를 모두 모았어요.' : '획득한 글자는 여기에 모여요.')}</p>
+    <div className="collection-record-action">{complete && <Link className="text-link collection-complete-link" href="/complete">완성 기록 보기<Icon name="arrow" size={16} /></Link>}</div></div>
+    </div>
     {celebrations && <Dialog open={complete && completionKey !== null && openCompletion === completionKey} title="SSAFY 글자를 모두 수집했어요!" hideTitle onClose={() => setOpenCompletion(null)}>
       <p className="collection-completion-message">SSAFY 글자를 모두 수집했어요!</p>
       {order !== null && <p className="collection-completion-order"><strong>{order.toLocaleString('ko-KR')}</strong>번째로 수집을 완료했어요.</p>}
@@ -84,18 +87,17 @@ export function Collection({ data, celebrations, completion }: { data: ScreenDat
 export function Home({ data }: { data: ScreenData }) {
   const auth = useAuth();
   const participation = useParticipation();
-  return <div className="page home-page participant-page">
-    <div className="page-heading"><p className="context-label">TAG ME 미션</p><h1>미션 모으기</h1><p>곳곳의 NFC 태그를 찾아 미션을 완료하고, 새로운 동료를 만나보세요.</p></div>
+  return <ParticipantPage page="missions" className="home-page">
     {!data.preview && auth.user && participation.error && <div className="collection-error" role="alert"><p>{participation.error}</p><button className="text-button" onClick={() => void participation.refresh()}>기록 다시 불러오기</button></div>}
     <div className="home-overview" aria-busy={participation.loading}><Collection key={data.preview ? 'preview' : auth.user?.id ?? 'guest'} data={data} celebrations={data.preview ? null : participation.celebrations} completion={data.preview ? null : participation.collection?.completion} />
 
     </div>
     <EventEncouragement />
-    <section className="mission-section" aria-labelledby="mission-heading"><div className="section-heading"><h2 id="mission-heading">SSAFY 미션</h2><span>어떤 미션부터 알아볼까요?</span></div>
+    <section className="mission-section" aria-labelledby="mission-heading"><ParticipantSectionHeading id="mission-heading" title="SSAFY 미션"><span>어떤 미션부터 알아볼까요?</span></ParticipantSectionHeading>
       <MissionCards data={data} />
 
     </section>
-  </div>;
+  </ParticipantPage>;
 }
 
 export function MissionCards({ data }: { data: ScreenData }) {

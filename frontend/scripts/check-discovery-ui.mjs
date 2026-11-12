@@ -21,7 +21,7 @@ try {
       const req = route.request(), url = new URL(req.url()), path = url.pathname.replace('/api/v1', ''), method = req.method();
       const reply = (status, value) => route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(value) });
       if (method === 'POST' && path === '/missions/show-me/reconcile') { assert.ok(req.headers()['x-xsrf-token']); return reply(200, { newlyCompleted: false }); }
-      if (method === 'GET' && path === '/auth/config') return reply(200, { available: true, passwordMinLength: 15, passwordMaxLength: 64 });
+      if (method === 'GET' && path === '/auth/config') return reply(200, { available: true, passwordMinLength:8, passwordMaxLength:20 });
       if (method === 'GET' && path === '/users/me') return signedIn ? reply(200, { id: 1, username: 'test-participant', nickname: '테스트 나', onboardingRequired: false }) : reply(401, { code: 'UNAUTHENTICATED', message: '로그인이 필요합니다.' });
       if (method === 'GET' && path === '/tags/pending') return reply(200, { present: false });
       if (method === 'GET' && path === '/csrf') return reply(200, { headerName: 'X-XSRF-TOKEN', token: 'discovery-test-csrf' });
@@ -68,7 +68,7 @@ try {
   for(const width of [360,390,430,768,1440]) {
     await page.setViewportSize({width,height:900});
     assert.equal(await page.locator('.page.discovery-page.participant-page').count(),1);
-    assert.deepEqual(await page.locator('.page-heading > *').allTextContents(),['TAG ME 네트워크','동료 찾기','같은 관심사에서 대화를 시작해요.']);
+    assert.deepEqual(await page.locator('.page-heading > *').allTextContents(),['TAG ME 네트워킹','동료 찾기','SSAFY 16기 서울 캠퍼스 동료들의 프로필을 구경해요']);
     guestHeadings.set(width,await headingMetrics());
     await page.screenshot({path:resolve(output,`discovery-guest-${width}.png`),fullPage:true});
   }

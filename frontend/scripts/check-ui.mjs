@@ -29,7 +29,7 @@ try {
       return route.fulfill({status:200,json:{missionCode:'MAKE_A_WISH',letter:'A',title:'A WISH COME TRUE'}});
     }
     if (route.request().method() !== 'GET') return route.abort();
-    const data = path === '/auth/config' ? { available: false, passwordMinLength: 15, passwordMaxLength: 64 }
+    const data = path === '/auth/config' ? { available: false, passwordMinLength:8, passwordMaxLength:20 }
       : path === '/users/me' ? { code: 'UNAUTHENTICATED', message: '로그인이 필요해요.' }
       : path === '/tags/pending' ? { present: false } : path === '/csrf' ? {headerName:'X-XSRF-TOKEN',token:'layout-test-csrf'} : { code: 'FIXTURE_ONLY', message: '화면 검사 범위 밖이에요.' };
     return route.fulfill({ status: path === '/users/me' ? 401 : ['/auth/config','/tags/pending','/csrf'].includes(path) ? 200 : 503, json: data });
@@ -106,7 +106,7 @@ try {
     await page.getByRole('button', { name: '로그인하기', exact: true }).click();
     assert.equal(await page.locator('input[name="username"]').evaluate((element) => document.activeElement === element), true);
     await page.getByLabel('아이디', { exact: true }).fill('ui_test');
-    await page.getByLabel('비밀번호', { exact: true }).fill('example-only-password');
+    await page.getByLabel('비밀번호', { exact: true }).fill('example-only-pass');
     await page.getByRole('button', { name: '비밀번호 표시', exact: true }).click();
     assert.equal(await page.getByLabel('비밀번호', { exact: true }).getAttribute('type'), 'text');
     await page.getByRole('button', { name: '비밀번호 숨기기', exact: true }).click();
@@ -183,11 +183,11 @@ try {
     await code.focus();
     await page.keyboard.press('Control+V');
     assert.equal(await code.inputValue(), '012345');
-    await page.getByLabel('비밀번호', { exact: true }).fill('example-only-password');
+    await page.getByLabel('비밀번호', { exact: true }).fill('example-only-pass');
     await page.getByLabel('비밀번호 확인', { exact: true }).fill('mismatch');
     await page.getByRole('button', { name: '가입하기', exact: true }).click();
     assert.equal(await page.getByLabel('비밀번호 확인', { exact: true }).evaluate((element) => element === document.activeElement), true);
-    await page.getByLabel('비밀번호 확인', { exact: true }).fill('example-only-password');
+    await page.getByLabel('비밀번호 확인', { exact: true }).fill('example-only-pass');
     const submit = page.getByRole('button', { name: '가입하기', exact: true });
     await submit.click();
     await page.getByRole('dialog').waitFor();

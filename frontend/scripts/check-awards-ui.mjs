@@ -10,7 +10,7 @@ try{
   if(!url.pathname.startsWith('/api/v1/'))return route.continue();
   const path=url.pathname.slice(7);assert.equal(request.method(),'GET','candidate UI is read-only');
   const reply=(status,json)=>route.fulfill({status,json});
-  if(path==='/auth/config')return reply(200,{available:false,passwordMinLength:15,passwordMaxLength:64});
+  if(path==='/auth/config')return reply(200,{available:false,passwordMinLength:8,passwordMaxLength:20});
   if(path==='/users/me')return reply(200,{id:1,username:'fixture',nickname:'검토용',onboardingRequired:false});
   if(path==='/event')return reply(200,{status:'CLOSED'});
   if(path==='/missions/collection')return reply(200,{missions:[],completedCount:0,completion:{complete:false}});

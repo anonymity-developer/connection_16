@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { validateAuth } from '../src/features/auth/validation.ts';
 
-const values = { username: 'ui_test', password: 'example-only-password', confirmation: 'example-only-password', code: '012345' };
+const values = { username: 'ui_test', password: 'example-only-pass', confirmation: 'example-only-pass', code: '012345' };
 
 test('ordinary login uses the Mattermost username and service password without an OTP', () => {
   assert.deepEqual(validateAuth('login', 'account', { ...values, code: '' }), {});
@@ -34,7 +34,10 @@ test('password change checks the code and confirmation without asking for anothe
   assert.ok(validateAuth('change', 'verify', { ...values, password: '' }).password);
 });
 
-test('new passwords use 8–64 Unicode code points without trimming', () => {
-  for (const password of ['a'.repeat(7), '가'.repeat(65)]) assert.ok(validateAuth('signup', 'verify', { ...values, password, confirmation: password }).password);
-  for (const password of ['가'.repeat(64), '😀'.repeat(8), ' a long password ']) assert.deepEqual(validateAuth('signup', 'verify', { ...values, password, confirmation: password }), {});
+test('new passwords use 8–20 Unicode code points without trimming', () => {
+  for (const mode of ['signup','reset','change']) {
+    for (const password of ['a'.repeat(7), '가'.repeat(21), '😀'.repeat(21)]) assert.ok(validateAuth(mode, 'verify', { ...values, password, confirmation: password }).password);
+    for (const password of ['a'.repeat(8),'가'.repeat(20), '😀'.repeat(20), ' a long password ']) assert.deepEqual(validateAuth(mode, 'verify', { ...values, password, confirmation: password }), {});
+  }
+  assert.deepEqual(validateAuth('login','account',{...values,password:'a'.repeat(64)}),{});
 });

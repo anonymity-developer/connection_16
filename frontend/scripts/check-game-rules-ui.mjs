@@ -26,7 +26,7 @@ try {
   await page.route('**/api/v1/**',async route=>{
     const req=route.request(),path=new URL(req.url()).pathname.slice(7),method=req.method(),reply=(status,json)=>route.fulfill({status,json});
     try {
-      if(path==='/auth/config')return reply(200,{available:true,passwordMinLength:8,passwordMaxLength:64});
+      if(path==='/auth/config')return reply(200,{available:true,passwordMinLength:8,passwordMaxLength:20});
       if(path==='/users/me')return reply(200,{id:73,username:'rules-fixture',nickname:'내 프로필 닉네임',onboardingRequired:false});
       if(path==='/tags/pending')return reply(200,{present:false});
       if(path==='/csrf')return reply(200,{headerName:'X-XSRF-TOKEN',token:'rules-csrf'});

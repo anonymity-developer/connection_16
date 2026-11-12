@@ -1,6 +1,6 @@
 import type { AuthConfig } from './api';
 
-export const passwordPolicy = { passwordMinLength: 8, passwordMaxLength: 64 };
+export const passwordPolicy = { passwordMinLength: 8, passwordMaxLength: 20 };
 
 export type AuthMode = 'login' | 'signup' | 'reset' | 'change';
 export interface AuthValues { username: string; password: string; confirmation: string; code: string }
