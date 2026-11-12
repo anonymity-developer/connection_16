@@ -300,8 +300,8 @@ p { word-break: keep-all; overflow-wrap: anywhere; }
 .account-panel dd { margin: 0; font-size: 15px; overflow-wrap: anywhere; }
 .account-panel .form-notice { margin-top: 16px; }
 
-/* Profile: 680 + 32 + 360 = 1072px inside the existing 1120px page with 24px gutters. */
-.profile-grid { display: grid; grid-template-columns: minmax(0, 680px) minmax(280px, 360px); gap: 32px; align-items: start; }
+/* Profile uses the full participant canvas; the form is the only working column. */
+.profile-grid { display: grid; grid-template-columns: minmax(0, 1fr); align-items: start; }
 .profile-form { min-width: 0; }
 .profile-form section { padding: 24px; border-radius: var(--radius); background: var(--surface); border: 1px solid var(--border); margin-bottom: 24px; }
 .profile-section-help { color: var(--muted); font-size: 14px; margin: 8px 0 24px; }
@@ -319,30 +319,14 @@ p { word-break: keep-all; overflow-wrap: anywhere; }
 .consent-option { display: flex; align-items: flex-start; gap: 12px; min-height: 44px; padding: 12px 0; font-size: 14px; }
 .consent-option input { margin-top: 3px; }
 .consent-option small { display: block; color: var(--muted); font-size: 13px; margin-top: 4px; }
-.policy-row { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; border-top: 1px solid var(--border); }
-.policy-row .text-button { margin-top: 4px; }
-.policy-body { white-space: pre-wrap; max-height: 50svh; overflow-y: auto; overflow-wrap: anywhere; font-size: 14px; margin-bottom: 24px; }
-.policy-version { color: var(--muted); font-size: 13px; margin-bottom: 12px; }
-.profile-preview { padding: 24px; background: var(--accent-soft); border-radius: var(--radius); position: static; }
-.profile-preview h2 { font-size: 16px; }
-.profile-initial { width: 56px; height: 56px; border-radius: 50%; background: var(--surface); color: var(--accent-ink); display: grid; place-items: center; font-size: 24px; margin-bottom: 16px; }
-.profile-preview-name { font-size: 20px; font-weight: 600; overflow-wrap: anywhere; margin-bottom: 8px; }
-.profile-preview > p:not(.profile-preview-name) { font-size: 14px; color: var(--muted); }
-.profile-interest-preview { display: flex; flex-wrap: wrap; gap: 8px; font-size: 13px; color: var(--accent-ink); margin: 16px 0; }
-.profile-preview-scope { display: flex; gap: 8px; align-items: flex-start; border-top: 1px solid var(--border); padding-top: 16px; }
-.profile-preview-scope svg { flex-shrink: 0; margin-top: 3px; }
-.profile-reward-note { margin-top: 24px; font-size: 14px; }
-.profile-reward-note p { margin-top: 8px; color: var(--muted); }
 .session-flash { max-width: 1072px; margin: 16px auto 0; padding: 12px 20px; background: var(--accent-soft); color: var(--accent-ink); border-radius: var(--control-radius); font-size: 14px; display: flex; justify-content: space-between; gap: 16px; align-items: center; }
 .collection-error { display: flex; align-items: center; justify-content: space-between; gap: 16px; font-size: 14px; margin-bottom: 20px; }
 .tag-footnote { color: var(--muted); font-size: 13px; margin: 24px 0 16px; }
 .tag-error { margin-top: 24px; }
 .account-panel > .button { margin-top: 12px; }
-@media (max-width: 900px) { .profile-grid { grid-template-columns: minmax(0, 1fr); }  }
-@media (max-width: 640px) { .profile-form section, .profile-preview { padding: 20px; } .session-flash { margin: 12px 16px 0; } .profile-pair { gap: 12px; } .profile-pair .field { min-width: 0; } }
+@media (max-width: 640px) { .profile-form section { padding: 20px; } .session-flash { margin: 12px 16px 0; } .profile-pair { gap: 12px; } .profile-pair .field { min-width: 0; } }
 
 .profile-form .field-help { font-size: 13px; }
-.policy-title { font-weight: 500; font-size: 16px; margin-bottom: 8px; }
 
 .sync-panel, .sync-result, .tap-panel { border: 1px solid var(--border); background: var(--surface); border-radius: var(--radius); padding: 24px; }
 .result-footnote { font-size: 14px; color: var(--muted); margin: 12px 0 20px; }
@@ -555,7 +539,6 @@ p { word-break: keep-all; overflow-wrap: anywhere; }
 .profile-interest-heading { display: flex; justify-content: space-between; gap: 16px; align-items: baseline; }
 .profile-interest-heading span { font-size: 13px; color: var(--muted); white-space: nowrap; font-variant-numeric: tabular-nums; }
 .profile-disclosure { font-size: 14px; line-height: 1.8; margin: 16px 0; }
-.profile-policy-links { display: flex; flex-wrap: wrap; gap: 8px 16px; }
 @media (max-width: 480px) { .profile-source { gap: 16px; } .profile-source dl { gap: 20px; } }
 
 /* Existing graph geometry, with 44px keyboard/touch targets and bounded weight levels. */
@@ -569,3 +552,4 @@ p { word-break: keep-all; overflow-wrap: anywhere; }
 .discovery-graph .network-strong line { stroke: var(--accent); }
 
 .public-profile-links:empty { display: none; }
+

@@ -100,19 +100,21 @@ try {
   assert.equal(await page.locator('input[name="policy"]').count(), 1);
   assert.equal(await page.locator('input[name="realName"],input[name="classNo"]').count(), 0);
   assert.equal(await page.locator('input[name="policy"]:checked').count(), 0);
+  assert.equal(await page.getByRole('button', { name: '프로필 저장하기', exact: true }).isEnabled(), false);
+  assert.equal(await page.getByRole('button', { name: /내용 보기$/ }).count(), 0);
+  assert.equal(await page.getByRole('heading', { name: '동료에게 보일 첫인사', exact: true }).count(), 0);
   const checklist = page.getByRole('region', { name: '첫 번째 S 준비하기', exact: true });
   // Draft inputs can satisfy presentation checks, but must not claim a server award.
   assert.equal(await checklist.locator('.is-ready').count(), 0);
   await fill();
   assert.equal(await checklist.locator('.is-ready').count(), 2);
+  assert.equal(await page.getByRole('button', { name: '프로필 저장하기', exact: true }).isEnabled(), false);
   assert.equal(await checklist.getByText('현장에서 태그해 주세요', { exact: true }).count(), 0);
   assert.ok((await checklist.locator('.checklist-footnote').innerText()).includes('프로필을 완성하면 첫 번째 S'));
   assert.equal(await page.getByRole('heading', { name: '첫 번째 S를 모았어요', exact: true }).count(), 0);
   assert.equal(completed, false);
-  await page.getByRole('button', { name: '프로필 저장하기', exact: true }).click(); assert.equal(saves, 0);
-  await page.getByRole('button', { name: /내용 보기$/ }).first().click();
-  await page.getByRole('dialog').waitFor(); assert.ok((await page.getByRole('dialog').innerText()).includes('실제 운영 정책이 아닙니다.'));
-  await page.keyboard.press('Escape'); await agree();
+  await agree();
+  assert.equal(await page.getByRole('button', { name: '프로필 저장하기', exact: true }).isEnabled(), true);
   for (const width of [360, 390, 430, 768, 1440]) {
     await page.setViewportSize({ width, height: 900 });
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth), false);
@@ -165,11 +167,17 @@ try {
   });
   record('anonymous tag intent survives login reload and onboarding without browser credential or token storage');
 
-  await visit('/me/profile'); await page.getByLabel('닉네임', { exact: true }).waitFor(); profileConflict = true;
+  await visit('/me/profile'); await page.getByLabel('닉네임', { exact: true }).waitFor();
+  assert.equal(await page.locator('input[name="policy"]:checked').count(), 0);
+  assert.equal(await page.getByRole('button', { name: '프로필 저장하기', exact: true }).isEnabled(), false);
+  await agree(); profileConflict = true;
   await page.getByRole('button', { name: '프로필 저장하기', exact: true }).click(); await page.getByRole('alert').waitFor();
   assert.equal(await page.getByRole('button', { name: '프로필 저장하기', exact: true }).isEnabled(), false);
   await page.getByRole('button', { name: '최신 프로필과 동의 불러오기', exact: true }).click(); profileConflict = false;
   await page.getByRole('button', { name: '프로필 저장하기', exact: true }).waitFor();
+  assert.equal(await page.getByRole('button', { name: '프로필 저장하기', exact: true }).isEnabled(), false);
+  await agree();
+  assert.equal(await page.getByRole('button', { name: '프로필 저장하기', exact: true }).isEnabled(), true);
   closed = true; await page.reload(); await page.getByRole('button', { name: '프로필 저장하기', exact: true }).waitFor();
   assert.equal(await page.getByRole('button', { name: '프로필 저장하기', exact: true }).isEnabled(), false);
   assert.equal(await page.getByRole('button', { name: /비공개/ }).count(), 0);assert.equal(await page.getByRole('checkbox', { name: /내 프로필을 참여자에게 공개하기/ }).count(), 0);assert.equal(completed, true);
@@ -194,3 +202,4 @@ try {
   await new Promise((done, reject) => { const child = spawn(process.execPath, ['scripts/taste.mjs', 'inspect', 'http://127.0.0.1:4373/me/profile', '--app', '--widths', '1440,768,390', '--out', '.taste-skill/profile-render'], { cwd: resolve('..'), env: { ...process.env, CHROME_PATH: launcher }, stdio: 'inherit' }); child.on('error', reject); child.on('exit', code => code === 0 ? done() : reject(new Error(`Profile render check exited ${code}`))); });
 
 } finally { await browser?.close(); await server.httpServer.close(); }
+
