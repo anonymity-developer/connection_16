@@ -24,9 +24,9 @@ public class ParticipationController {
     }
     public record Acceptance(@NotNull PolicyType type,@NotBlank @Pattern(regexp="[A-Za-z0-9._-]{1,64}") String version) { }
     public record ConsentRequest(@NotBlank @Pattern(regexp="[A-Za-z0-9._-]{1,64}") String version,@NotNull Boolean agreed) { }
-    public record ProfileRequest(@NotBlank @Size(max=30) String nickname,@Size(max=200) String bio,
+    public record ProfileRequest(@NotBlank @Size(max=30) String nickname,@NotBlank @Size(max=200) String bio,
                                  @Size(max=2048) String githubUrl,@Size(max=2048) String blogUrl,
-                                 @NotNull @Size(max=10) List<@NotNull @Positive Long> interestIds,
+                                 @NotNull @Size(min=2,max=6) List<@NotNull @Positive Long> interestIds,
                                  @NotNull @Size(max=2) List<@Valid Acceptance> acceptPolicies,@Min(0) long expectedVersion) {
         @Override public String toString() { return "ProfileRequest[redacted]"; }
     }

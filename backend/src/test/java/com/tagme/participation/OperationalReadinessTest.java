@@ -20,12 +20,12 @@ class OperationalReadinessTest {
     private final AuthPrincipal principal = new AuthPrincipal(1L, 1L, "PARTICIPANT");
     private ParticipationService service() {
         when(manager.getTransaction(any())).thenReturn(mock(TransactionStatus.class));
-        when(repository.interests()).thenReturn(List.of());
+        when(repository.interests()).thenReturn(List.of(new CatalogInterest(1,"산업","INDUSTRY",null),new CatalogInterest(2,"개발","DEVELOPMENT",null)));
         when(repository.identity(1L)).thenReturn(new Identity("Local fixture", "서울", 1, null, true));
         return new ParticipationService(repository, completion, manager, mock(AuthRateLimiter.class));
     }
     private ParticipationController.ProfileRequest request(List<ParticipationController.Acceptance> acceptances) {
-        return new ParticipationController.ProfileRequest("fixture", null, null, null, List.of(), acceptances, 0L);
+        return new ParticipationController.ProfileRequest("fixture", "소개", null, null, List.of(1L,2L), acceptances, 0L);
     }
     private void rejected(ParticipationService service, ParticipationController.ProfileRequest request, String code) {
         assertThatThrownBy(() -> service.save(principal, request)).isInstanceOf(AuthException.class)

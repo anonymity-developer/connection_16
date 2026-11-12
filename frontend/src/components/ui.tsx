@@ -18,7 +18,7 @@ export function Field({ label, hint, error, password = false, ...props }: InputH
   </div>;
 }
 
-export function Dialog({ open, title, hideTitle = false, children, onClose }: { open: boolean; title: string; hideTitle?: boolean; children: ReactNode; onClose: () => void }) {
+export function Dialog({ open, title, hideTitle = false, children, onClose, className = '' }: { open: boolean; title: string; hideTitle?: boolean; children: ReactNode; onClose: () => void; className?: string }) {
   const ref = useRef<HTMLDialogElement>(null);
   const titleId = useId();
   useEffect(() => {
@@ -41,7 +41,7 @@ export function Dialog({ open, title, hideTitle = false, children, onClose }: { 
       event.preventDefault(); first?.focus();
     }
   }
-  return <dialog ref={ref} className={`dialog${hideTitle ? ' dialog--titleless' : ''}`} aria-labelledby={hideTitle ? undefined : titleId} aria-label={hideTitle ? title : undefined} onKeyDown={trapFocus} onCancel={(event) => { event.preventDefault(); onClose(); }} onClick={(event) => { if (event.target === event.currentTarget) onClose(); }}>
+  return <dialog ref={ref} className={`dialog${hideTitle ? ' dialog--titleless' : ''} ${className}`} aria-labelledby={hideTitle ? undefined : titleId} aria-label={hideTitle ? title : undefined} onKeyDown={trapFocus} onCancel={(event) => { event.preventDefault(); onClose(); }} onClick={(event) => { if (event.target === event.currentTarget) onClose(); }}>
     <div className="dialog-inner"><button type="button" className="icon-button dialog-close" aria-label="닫기" onClick={onClose}><Icon name="close" /></button>{!hideTitle && <h2 id={titleId}>{title}</h2>}{children}</div>
   </dialog>;
 }

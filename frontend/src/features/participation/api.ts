@@ -7,7 +7,7 @@ export interface EventState { status: 'NOT_CONFIGURED' | 'BEFORE_OPEN' | 'OPEN' 
 export interface Profile { nickname: string; bio: string | null; githubUrl: string | null; blogUrl: string | null; version: number; interestIds: number[] }
 export interface ProfileIdentity { realName: string | null; region: string | null; classNo: number | null; photoUrl: string | null; ready: boolean }
 export interface ProfileState { identity: ProfileIdentity; profile: Profile | null; consents: Policies; profileComplete: boolean; participationReady: boolean }
-export interface Interest { id: number; name: string; category?: 'DOMAIN' | 'TECH_STACK' }
+export interface Interest { id: number; name: string; category?: 'INDUSTRY' | 'DEVELOPMENT' | 'DOMAIN'; groupName?: string | null }
 export interface ServerMission { id: number; code: MissionCode; letter: string; title: string; hint: string; active: boolean; state: 'LOCKED' | 'UNLOCKED' | 'IN_PROGRESS' | 'COMPLETED'; unlockedAt: string | null; completedAt: string | null }
 export interface Completion { complete: boolean; completedAt: string | null; completionOrder: number | null; awardConfirmed: boolean }
 export interface Collection { missions: ServerMission[]; completedCount: number; completion: Completion; resetGeneration?: number }

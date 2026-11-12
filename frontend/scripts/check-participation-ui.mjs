@@ -1,3 +1,4 @@
+import { catalog } from './fixtures/interests.mjs';
 /* global document, window, getComputedStyle */
 import assert from 'node:assert/strict';
 import { mkdir, writeFile, chmod } from 'node:fs/promises';
@@ -9,7 +10,6 @@ import { preview } from 'vite';
 // Explicit API contract fixtures, never imported by the application.
 const output = resolve('../output/playwright');
 await mkdir(output, { recursive: true });
-const catalog = [{ id: 1, name: '백엔드', category: 'DOMAIN' }, { id: 2, name: 'AI', category: 'DOMAIN' }, { id: 3, name: '클라우드', category: 'DOMAIN' }, { id: 4, name: 'React', category: 'TECH_STACK' }, ...['프론트엔드', '데이터', '게임', '디자인'].map((name, i) => ({ id: i + 5, name, category: 'DOMAIN' })), ...['Java', 'Spring Boot', 'Python', 'FastAPI', 'Django', 'JavaScript', 'TypeScript', 'Vue', 'Next.js', 'MySQL', 'PostgreSQL', 'Redis', 'Docker', 'Kubernetes', 'AWS', 'Flutter', 'Kotlin', 'Swift', 'C++', 'PyTorch'].map((name, i) => ({ id: i + 9, name, category: 'TECH_STACK' }))];
 const renderFixture = path => ({
   '/auth/config': { available: true, passwordMinLength:8, passwordMaxLength:20 },
   '/users/me': { id: 1, username: 'profile-render-test', nickname: null, onboardingRequired: true },
@@ -86,13 +86,14 @@ try {
   const record = name => { checks.push(name); console.log(`PASS ${name}`); };
   async function fill() {
     await page.getByLabel('닉네임', { exact: true }).fill('테스트별명');
-    await page.getByLabel('한 줄 소개 (선택)', { exact: true }).fill('함께 배우고 만드는 걸 좋아해요.');
-    await page.getByRole('checkbox', { name: '백엔드', exact: true }).check(); await page.getByRole('checkbox', { name: 'React', exact: true }).check();
-    const extra = page.locator('input[name="interest"]:not(:checked)');
-    for (let i = 0; i < 8; i++) await extra.first().check();
-    assert.equal(await extra.first().isDisabled(), true);
-    while (await page.locator('input[name="interest"]:checked').count()) await page.locator('input[name="interest"]:checked').first().uncheck();
-    await page.getByRole('checkbox', { name: '백엔드', exact: true }).check(); await page.getByRole('checkbox', { name: 'React', exact: true }).check();
+    await page.getByLabel('한 줄 소개 (필수)', { exact: true }).fill('함께 배우고 만드는 걸 좋아해요.');
+    await page.getByRole('checkbox', { name: '백엔드', exact: true }).check();
+    await page.getByRole('checkbox', { name: '금융·핀테크', exact: true }).check();
+    await page.getByRole('checkbox', { name: 'IT·플랫폼', exact: true }).check();
+    await page.getByRole('checkbox', { name: '제조·스마트팩토리', exact: true }).check();
+    assert.equal(await page.getByRole('checkbox', { name: '자동차·모빌리티', exact:true }).isDisabled(),true);
+    await page.getByRole('checkbox', { name: 'IT·플랫폼', exact: true }).uncheck();
+    await page.getByRole('checkbox', { name: '제조·스마트팩토리', exact: true }).uncheck();
   }
   async function agree() { for (const box of await page.locator('input[name="policy"]').all()) await box.check(); }
   await visit('/me/profile'); await page.getByLabel('닉네임', { exact: true }).waitFor();
@@ -118,6 +119,10 @@ try {
     for (const heading of await page.locator('h1,h2').all()) {
       assert.ok(await heading.evaluate(el => el.getBoundingClientRect().height / Number.parseFloat(getComputedStyle(el).lineHeight) <= 2.1));
     }
+    const heading=await page.locator('#profile-interests').boundingBox(), picker=await page.locator('#profile-interests + .interest-picker').boundingBox();
+    assert.ok(picker.y-heading.y-heading.height>=16,'interest heading has at least 16px of space');
+    assert.equal(await page.locator('.interest-picker fieldset').count(),2);
+    assert.equal(await page.getByText('기술 스택',{exact:true}).count(),0);
     await page.screenshot({ path: resolve(output, `participation-profile-${width}.png`), fullPage: true });
   }
   await page.setViewportSize({ width: 390, height: 900 });
@@ -132,7 +137,7 @@ try {
   assert.equal(await page.getByRole('progressbar').getAttribute('aria-valuenow'), '1');
   assert.equal(await page.getByText('S를 획득했어요!', { exact: true }).count(),0,'already acknowledged first S does not announce twice');
   assert.equal(await page.locator('input[name="realName"],input[name="classNo"]').count(), 0);
-  record('profile imports readonly identity, groups domain and stack interests, requires one acknowledgement and automatically awards the first S without a tag');
+  record('profile imports readonly identity, groups industry and development interests, requires one acknowledgement and automatically awards the first S without a tag');
 
   await visit('/missions/show-me');
   await page.getByRole('heading', { name: '나의 프로필', exact: true }).waitFor();
@@ -170,9 +175,9 @@ try {
   assert.equal(await page.getByRole('button', { name: /비공개/ }).count(), 0);assert.equal(await page.getByRole('checkbox', { name: /내 프로필을 참여자에게 공개하기/ }).count(), 0);assert.equal(completed, true);
   record('stale profile saves require reload and closure never restores a removed private-profile control');
   closed = false; profile = null; agreements = false; unlocked = false; completed = false; photoFails = true;
-  await visit('/me/profile'); await page.getByLabel('닉네임', { exact: true }).fill('닉네임만'); await agree(); await page.getByRole('button', { name: '프로필 저장하기', exact: true }).click(); await page.waitForURL('**/me'); assert.deepEqual(profile.interestIds, []);assert.equal(profile.bio, null);assert.equal(state().participationReady, true);
+  await visit('/me/profile'); await page.getByLabel('닉네임', { exact: true }).fill('닉네임만'); await agree(); await page.getByRole('button', { name: '프로필 저장하기', exact: true }).click(); assert.equal(profile,null); await fill(); await page.getByRole('button', { name: '프로필 저장하기', exact: true }).click(); await page.waitForURL('**/me'); assert.equal(profile.interestIds.length,2); assert.ok(profile.bio);
   sourceReady = false; await visit('/me/profile'); await page.getByRole('heading', { name: 'Mattermost 정보를 다시 확인해 주세요', exact: true }).waitFor();assert.equal(await page.locator('input[name="nickname"]').count(), 0);sourceReady = true;
-  record('nickname-only onboarding accepts empty optional fields and unavailable photos; missing source identity requires login rather than manual names');
+  record('onboarding requires bio and both interest categories; missing source identity requires login rather than manual names');
 
   pending = false; await visit('/t/resume');
   await page.getByRole('alert').waitFor(); assert.ok((await page.getByRole('alert').innerText()).includes('만료'));

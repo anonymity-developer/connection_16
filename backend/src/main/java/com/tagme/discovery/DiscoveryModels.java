@@ -6,7 +6,8 @@ import com.tagme.participation.ParticipationModels.Interest;
 public final class DiscoveryModels {
     private DiscoveryModels() { }
     public record Type(String code,String title,String version) { }
-    public record Person(long id,String nickname,List<Interest> interests,Type type,List<String> sharedInterests,boolean sameType,boolean visited,boolean visitedMe,boolean mutual) { }
+    public record Person(long id,String nickname,String bio,List<Interest> interests,Type type,List<String> sharedInterests,boolean sameType,boolean visited,boolean visitedMe,boolean mutual) { }
+    public record RecommendationBatch(String batchId,List<Person> items) { }
     public record People(List<Person> items,Long nextCursor) { }
     public record Detail(Person person,String realName,String region,int classNo,String bio,String githubUrl,String blogUrl,String photoUrl,boolean newlyVisited) { }
     public record Stats(long visitedCount,long visitorCount,long mutualCount) { }

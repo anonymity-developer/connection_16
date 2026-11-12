@@ -1,5 +1,9 @@
 # 전체 도메인 ERD와 관계 규칙
 
+2026-11-12 현재 계약: 한 줄 소개는 필수(200자 이내)이며 관심 산업 1~3개·개발 분야 1~3개를 선택한다. V16은 이름이 같은 기존 관심사 ID/선택을 유지하고 나머지를 LEGACY/비활성으로 보관한다. V17은 기술 스택 50개를 비활성화하고 기존 선택 행은 보존한다. 활성 선택지는 산업 10개·개발 분야 12개다. 목록·추천·그래프에 한 줄 소개와 분류 정보를 공개하고 이름·반·사진·외부 링크는 프로필 상세에서만 공개한다. 기존 사용자는 프로필을 보완한 후 동료 찾기를 이용하며 기존 글자·참여 기록은 삭제하지 않는다. [현재 추천·노출·공개 경계](recommendation-design.md). 아래 이전 필수/선택 규칙과 충돌하면 이 현재 계약을 따른다.
+
+V16의 recommendation_exposures는 (viewer_id,batch_id,peer_id) PK, 양쪽 users FK와 shown_at을 가진다. (viewer,peer,shown_at) 조회 인덱스와 (viewer,shown_at) 정리 인덱스를 둔다. interests에는 active/group_name/display_order가 추가되고 INDUSTRY/DEVELOPMENT/TECH_STACK/LEGACY 분류를 사용한다.
+
 V15의 추가 관계는 users 1:N error_reports(서버 신고자), users 1:0..1 account_deactivations(원래 외부 연결 보관), users 1:0..1 show_me_regrant_blocks(첫 S 재지급 차단)다. account_deactivations.change_id는 game_participation_resets.id를 참조하고, 조정 원장에 operation/mission_code가 추가된다. 비활성화한 user ID는 보존하며 재가입은 별도 ID라 이전 참여 FK와 합쳐지지 않는다. [현재 운영 지원 계약](support-and-member-controls.md).
 
 V12는 `users 1 — N game_participation_resets`(user_id/actor_id FK), 콘텐츠/탭 archived_at과 현재 슬롯 UNIQUE를 추가한다. 초기화 전 결과는 보관하고 현재 참여와 순위에서 제외한다. [현재 공개·초기화 계약](direct-publication-and-reset.md).

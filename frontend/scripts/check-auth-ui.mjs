@@ -1,3 +1,4 @@
+import { catalog } from './fixtures/interests.mjs';
 /* global document, window, getComputedStyle */
 import assert from 'node:assert/strict';
 import { mkdir, writeFile } from 'node:fs/promises';
@@ -33,7 +34,7 @@ try {
     if (method === 'GET' && path === '/tags/pending') return reply(200, { present: false });
     if (method === 'GET' && path === '/event') return reply(200, { status: 'NOT_CONFIGURED', opensAt: null, submitClosesAt: null, profilePreparationEnabled: false });
     if (method === 'GET' && path === '/missions/collection') return reply(200, { missions: ['SHOW_ME', 'SYNC_ME', 'MAKE_A_WISH', 'FAST_TAP', 'SAY_SOMETHING'].map((code, index) => ({ id: index + 1, code, state: 'LOCKED', active: true })), completedCount: 0, completion: { complete: false, completedAt: null, completionOrder: null, awardConfirmed: false } });
-    if (method === 'GET' && path === '/interests') return reply(200, [{ id: 1, name: '백엔드', category: 'DOMAIN' }, { id: 2, name: 'React', category: 'TECH_STACK' }]);
+    if (method === 'GET' && path === '/interests') return reply(200, catalog);
     if (method === 'GET' && path === '/users/me/profile') return reply(200, { identity: { realName: '테스트 이름', region: '서울', classNo: 13, photoUrl: null, ready: true }, profile: null, consents: { ready: true, policies: ['PARTICIPATION','PROFILE_PUBLICATION'].map(type => ({ type, version: 'test-v1', title: '테스트 안내', body: '브라우저 계약 전용 안내', agreed: false })) }, profileComplete: false, participationReady: false });
     if (method === 'GET' && path === '/csrf') return reply(200, { headerName: 'X-XSRF-TOKEN', token: 'test-csrf-token' });
     assert.equal(request.headers()['x-xsrf-token'], 'test-csrf-token', 'every mutation includes CSRF');

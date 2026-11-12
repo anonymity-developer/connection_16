@@ -63,8 +63,10 @@ public class ParticipationService {
         limits.check("profile-user",Long.toString(principal.userId()),30,60);
         validateUrl(value.githubUrl(),true); validateUrl(value.blogUrl(),false);
         if (value.interestIds().stream().distinct().count() != value.interestIds().size()) throw error(400,"INVALID_INTERESTS","관심사를 중복 없이 선택해 주세요.");
-        Set<Long> available = repository.interests().stream().map(CatalogInterest::id).collect(Collectors.toSet());
-        if (!available.containsAll(value.interestIds())) throw error(400,"INVALID_INTERESTS","관심사를 다시 선택해 주세요.");
+        var catalog=repository.interests();
+        Set<Long> available = catalog.stream().map(CatalogInterest::id).collect(Collectors.toSet());
+        if (!available.containsAll(value.interestIds())||!InterestCatalog.complete(value.interestIds(),catalog)) throw error(400,"INVALID_INTERESTS","관심 산업·개발 분야를 각각 1~3개 선택해 주세요.");
+        if(value.bio()==null||value.bio().isBlank()||value.bio().length()>200)throw error(400,"INVALID_PROFILE","한 줄 소개를 200자 이내로 작성해 주세요.");
         return transactions.execute(status -> {
             repository.lockPrincipal(principal); repository.requireOpen(true);
             if(!repository.identity(principal.userId()).ready())throw error(409,"MATTERMOST_PROFILE_REQUIRED","Mattermost 프로필 정보를 불러오려면 다시 로그인해 주세요.");

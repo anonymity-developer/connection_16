@@ -101,7 +101,7 @@ class EventRehearsalIntegrationTest {
         var identity=mattermost.byUsername(name).orElseThrow();String code=codes.get(identity.id());assertThat(code!=null&&code.matches("[0-9]{6}")).isTrue();
         var user=ok(client.send(HttpMethod.POST,"/auth/signup",Map.of("challengeId",challenge,"code",code,"password",PASSWORD)),201);client.userId=user.path("id").asLong();return client;
     }
-    Map<String,Object> profile(long version){return Map.of("nickname","리허설 동료","bio","리허설 소개","interestIds",List.of(db.queryForObject("SELECT MIN(id) FROM interests",Long.class)),"expectedVersion",version,"acceptPolicies",List.of(Map.of("type","PARTICIPATION","version","rehearsal-v1"),Map.of("type","PROFILE_PUBLICATION","version","rehearsal-v1")));}
+    Map<String,Object> profile(long version){return Map.of("nickname","리허설 동료","bio","리허설 소개","interestIds",db.queryForList("SELECT MIN(id) FROM interests WHERE active=TRUE GROUP BY category",Long.class),"expectedVersion",version,"acceptPolicies",List.of(Map.of("type","PARTICIPATION","version","rehearsal-v1"),Map.of("type","PROFILE_PUBLICATION","version","rehearsal-v1")));}
     void save(Client c){ok(c.send(HttpMethod.PUT,"/users/me/profile",profile(0)),200);assertThat(completed(c)).isEqualTo(1);}
     int completed(Client c){return c.get("/missions/collection").path("completedCount").asInt();}
     void unlock(Client c,MissionCode code){ok(c.send(HttpMethod.POST,"/tags/resolve",Map.of("token",tokens.get(code))),200);}

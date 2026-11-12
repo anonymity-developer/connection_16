@@ -15,7 +15,7 @@ try {
     :path==='/auth/config'?{available:true,passwordMinLength:8,passwordMaxLength:20}
     :path==='/tags/pending'?{present:false}:path==='/event'?{status:'CLOSED'}
     :path==='/missions/collection'?{missions:codes.map((code,i)=>({code,state:i<completed?'COMPLETED':'LOCKED',active:true})),completedCount:completed,resetGeneration:0,completion:{complete:completed===5,completionOrder:completed===5?7:null,awardConfirmed:false}}
-    :path==='/discovery/recommendations'?[]:path==='/discovery/stats'?{visitedCount:0,visitorCount:0,mutualCount:0}:path==='/interests'?[]:undefined;
+    :path==='/discovery/recommendations/batch'?{batchId:'layout-fixture',items:[]}:path==='/discovery/stats'?{visitedCount:0,visitorCount:0,mutualCount:0}:path==='/interests'?[]:undefined;
   if(path==='/users/me'&&json===null)return route.fulfill({status:401,json:{code:'UNAUTHENTICATED',message:'로그인이 필요해요.'}});
   if(json===undefined){unexpected.push(`${req.method()} ${path}`);return route.fulfill({status:500,json:{message:'Unexpected layout fixture request'}});}
   return route.fulfill({json});
@@ -49,7 +49,7 @@ try {
    assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth));
    if([360,390,430,768,1440].includes(width))await page.screenshot({path:resolve(output,`participant-home-${state}-${width}.png`),fullPage:true});
   }
-  account=width*10+2;completed=2;await visit('/discovery');await page.getByRole('heading',{name:'대화를 시작할 동료',exact:true}).waitFor();
+  account=width*10+2;completed=2;await visit('/discovery');await page.getByRole('heading',{name:'나에게 추천하는 동료',exact:true}).waitFor();
   const memberHeading=await metrics('.page-heading > *');await visit('/me');await page.getByRole('heading',{name:'계정 연결을 마쳤어요',exact:true}).waitFor();assert.deepEqual(await metrics('.page-heading > *'),memberHeading,`signed-in headings match at ${width}`);
  }
  record('one participant page and sign-in card share width, shape, type and spacing across guest/member states at eleven widths');

@@ -64,7 +64,7 @@ class DirectPublicationResetIntegrationTest {
         long id=accounts.insertUser(name+"-external-fixture",name);accounts.insertCredential(id,passwords.encode("isolated participant password"));
         db.update("UPDATE users SET real_name='통합 검사',region='서울',class_no=1,mattermost_profile_synced_at=UTC_TIMESTAMP(6) WHERE id=?",id);
         db.update("INSERT INTO profiles(user_id,nickname,bio,is_public,published_at) VALUES(?,?, '통합 검사 소개',TRUE,UTC_TIMESTAMP(6))",id,name);
-        db.update("INSERT INTO user_interests SELECT ?,MIN(id) FROM interests",id);
+        db.update("INSERT INTO user_interests SELECT ?,MIN(id) FROM interests WHERE active=TRUE GROUP BY category",id);
         db.update("INSERT INTO user_consents(user_id,policy_type,policy_version,agreed_at) SELECT ?,policy_type,policy_version,UTC_TIMESTAMP(6) FROM current_consent_policies",id);
         db.update("INSERT INTO mission_progress(user_id,mission_id,unlocked_at) SELECT ?,id,UTC_TIMESTAMP(6)-INTERVAL 2 MINUTE FROM missions",id);
         completion.completeShowMe(id);return accounts.byId(id).orElseThrow().principal();
@@ -175,6 +175,8 @@ class DirectPublicationResetIntegrationTest {
     }
     @Test void anonymousLikesAndCommentsBoostRecommendationsWithoutDisclosingIdentitySignals() {
         var peer=participant("recommend-peer");
+        // Explicit 5-point class advantage; no dependency on a particular tie lottery outcome.
+        db.update("UPDATE users SET class_no=class_no+1 WHERE id=?",peer.userId());
         assertThat(discovery.recommended(alice).getFirst().id()).isEqualTo(peer.userId());
         var cheer=content.submit(bob,CHEER,UUID.randomUUID().toString(),text("익명 응원",null),false);
         reactions.like(alice,cheer.id(),true);
@@ -450,7 +452,7 @@ class DirectPublicationResetIntegrationTest {
         var fresh=authService.signup(challenge,"012345","new fixture password","127.0.0.91");
         assertThat(fresh.id()).isNotEqualTo(alice.userId());assertThat(fresh.onboardingRequired()).isTrue();assertThat(participation.missions(fresh.id())).allMatch(m->m.state().equals("LOCKED"));
         var interest=db.queryForObject("SELECT MIN(id) FROM interests",Long.class);
-        participationService.save(fresh.principal(),new ParticipationController.ProfileRequest("새 계정","다시 첫 S",null,null,List.of(interest),Arrays.stream(com.tagme.participation.ParticipationModels.PolicyType.values()).map(type->new ParticipationController.Acceptance(type,"reset-v1")).toList(),0));
+        participationService.save(fresh.principal(),new ParticipationController.ProfileRequest("새 계정","다시 첫 S",null,null,db.queryForList("SELECT MIN(id) FROM interests WHERE active=TRUE GROUP BY category",Long.class),Arrays.stream(com.tagme.participation.ParticipationModels.PolicyType.values()).map(type->new ParticipationController.Acceptance(type,"reset-v1")).toList(),0));
         assertThat(participation.mission(fresh.id(),SHOW_ME).state()).isEqualTo("COMPLETED");assertThat(participation.generation(fresh.id())).isZero();
     }
     @Test void memberControlsRequireAdminCsrfAndRollbackAndSerializeRepeatedRequests() throws Exception {

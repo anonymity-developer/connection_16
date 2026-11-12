@@ -38,21 +38,22 @@ class DiscoveryIntegrationTest {
     AuthPrincipal actor,bob,charlie;String hash;long interest;final Map<String,String> cookies=new HashMap<>();static final String PASSWORD="a long test password";
     @BeforeEach void setup(){
         reset(repository,mattermost,accounts);cookies.clear();
-        db.update("DELETE FROM connection_sessions");
+        db.update("DELETE FROM recommendation_exposures");db.update("DELETE FROM connection_sessions");
         db.update("DELETE FROM cheer_likes");
+        db.update("DELETE FROM wish_comments");
         db.update("UPDATE content_items SET approved_revision_id=NULL,pending_revision_id=NULL");
         db.update("DELETE FROM content_revisions");db.update("DELETE FROM content_items");
         for(String t:List.of("profile_views","current_sync_questionnaire","sync_results","sync_questionnaires","user_consent_events","user_consents","user_interests","profiles","user_credentials","users","current_consent_policies","consent_policies","event_settings"))db.update("DELETE FROM "+t);
         try(var c=redis.getConnectionFactory().getConnection()){c.serverCommands().flushDb();}
         db.update("INSERT INTO event_settings(id,opens_at,submit_closes_at,moderation_closes_at) VALUES (1,UTC_TIMESTAMP(6)-INTERVAL 1 HOUR,UTC_TIMESTAMP(6)+INTERVAL 1 HOUR,UTC_TIMESTAMP(6)+INTERVAL 2 HOUR)");
         for(String type:List.of("PARTICIPATION","PROFILE_PUBLICATION")){db.update("INSERT INTO consent_policies VALUES (?,'test-v1','테스트','테스트 전용')",type);db.update("INSERT INTO current_consent_policies VALUES (?,'test-v1')",type);}
-        hash=passwords.encode(PASSWORD);interest=db.queryForObject("SELECT MIN(id) FROM interests",Long.class);actor=person("alice");bob=person("bob");charlie=person("charlie");
+        hash=passwords.encode(PASSWORD);interest=db.queryForObject("SELECT MIN(id) FROM interests WHERE active=TRUE AND category='DEVELOPMENT'",Long.class);actor=person("alice");bob=person("bob");charlie=person("charlie");
         when(mattermost.byUsername("alice")).thenReturn(Optional.of(new MattermostClient.Identity("test-external-alice","alice",new MattermostProfile("테스트이름","서울",13,0))));
     }
-    AuthPrincipal person(String name){long id=accounts.insertUser("test-external-"+name,name);accounts.insertCredential(id,hash);db.update("UPDATE users SET mattermost_profile_synced_at=UTC_TIMESTAMP(6),real_name=?,region='서울',class_no=3 WHERE id=?","비공개실명-"+name,id);db.update("INSERT INTO profiles(user_id,nickname,bio,is_public,github_url) VALUES (?,?,'자세한 소개',TRUE,'https://github.com/test-only')",id,"동료-"+name);db.update("INSERT INTO user_interests VALUES (?,?)",id,interest);db.update("INSERT INTO user_consents(user_id,policy_type,policy_version,agreed_at) SELECT ?,policy_type,policy_version,UTC_TIMESTAMP(6) FROM current_consent_policies",id);return accounts.byId(id).orElseThrow().principal();}
+    AuthPrincipal person(String name){long id=accounts.insertUser("test-external-"+name,name);accounts.insertCredential(id,hash);db.update("UPDATE users SET mattermost_profile_synced_at=UTC_TIMESTAMP(6),real_name=?,region='서울',class_no=3 WHERE id=?","비공개실명-"+name,id);db.update("INSERT INTO profiles(user_id,nickname,bio,is_public,github_url) VALUES (?,?,'자세한 소개',TRUE,'https://github.com/test-only')",id,"동료-"+name);db.update("INSERT INTO user_interests SELECT ?,MIN(id) FROM interests WHERE active=TRUE GROUP BY category",id);db.update("INSERT INTO user_consents(user_id,policy_type,policy_version,agreed_at) SELECT ?,policy_type,policy_version,UTC_TIMESTAMP(6) FROM current_consent_policies",id);return accounts.byId(id).orElseThrow().principal();}
     DiscoveryModels.People people(){return service.people(actor,null,null,null,null,null,null);}
     @Test void listsDiscloseOnlyNicknamesInterestsAndSafeRelationships()throws Exception{
-        var p=people();assertThat(p.items()).hasSize(2);assertThat(p.items()).noneMatch(x->x.id()==actor.userId());String encoded=json.writeValueAsString(p);assertThat(encoded).doesNotContain("realName","classNo","bio","githubUrl","mattermost","비공개실명","credential","answers","axisScores");assertThat(service.stats(actor).visitedCount()).isZero();
+        var p=people();assertThat(p.items()).hasSize(2);assertThat(p.items()).noneMatch(x->x.id()==actor.userId());String encoded=json.writeValueAsString(p);assertThat(encoded).doesNotContain("realName","classNo","githubUrl","mattermost","비공개실명","credential","answers","axisScores");assertThat(service.stats(actor).visitedCount()).isZero();
         var detail=service.open(actor,bob.userId());assertThat(detail.realName()).isEqualTo("비공개실명-bob");assertThat(detail.person().visited()).isTrue();assertThat(detail.newlyVisited()).isTrue();assertThat(detail.githubUrl()).isEqualTo("https://github.com/test-only");
     }
     @Test void concurrentOpenRequestsPreserveOneVisitAndItsFirstTimestamp()throws Exception{
@@ -87,7 +88,7 @@ class DiscoveryIntegrationTest {
     @Test void hidingAndPolicyChangesFilterEveryReadWithoutDeletingHistory(){service.open(actor,bob.userId());service.open(bob,actor.userId());db.update("UPDATE profiles SET is_public=FALSE WHERE user_id=?",bob.userId());assertThat(people().items()).noneMatch(p->p.id()==bob.userId());assertThat(service.recommended(actor)).noneMatch(p->p.id()==bob.userId());assertThat(service.graph(actor,30).nodes()).isEmpty();assertThat(service.stats(actor).mutualCount()).isZero();assertThatThrownBy(()->service.open(actor,bob.userId())).isInstanceOf(AuthException.class);assertThat(db.queryForObject("SELECT COUNT(*) FROM profile_views",Integer.class)).isEqualTo(2);db.update("INSERT INTO consent_policies VALUES ('PROFILE_PUBLICATION','test-v2','새 테스트','테스트 전용')");db.update("UPDATE current_consent_policies SET policy_version='test-v2' WHERE policy_type='PROFILE_PUBLICATION'");assertThatThrownBy(()->people()).isInstanceOf(AuthException.class);}
     @Test void suspendedWithdrawnOrIncompleteProfilesAreNotDiscoverable(){db.update("UPDATE users SET status='SUSPENDED' WHERE id=?",bob.userId());db.update("UPDATE profiles SET nickname='' WHERE user_id=?",charlie.userId());assertThat(people().items()).isEmpty();db.update("UPDATE users SET status='WITHDRAWN' WHERE id=?",bob.userId());assertThatThrownBy(()->service.open(actor,bob.userId())).isInstanceOf(AuthException.class);}
     @Test void cursorAndLiteralNicknameFiltersAreBoundedAndNeverSearchRealNames(){db.update("UPDATE profiles SET nickname='동료_%!' WHERE user_id=?",bob.userId());var found=service.people(actor,null,1,"_%!",interest,null,null);assertThat(found.items()).hasSize(1);assertThat(found.items().getFirst().id()).isEqualTo(bob.userId());assertThat(service.people(actor,null,20,"비공개실명",null,null,null).items()).isEmpty();var first=service.people(actor,null,1,null,null,null,null);var second=service.people(actor,first.nextCursor(),1,null,null,null,null);assertThat(first.items().getFirst().id()).isNotEqualTo(second.items().getFirst().id());assertThat(second.nextCursor()).isNull();assertThatThrownBy(()->service.people(actor,null,31,null,null,null,null)).isInstanceOf(AuthException.class);assertThatThrownBy(()->service.people(actor,null,20,null,null,"X",null)).isInstanceOf(AuthException.class);}
-    @Test void stableRecommendationsPreferAnotherClassOnlyOnAffinityTies() {
+    @Test void differentClassAddsPointsWithoutOverridingAffinity() {
         db.update("UPDATE users SET class_no=4 WHERE id=?",bob.userId());
         assertThat(service.recommended(actor)).extracting(DiscoveryModels.Person::id)
             .containsExactly(bob.userId(),charlie.userId());
@@ -95,14 +96,15 @@ class DiscoveryIntegrationTest {
         db.update("DELETE FROM user_interests WHERE user_id=?",bob.userId());
         assertThat(service.recommended(actor).getFirst().id()).isEqualTo(charlie.userId());
     }
-    @Test void recommendationTiesUseDescendingIdUntilASecondInterestMatches() {
+    @Test void recommendationTiesStayStableUntilAffinityChanges() {
+        assertThat(service.recommended(actor)).isEqualTo(service.recommended(actor));
         assertThat(service.recommended(actor)).extracting(DiscoveryModels.Person::id)
-            .containsExactly(charlie.userId(),bob.userId());
-        long second=db.queryForObject("SELECT MIN(id) FROM interests WHERE id>?",Long.class,interest);
+            .containsExactlyInAnyOrder(charlie.userId(),bob.userId());
+        long second=db.queryForObject("SELECT MIN(id) FROM interests WHERE active=TRUE AND category='DEVELOPMENT' AND id>?",Long.class,interest);
         for (var peer: List.of(actor,bob)) db.update("INSERT INTO user_interests VALUES (?,?)",peer.userId(),second);
         var first=service.recommended(actor).getFirst();
         assertThat(first.id()).isEqualTo(bob.userId());
-        assertThat(first.sharedInterests()).hasSize(2);
+        assertThat(first.sharedInterests()).hasSize(3);
     }
     @Test void strongOlderRelationshipSurvivesLimitAndNextPageIsReachable() {
         service.open(actor,bob.userId());
@@ -113,7 +115,138 @@ class DiscoveryIntegrationTest {
         assertThat(next.nodes().getFirst().id()).isEqualTo(charlie.userId());
         assertThat(next.truncated()).isFalse();
     }
-    @Test void recommendationsUsePublicSharedInterestsAndUnvisitedOrdering(){service.open(actor,charlie.userId());var rows=service.recommended(actor);assertThat(rows.getFirst().id()).isEqualTo(bob.userId());assertThat(rows.getFirst().sharedInterests()).hasSize(1);assertThat(rows.getFirst().sameType()).isFalse();assertThat(rows.getFirst().type()).isNull();}
+    @Test void recommendationsUsePublicSharedInterestsAndUnvisitedOrdering(){service.open(actor,charlie.userId());var rows=service.recommended(actor);assertThat(rows.getFirst().id()).isEqualTo(bob.userId());assertThat(rows.getFirst().sharedInterests()).hasSize(2);assertThat(rows.getFirst().sameType()).isFalse();assertThat(rows.getFirst().type()).isNull();}
+    long publishedContent(AuthPrincipal owner,String kind,boolean anonymous) {
+        db.update("INSERT INTO content_items(author_id,kind) VALUES (?,?)",owner.userId(),kind);
+        long item=db.queryForObject("SELECT MAX(id) FROM content_items WHERE author_id=? AND kind=?",Long.class,owner.userId(),kind);
+        db.update("INSERT INTO content_revisions(item_id,revision_no,content_text,template_id,style,anonymous,submitted_at,moderation_status,idempotency_key,payload_hash) VALUES (?,1,'recommendation test','PLAIN','INK',?,UTC_TIMESTAMP(6),'APPROVED',?,?)",item,anonymous,UUID.randomUUID().toString(),"a".repeat(64));
+        long revision=db.queryForObject("SELECT id FROM content_revisions WHERE item_id=?",Long.class,item);
+        db.update("UPDATE content_items SET approved_revision_id=? WHERE id=?",revision,item);
+        return item;
+    }
+    long comment(AuthPrincipal owner,long wish) {
+        long item=publishedContent(owner,"COMMENT",true);
+        db.update("INSERT INTO wish_comments(wish_id,content_item_id,author_id,idempotency_key,payload_hash) VALUES (?,?,?,?,?)",wish,item,owner.userId(),UUID.randomUUID().toString(),"a".repeat(64));
+        return item;
+    }
+    @Test void sharedInterestsAndClassCanOutweighALikeEvenAfterAProfileWasVisited() {
+        db.update("DELETE FROM user_interests WHERE user_id=?",bob.userId());
+        db.update("INSERT INTO user_interests SELECT ?,MAX(id) FROM interests WHERE active=TRUE GROUP BY category",bob.userId());
+        db.update("UPDATE users SET class_no=4 WHERE id=?",charlie.userId());
+        service.open(actor,charlie.userId());
+        long cheer=publishedContent(bob,"CHEER",true);
+        db.update("INSERT INTO cheer_likes(card_id,user_id) VALUES (?,?)",cheer,actor.userId());
+        // Charlie: 30 affinity + 5 other class. Bob: 10 like + 20 unvisited.
+        assertThat(service.recommended(actor).getFirst().id()).isEqualTo(charlie.userId());
+    }
+    @Test void retiredStackSelectionsRemainStoredButCannotAffectDiscovery() {
+        long retired=db.queryForObject("SELECT MIN(id) FROM interests WHERE category='TECH_STACK' AND active=FALSE",Long.class);
+        var before=service.recommended(actor);
+        for(long id:List.of(actor.userId(),bob.userId()))db.update("INSERT INTO user_interests VALUES (?,?)",id,retired);
+        assertThat(participation.discoveryReady(actor.userId())).isTrue();
+        assertThat(service.recommended(actor)).isEqualTo(before);
+        assertThat(people().items()).allSatisfy(person->assertThat(person.interests()).noneMatch(i->i.id()==retired));
+        assertThat(service.people(actor,null,20,null,retired,null,null).items()).isEmpty();
+        assertThat(db.queryForObject("SELECT COUNT(*) FROM user_interests WHERE interest_id=?",Integer.class,retired)).isEqualTo(2);
+    }
+    @Test void interestSimilarityDoesNotRewardSelectingEveryInterest() {
+        var interests=db.queryForList("SELECT id FROM interests WHERE active=TRUE AND category='DEVELOPMENT' ORDER BY id LIMIT 3",Long.class);
+        for(long id:interests.subList(1,interests.size()))db.update("INSERT INTO user_interests VALUES (?,?)",bob.userId(),id);
+        // Charlie: 1/1 of the union. Bob: 1/3; extra choices do not add affinity.
+        assertThat(service.recommended(actor).getFirst().id()).isEqualTo(charlie.userId());
+    }
+    @Test void repeatedAnonymousCommentsAreBoundedAndNeverEnterThePublicGraphOrDto() throws Exception {
+        db.update("UPDATE users SET class_no=4 WHERE id=?",bob.userId());
+        long wish=publishedContent(charlie,"WISH",true);
+        long first=comment(actor,wish);
+        assertThat(service.recommended(actor).getFirst().id()).isEqualTo(charlie.userId());
+        var once=service.recommended(actor);
+        for(int i=0;i<6;i++)comment(actor,wish);
+        assertThat(service.recommended(actor)).isEqualTo(once);
+        assertThat(service.graph(actor,30).edges()).isEmpty();
+        assertThat(json.writeValueAsString(once)).doesNotContain("score","interaction","comment","like","differentClass","realName","classNo");
+        db.update("UPDATE content_items SET visibility_status='HIDDEN' WHERE kind='COMMENT' AND id<>?",first);
+        assertThat(service.recommended(actor).getFirst().id()).isEqualTo(charlie.userId());
+        db.update("UPDATE content_items SET archived_at=UTC_TIMESTAMP(6) WHERE id=?",first);
+        assertThat(service.recommended(actor).getFirst().id()).isEqualTo(bob.userId());
+        db.update("UPDATE content_items SET archived_at=NULL WHERE id=?",first);
+        db.update("UPDATE content_items SET visibility_status='HIDDEN' WHERE id=?",wish);
+        assertThat(service.recommended(actor).getFirst().id()).isEqualTo(bob.userId());
+    }
+    @Test void reverseInteractionsCountAndDisappearingPublishedEvidenceStopsCounting() {
+        db.update("UPDATE users SET class_no=4 WHERE id=?",bob.userId());
+        long ownCheer=publishedContent(actor,"CHEER",true);
+        db.update("INSERT INTO cheer_likes(card_id,user_id) VALUES (?,?)",ownCheer,charlie.userId());
+        assertThat(service.recommended(actor).getFirst().id()).isEqualTo(charlie.userId());
+        db.update("UPDATE content_items SET archived_at=UTC_TIMESTAMP(6) WHERE id=?",ownCheer);
+        assertThat(service.recommended(actor).getFirst().id()).isEqualTo(bob.userId());
+        long ownWish=publishedContent(actor,"WISH",true);
+        long reply=comment(charlie,ownWish);
+        assertThat(service.recommended(actor).getFirst().id()).isEqualTo(charlie.userId());
+        db.update("UPDATE content_items SET approved_revision_id=NULL WHERE id=?",reply);
+        assertThat(service.recommended(actor).getFirst().id()).isEqualTo(bob.userId());
+    }
+    @Test void tieSeedsAreStableBoundedAndCannotReplaceHigherScoresOrCreateVisits() {
+        for(int i=0;i<18;i++)person("lottery-"+i);
+        db.update("UPDATE users SET class_no=4 WHERE id=?",bob.userId());
+        var first=service.recommended(actor,"batch-a");
+        assertThat(first).hasSize(12).isEqualTo(service.recommended(actor,"batch-a"));
+        assertThat(first).extracting(DiscoveryModels.Person::id).doesNotHaveDuplicates();
+        var second=service.recommended(actor,"batch-b");
+        assertThat(first.getFirst().id()).isEqualTo(bob.userId());
+        assertThat(second.getFirst().id()).isEqualTo(bob.userId());
+        assertThat(first).isNotEqualTo(second);
+        assertThat(db.queryForObject("SELECT COUNT(*) FROM profile_views",Integer.class)).isZero();
+        db.update("UPDATE users SET status='SUSPENDED' WHERE id=?",bob.userId());
+        assertThat(service.recommended(actor,"batch-a")).noneMatch(p->p.id()==bob.userId());
+        for(String invalid:List.of(""," ","a".repeat(65),"' OR 1=1 --","한글"))
+            assertThatThrownBy(()->service.recommended(actor,invalid)).isInstanceOfSatisfying(AuthException.class,e->assertThat(e.code()).isEqualTo("INVALID_RECOMMENDATION_SEED"));
+    }
+    @Test void actualExposureAcknowledgementsAreBoundToTheIssuedViewerAndCandidates() {
+        db.update("UPDATE users SET class_no=4 WHERE id=?",bob.userId());
+        var batch=service.batch(actor,"exposure-test");
+        assertThat(db.queryForObject("SELECT COUNT(*) FROM recommendation_exposures",Integer.class)).isZero();
+        assertThatThrownBy(()->service.expose(bob,batch.batchId(),List.of(charlie.userId()))).isInstanceOf(AuthException.class);
+        assertThatThrownBy(()->service.expose(actor,batch.batchId(),List.of(actor.userId()))).isInstanceOf(AuthException.class);
+        service.expose(actor,batch.batchId(),List.of(bob.userId()));
+        var time=db.queryForObject("SELECT shown_at FROM recommendation_exposures",java.sql.Timestamp.class);
+        service.expose(actor,batch.batchId(),List.of(bob.userId()));
+        assertThat(db.queryForObject("SELECT COUNT(*) FROM recommendation_exposures",Integer.class)).isEqualTo(1);
+        assertThat(db.queryForObject("SELECT shown_at FROM recommendation_exposures",java.sql.Timestamp.class)).isEqualTo(time);
+        for(int i=0;i<3;i++){var next=service.batch(actor,"exposure-test");service.expose(actor,next.batchId(),List.of(bob.userId()));}
+        assertThat(service.recommended(actor).getFirst().id()).isEqualTo(charlie.userId());
+        assertThat(service.graph(actor,30).nodes()).isEmpty();
+        assertThat(db.queryForObject("SELECT COUNT(*) FROM profile_views",Integer.class)).isZero();
+        db.update("UPDATE recommendation_exposures SET shown_at=UTC_TIMESTAMP(6)-INTERVAL 25 HOUR");
+        assertThat(service.recommended(actor).getFirst().id()).isEqualTo(bob.userId());
+        redis.delete("tagme:recommendation:"+batch.batchId());
+        assertThatThrownBy(()->service.expose(actor,batch.batchId(),List.of(bob.userId()))).isInstanceOfSatisfying(AuthException.class,e->assertThat(e.code()).isEqualTo("RECOMMENDATION_BATCH_EXPIRED"));
+    }
+    @Test void incompleteViewerMustRepairProfileButExistingVisitsStayStored() {
+        service.open(actor,bob.userId());
+        db.update("UPDATE profiles SET bio=NULL WHERE user_id=?",actor.userId());
+        assertThatThrownBy(()->service.recommended(actor)).isInstanceOfSatisfying(AuthException.class,e->assertThat(e.code()).isEqualTo("PROFILE_REQUIRED"));
+        assertThat(db.queryForObject("SELECT COUNT(*) FROM profile_views",Integer.class)).isEqualTo(1);
+        db.update("UPDATE profiles SET bio='보완한 소개' WHERE user_id=?",actor.userId());
+        assertThat(service.recommended(actor)).hasSize(2);
+    }
+    @Test void groupedFiltersUseOrWithinACategoryAndAndBetweenCategories() {
+        var development=db.queryForList("SELECT id FROM interests WHERE active=TRUE AND category='DEVELOPMENT' ORDER BY id LIMIT 2",Long.class);
+        long industry=db.queryForObject("SELECT MIN(id) FROM interests WHERE active=TRUE AND category='INDUSTRY'",Long.class);
+        db.update("DELETE FROM user_interests WHERE user_id=? AND interest_id=?",charlie.userId(),development.getFirst());
+        db.update("INSERT INTO user_interests VALUES (?,?)",charlie.userId(),development.getLast());
+        assertThat(service.people(actor,null,20,null,null,null,null,List.of(industry),development).items()).hasSize(2);
+        assertThat(service.people(actor,null,20,null,null,null,null,List.of(industry),List.of(development.getFirst())).items()).extracting(DiscoveryModels.Person::id).containsExactly(bob.userId());
+        assertThat(service.people(actor,null,20,null,null,null,null,List.of(development.getFirst()),List.of()).items()).isEmpty();
+        assertThat(people().items()).extracting(DiscoveryModels.Person::id).containsExactly(charlie.userId(),bob.userId());
+    }
+    @Test void relationshipFiltersKeepIncomingOnlyPeersAndPublicIntroductions() {
+        service.open(actor,bob.userId());service.open(bob,actor.userId());service.open(charlie,actor.userId());
+        assertThat(service.graph(actor,30,0,"visitors").nodes()).hasSize(2);
+        assertThat(service.graph(actor,30,0,"visited").nodes()).extracting(DiscoveryModels.Person::id).containsExactly(bob.userId());
+        assertThat(service.graph(actor,30,0,"mutual").nodes()).extracting(DiscoveryModels.Person::id).containsExactly(bob.userId());
+        assertThat(service.graph(actor,30).nodes()).allMatch(p->p.bio().equals("자세한 소개"));
+    }
     @Test void typeExplanationsRequireAStoredResultAndTheSameQuestionnaireVersion(){
         String def="""
             {"title":"테스트","axes":[{"id":"a","negative":"I","positive":"E","tie":"NEGATIVE"}],"questions":[{"id":"q","text":"테스트 질문","options":[{"id":"a","label":"A","scores":{"a":-1}},{"id":"b","label":"B","scores":{"a":1}}]}],"types":[{"code":"I","title":"테스트 I","description":"테스트"},{"code":"E","title":"테스트 E","description":"테스트"}]}
@@ -154,10 +287,15 @@ class DiscoveryIntegrationTest {
         assertThatThrownBy(()->photos.photo(actor,bob.userId(),false)).isInstanceOf(AuthException.class);verify(mattermost,never()).photo(anyString());
         service.open(actor,bob.userId());byte[] png={(byte)137,80,78,71,13,10,26,10,0};
         when(mattermost.photo(external)).thenAnswer(i->{assertThat(org.springframework.transaction.support.TransactionSynchronizationManager.isActualTransactionActive()).isFalse();return png;});assertThat(photos.photo(actor,bob.userId(),false)).isEqualTo(png);
+        db.update("UPDATE profiles SET bio=NULL WHERE user_id=?",bob.userId());
+        assertThatThrownBy(()->photos.photo(actor,bob.userId(),false)).isInstanceOf(AuthException.class);
+        db.update("UPDATE profiles SET bio='보완한 소개' WHERE user_id=?",bob.userId());
         when(mattermost.photo(external)).thenAnswer(i->{db.update("UPDATE users SET status='SUSPENDED' WHERE id=?",bob.userId());return png;});assertThatThrownBy(()->photos.photo(actor,bob.userId(),false)).isInstanceOf(AuthException.class);
     }
-    @Test void optionalInterestsAndBioDoNotExcludeAnImportedNicknameProfile() {
+    @Test void incompleteLegacyProfileIsKeptButCannotBeDiscovered() {
         db.update("DELETE FROM user_interests WHERE user_id=?",bob.userId());db.update("UPDATE profiles SET bio=NULL WHERE user_id=?",bob.userId());
-        var person=people().items().stream().filter(p->p.id()==bob.userId()).findFirst().orElseThrow();assertThat(person.interests()).isEmpty();assertThat(service.open(actor,bob.userId()).realName()).isEqualTo("비공개실명-bob");
+        assertThat(people().items()).noneMatch(p->p.id()==bob.userId());
+        assertThatThrownBy(()->service.open(actor,bob.userId())).isInstanceOf(AuthException.class);
+        assertThat(participation.profile(bob.userId()).nickname()).isNotBlank();
     }
 }
