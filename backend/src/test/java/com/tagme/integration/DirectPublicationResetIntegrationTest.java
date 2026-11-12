@@ -40,6 +40,7 @@ class DirectPublicationResetIntegrationTest {
     @Autowired ParticipationRepository participation;@Autowired MissionCompletionService completion;@Autowired ParticipationResetService resets;@Autowired AdminAnalytics analytics;
     @Autowired PendingSubmissionSettlement settlement;@Autowired TestRestTemplate http;@Autowired ObjectMapper json;@Autowired org.springframework.data.redis.core.StringRedisTemplate redis;
     @Autowired OperationsRepository awardRows;@Autowired PostEventRepository reportRows;@Autowired OperationsService operations;
+    @Autowired TapRankingService rankings;@Autowired com.tagme.discovery.DiscoveryService discovery;
     @MockitoSpyBean ResultsRepository resultRows;@MockitoBean MattermostClient mattermost;@MockitoBean ModerationProvider provider;
     @MockitoSpyBean AdminAuditRepository audit;
     AuthPrincipal admin,alice,bob;Instant time;
@@ -73,6 +74,107 @@ class DirectPublicationResetIntegrationTest {
         return new ResultsController.SyncRequest(questions.version(),questions.questions().stream().map(q->new ResultsController.Answer(q.id(),q.options().getFirst().id())).toList());
     }
     ParticipationResetService.ResetRequest resetBody(long generation){return new ParticipationResetService.ResetRequest(generation,"통합 검사 재참여","RESET");}
+    ResultsController.TapAttempt score(AuthPrincipal actor,int count) {
+        var attempt=results.start(actor,UUID.randomUUID().toString());time=attempt.endsAt().plusMillis(100);
+        return results.finish(actor,new ResultsController.FinishRequest(attempt.attemptId(),java.util.stream.IntStream.range(0,count).boxed().toList(),List.of()));
+    }
+    @Test void threeHundredCharacterWishesAndCheersRespectEachRevisionPrivacyAndKeepCommentLimit() {
+        for(var kind:List.of(WISH,CHEER)) {
+            var hidden=content.submit(alice,kind,UUID.randomUUID().toString(),text("가".repeat(300),null),false);
+            var visible=content.submit(bob,kind,UUID.randomUUID().toString(),new ContentController.Submit("나".repeat(300),"PLAIN","ROSE",false,null),false);
+            var feed=content.feed(kind,null).items();
+            var anonymous=feed.stream().filter(i->i.id()==hidden.id()).findFirst().orElseThrow();
+            assertThat(anonymous.content()).hasSize(300);assertThat(anonymous.nickname()).isNull();assertThat(anonymous.profileId()).isNull();
+            var named=feed.stream().filter(i->i.id()==visible.id()).findFirst().orElseThrow();
+            assertThat(named.anonymous()).isFalse();assertThat(named.nickname()).isEqualTo("reset-bob");assertThat(named.profileId()).isEqualTo(bob.userId());
+            var edit=content.submit(bob,kind,UUID.randomUUID().toString(),text("익명으로 변경",visible.version()),true);
+            assertThat(contentRows.revision(visible.approvedRevision().id()).anonymous()).isFalse();
+            assertThat(content.feed(kind,null).items().stream().filter(i->i.id()==edit.id()).findFirst().orElseThrow().profileId()).isNull();
+            assertThatThrownBy(()->content.submit(alice,kind,UUID.randomUUID().toString(),text("가".repeat(301),hidden.version()),true)).isInstanceOf(AuthException.class);
+        }
+        var wish=content.own(alice.userId(),WISH);
+        assertThatThrownBy(()->reactions.submit(bob,wish.id(),UUID.randomUUID().toString(),new ReactionController.CommentRequest("가".repeat(201),false))).isInstanceOf(AuthException.class);
+        assertThat(reactions.submit(bob,wish.id(),UUID.randomUUID().toString(),new ReactionController.CommentRequest("가".repeat(200),false)).content()).hasSize(200);
+    }
+    @Test void recordEntitlementSurvivesBeingOvertakenAndMessagesAreOneTimeAndIdempotent() {
+        var first=score(alice,10);score(bob,20);
+        assertThat(rankings.board(alice).own().rank()).isEqualTo(2);
+        assertThat(rankings.board(alice).own().canWriteMessage()).isTrue();
+        String key="record-message-test-key-01";
+        assertThat(rankings.message(alice,first.attemptId(),"<script>plain text</script>",key,0).own().message()).isEqualTo("<script>plain text</script>");
+        assertThat(rankings.message(alice,first.attemptId(),"<script>plain text</script>",key,0).own().canWriteMessage()).isFalse();
+        assertThatThrownBy(()->rankings.message(alice,first.attemptId(),"수정",key,0)).isInstanceOf(AuthException.class);
+        assertThatThrownBy(()->rankings.message(alice,first.attemptId(),"수정","different-record-key-01",0)).isInstanceOf(AuthException.class);
+        assertThatThrownBy(()->rankings.message(bob,first.attemptId(),"다른 사람 기록","other-record-key-001",0)).isInstanceOf(AuthException.class);
+        assertThatThrownBy(()->rankings.message(bob,rankings.board(bob).own().attemptId(),"가".repeat(101),"long-record-key-0001",0)).isInstanceOf(AuthException.class);
+        var peer=participant("tied-peer");score(peer,20);
+        assertThat(rankings.board(peer).own().recordBreaker()).isFalse();
+        assertThat(rankings.board(peer).own().rank()).isEqualTo(2);
+        assertThat(rankings.board(peer).top()).extracting(TapRankingService.Entry::nickname).containsExactly("reset-bob","tied-peer","reset-alice");
+        assertThatThrownBy(()->rankings.message(peer,rankings.board(peer).own().attemptId(),"동점",UUID.randomUUID().toString(),0)).isInstanceOf(AuthException.class);
+        db.update("UPDATE event_settings SET submit_closes_at=UTC_TIMESTAMP(6)-INTERVAL 1 SECOND WHERE id=1");
+        assertThat(rankings.board(bob).own().canWriteMessage()).isFalse();
+        assertThat(rankings.message(alice,first.attemptId(),"<script>plain text</script>",key,0).own().message()).isNotNull();
+    }
+    @Test void topTenOnlyContainsEligibleNicknamesWhileOwnerOutsideTenKeepsRecordAndEntitlement() {
+        score(alice,10);
+        for(int i=0;i<11;i++)score(participant("rank-peer-"+i),20+i);
+        var board=rankings.board(alice);
+        assertThat(board.top()).hasSize(10);assertThat(board.top().getFirst().tapCount()).isEqualTo(30);
+        assertThat(board.own().rank()).isEqualTo(12);assertThat(board.own().canWriteMessage()).isTrue();
+        var payload=json.valueToTree(board.top()).toString();
+        assertThat(payload).doesNotContain("userId","attemptId","realName","mattermost");
+        var locked=participant("rank-locked");db.update("DELETE p FROM mission_progress p JOIN missions m ON m.id=p.mission_id WHERE p.user_id=? AND m.code='FAST_TAP'",locked.userId());
+        assertThatThrownBy(()->rankings.board(locked)).isInstanceOf(AuthException.class);
+        db.update("UPDATE users SET status='SUSPENDED' WHERE mattermost_username='rank-peer-10'");
+        assertThat(rankings.board(alice).top().getFirst().tapCount()).isEqualTo(29);
+    }
+    @Test void equalConcurrentFinishesGrantExactlyOneRecordEntitlementAndNeverCreateItOnReplay() throws Exception {
+        var a=results.start(alice,UUID.randomUUID().toString());var b=results.start(bob,UUID.randomUUID().toString());time=a.endsAt().plusSeconds(1);
+        var taps=java.util.stream.IntStream.range(0,80).boxed().toList();
+        var bodyA=new ResultsController.FinishRequest(a.attemptId(),taps,List.of());var bodyB=new ResultsController.FinishRequest(b.attemptId(),taps,List.of());
+        try(var pool=Executors.newFixedThreadPool(2)) {
+            var gate=new CountDownLatch(1);
+            var left=pool.submit(()->{gate.await();return results.finish(alice,bodyA);});var right=pool.submit(()->{gate.await();return results.finish(bob,bodyB);});gate.countDown();
+            assertThat(left.get(15,TimeUnit.SECONDS).status()).isEqualTo("VALID");assertThat(right.get(15,TimeUnit.SECONDS).status()).isEqualTo("VALID");
+        }
+        assertThat(db.queryForObject("SELECT COUNT(*) FROM tap_record_achievements",Integer.class)).isEqualTo(1);
+        results.finish(alice,bodyA);results.finish(bob,bodyB);
+        assertThat(db.queryForObject("SELECT COUNT(*) FROM tap_record_achievements",Integer.class)).isEqualTo(1);
+        assertThat(rankings.board(alice).top()).hasSize(2);
+    }
+    @Test void resetArchivesRecordMessagesAndSerializesWithAnotherParticipantsNewRecord() throws Exception {
+        var old=score(bob,20);rankings.message(bob,old.attemptId(),"이전 회차 소감","old-message-test-key",0);
+        var next=results.start(alice,UUID.randomUUID().toString());time=next.endsAt().plusMillis(100);
+        try(var pool=Executors.newFixedThreadPool(2)) {
+            var gate=new CountDownLatch(1);
+            var reset=pool.submit(()->{gate.await();return resets.reset(admin,bob.userId(),"reset-record-test-001",resetBody(0));});
+            var finish=pool.submit(()->{gate.await();return results.finish(alice,new ResultsController.FinishRequest(next.attemptId(),java.util.stream.IntStream.range(0,40).boxed().toList(),List.of()));});gate.countDown();
+            reset.get(15,TimeUnit.SECONDS);assertThat(finish.get(15,TimeUnit.SECONDS).status()).isEqualTo("VALID");
+        }
+        assertThat(rankings.board(alice).top()).hasSize(1);assertThat(rankings.board(alice).own().recordBreaker()).isTrue();assertThat(rankings.board(bob).own()).isNull();
+        assertThat(db.queryForObject("SELECT message_text FROM tap_record_achievements WHERE attempt_id=?",String.class,old.attemptId())).isEqualTo("이전 회차 소감");
+        assertThatThrownBy(()->rankings.message(bob,old.attemptId(),"오래된 요청","old-message-test-key",0)).isInstanceOfSatisfying(AuthException.class,e->assertThat(e.code()).isEqualTo("PARTICIPATION_RESET"));
+        var retry=results.start(bob,UUID.randomUUID().toString(),1);time=retry.endsAt().plusMillis(100);
+        results.finish(bob,new ResultsController.FinishRequest(retry.attemptId(),java.util.stream.IntStream.range(0,60).boxed().toList(),List.of()),1);
+        assertThat(rankings.board(bob).own().canWriteMessage()).isTrue();
+    }
+    @Test void anonymousLikesAndCommentsBoostRecommendationsWithoutDisclosingIdentitySignals() {
+        var peer=participant("recommend-peer");
+        assertThat(discovery.recommended(alice).getFirst().id()).isEqualTo(peer.userId());
+        var cheer=content.submit(bob,CHEER,UUID.randomUUID().toString(),text("익명 응원",null),false);
+        reactions.like(alice,cheer.id(),true);
+        assertThat(discovery.recommended(alice).getFirst().id()).isEqualTo(bob.userId());
+        assertThat(json.valueToTree(discovery.recommended(alice)).toString()).doesNotContain("interaction_score","익명 응원","comment","liked");
+        reactions.like(alice,cheer.id(),false);
+        assertThat(discovery.recommended(alice).getFirst().id()).isEqualTo(peer.userId());
+        var wish=content.submit(bob,WISH,UUID.randomUUID().toString(),text("익명 소원",null),false);
+        var comment=reactions.submit(alice,wish.id(),UUID.randomUUID().toString(),new ReactionController.CommentRequest("익명 반응",false));
+        assertThat(reactions.comments(wish.id(),null).items().getFirst().profileId()).isNull();
+        assertThat(discovery.recommended(alice).getFirst().id()).isEqualTo(bob.userId());
+        contentRows.hide(wish.id(),"HIDDEN");
+        assertThat(discovery.recommended(alice).getFirst().id()).isEqualTo(peer.userId());
+    }
     @Test void defaultSubmissionsAndEditsArePublishedAtomicallyWithoutAnyModerationJob() {
         var wish=content.submit(alice,WISH,"direct-wish-key-001",text("즉시 공개 https://example.test",null),false);
         var cheer=content.submit(alice,CHEER,"direct-cheer-key-001",text("바로 보이는 응원",null),false);
@@ -225,10 +327,47 @@ class DirectPublicationResetIntegrationTest {
         assertThat(response.getBody()).containsEntry("generation",1).doesNotContainKeys("snapshot","snapshotJson","content");
         assertThat(response.toString()).doesNotContain("개인 보관 본문");
     }
+    @Test void migrationBackfillsOnlyProvableActiveStrictRecordBreakersWithoutInventingMessages() throws Exception {
+        var first=score(alice,10);var tie=score(bob,10);var high=score(participant("backfill-higher"),20);
+        var archived=score(participant("backfill-archived"),30);
+        db.update("UPDATE tap_attempts SET archived_at=UTC_TIMESTAMP(6) WHERE id=?",archived.attemptId());
+        db.update("DELETE FROM tap_record_achievements");
+        try(var resource=getClass().getResourceAsStream("/db/migration/V13__add_content_choices_and_tap_records.sql")) {
+            String sql=new String(resource.readAllBytes(),java.nio.charset.StandardCharsets.UTF_8);
+            db.update(sql.substring(sql.indexOf("INSERT INTO tap_record_achievements")));
+        }
+        assertThat(db.queryForList("SELECT attempt_id FROM tap_record_achievements ORDER BY attempt_id",Long.class)).containsExactly(first.attemptId(),high.attemptId());
+        assertThat(db.queryForObject("SELECT COUNT(*) FROM tap_record_achievements WHERE message_text IS NOT NULL OR message_key IS NOT NULL OR message_at IS NOT NULL",Integer.class)).isZero();
+        assertThat(rankings.board(alice).own().canWriteMessage()).isTrue();
+        assertThat(rankings.board(bob).own().recordBreaker()).isFalse();
+        assertThat(db.queryForObject("SELECT COUNT(*) FROM tap_attempts WHERE id=?",Integer.class,tie.attemptId())).isEqualTo(1);
+    }
+    @Test void rankingHttpRequiresLoginUnlockCsrfOwnerGenerationAndIdempotency() {
+        var attempt=score(alice,20);String boardPath="/api/v1/tap/leaderboard",messagePath="/api/v1/tap/record-message";
+        var body=Map.of("attemptId",attempt.attemptId(),"content","HTTP 소감 검사");
+        Browser browser=new Browser();
+        assertThat(browser.call(HttpMethod.GET,boardPath,null,null).getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
+        browser.call(HttpMethod.POST,"/api/v1/auth/login",Map.of("username","reset-alice","password","isolated participant password"),browser.csrf());
+        assertThat(browser.call(HttpMethod.GET,boardPath,null,null).getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(browser.call(HttpMethod.POST,messagePath,body,null).getStatusCode()).isEqualTo(HttpStatus.FORBIDDEN);
+        String csrf=browser.csrf();browser.key=null;
+        assertThat(browser.call(HttpMethod.POST,messagePath,body,csrf).getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        browser.key="http-record-message-001";
+        assertThat(browser.call(HttpMethod.POST,messagePath,Map.of("attemptId",attempt.attemptId(),"content","가".repeat(101)),csrf).getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        assertThat(browser.call(HttpMethod.POST,messagePath,Map.of("attemptId",attempt.attemptId()+1,"content","다른 시도"),csrf).getStatusCode()).isEqualTo(HttpStatus.FORBIDDEN);
+        assertThat(browser.call(HttpMethod.POST,messagePath,body,csrf).getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(browser.call(HttpMethod.POST,messagePath,body,csrf).getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(browser.call(HttpMethod.POST,messagePath,Map.of("attemptId",attempt.attemptId(),"content","수정 불가"),csrf).getStatusCode()).isEqualTo(HttpStatus.CONFLICT);
+        resets.reset(admin,alice.userId(),"http-record-reset-001",resetBody(0));
+        assertThat(browser.call(HttpMethod.POST,messagePath,body,csrf).getStatusCode()).isEqualTo(HttpStatus.CONFLICT);
+        db.update("DELETE FROM mission_progress WHERE user_id=? AND mission_id=(SELECT id FROM missions WHERE code='FAST_TAP')",alice.userId());
+        assertThat(browser.call(HttpMethod.GET,boardPath,null,null).getStatusCode()).isEqualTo(HttpStatus.FORBIDDEN);
+    }
     class Browser {
         final Map<String,String> cookies=new HashMap<>();
+        String key="http-reset-request-001";
         long generation=0;
-        ResponseEntity<Map> call(HttpMethod method,String path,Object body,String csrf){var h=new HttpHeaders();h.setContentType(MediaType.APPLICATION_JSON);h.add("Idempotency-Key","http-reset-request-001");h.add("X-Participation-Generation",Long.toString(generation));if(!cookies.isEmpty())h.add(HttpHeaders.COOKIE,String.join("; ",cookies.entrySet().stream().map(e->e.getKey()+"="+e.getValue()).toList()));if(csrf!=null)h.add("X-XSRF-TOKEN",csrf);var response=http.exchange(path,method,new HttpEntity<>(body,h),Map.class);for(String cookie:response.getHeaders().getOrDefault(HttpHeaders.SET_COOKIE,List.of())){String[] pair=cookie.split(";",2)[0].split("=",2);cookies.put(pair[0],pair.length==2?pair[1]:"");}return response;}
+        ResponseEntity<Map> call(HttpMethod method,String path,Object body,String csrf){var h=new HttpHeaders();h.setContentType(MediaType.APPLICATION_JSON);if(key!=null)h.add("Idempotency-Key",key);h.add("X-Participation-Generation",Long.toString(generation));if(!cookies.isEmpty())h.add(HttpHeaders.COOKIE,String.join("; ",cookies.entrySet().stream().map(e->e.getKey()+"="+e.getValue()).toList()));if(csrf!=null)h.add("X-XSRF-TOKEN",csrf);var response=http.exchange(path,method,new HttpEntity<>(body,h),Map.class);for(String cookie:response.getHeaders().getOrDefault(HttpHeaders.SET_COOKIE,List.of())){String[] pair=cookie.split(";",2)[0].split("=",2);cookies.put(pair[0],pair.length==2?pair[1]:"");}return response;}
         String csrf(){return (String)call(HttpMethod.GET,"/api/v1/csrf",null,null).getBody().get("token");}
     }
 }

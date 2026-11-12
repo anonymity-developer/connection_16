@@ -57,7 +57,7 @@ test('five mission progress cards preserve pending versus earned states and expo
     for (const state of ['LOCKED', 'UNLOCKED', 'PENDING', 'COMPLETED']) {
       const html = progress(mission, state);
       assert.ok(html.includes(mission.name));
-      assert.match(html, mission.code === 'SHOW_ME' ? /NFC 태그 없이 프로필/ : /위치는 현장 안내를 확인해 주세요/);
+      assert.match(html, mission.code === 'SHOW_ME' ? /NFC 태그 없이 참여/ : /층에서 [SAFY]를 찾아 NFC 태그/);
       assert.match(html, /<details><summary>미션 안내<\/summary>/);
       if (state === 'COMPLETED') assert.match(html, /글자 획득 완료/);
       else assert.doesNotMatch(html, /글자 획득 완료|letter-sparkle/);

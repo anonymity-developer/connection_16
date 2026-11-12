@@ -14,3 +14,21 @@
 @keyframes tag-discovered { from { opacity: 0; transform: translateY(8px) scale(.96); } to { opacity: 1; transform: none; } }
 @media (max-width: 640px) { .tag-discovery { padding: 24px 20px; } }
 @media (prefers-reduced-motion: reduce) { .tag-discovery-artwork { animation: none; } }
+.mission-detail-heading > div { min-width: 0; flex: 1; }
+.mission-detail-heading .detail-intro { margin: 0 0 6px; color: var(--muted); font-size: 15px; }
+.mission-tip { margin-bottom: 24px; color: var(--muted); font-size: 14px; }
+.show-me-record h2 { margin-bottom: 20px; }
+.show-me-record-name { font-size: 22px; font-weight: 600; margin-bottom: 12px; }
+.show-me-record-bio { white-space: pre-wrap; }
+.show-me-record-interests { display: flex; flex-wrap: wrap; gap: 8px; padding: 0; list-style: none; margin: 16px 0 24px; }
+.show-me-record-interests li { border: 1px solid var(--border); border-radius: 8px; padding: 4px 10px; font-size: 14px; }
+.tap-leaderboard { margin-top: 28px; padding-top: 24px; border-top: 1px solid var(--border); }
+.tap-own-rank { margin: 12px 0; }
+.tap-ranking-list { list-style: none; padding: 0; margin: 16px 0; }
+.tap-ranking-list > li { display: grid; grid-template-columns: 44px minmax(0,1fr) auto; gap: 12px; align-items: start; padding: 14px 0; border-bottom: 1px solid var(--border); }
+.tap-ranking-list p { font-size: 14px; color: var(--muted); white-space: pre-wrap; }
+.tap-rank-number, .tap-rank-score { font-variant-numeric: tabular-nums; white-space: nowrap; }
+.tap-rank-score { text-align: right; }
+.tap-own-message { margin: 16px 0; white-space: pre-wrap; }
+.tap-leaderboard form { margin-top: 24px; }
+.tap-leaderboard textarea { width: 100%; margin-top: 12px; padding: 12px; border: 1px solid var(--control); border-radius: 8px; resize: vertical; }

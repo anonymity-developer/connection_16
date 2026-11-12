@@ -15,7 +15,7 @@
     "test:ui": "node scripts/check-ui.mjs",
     "test:auth-ui": "node scripts/check-auth-ui.mjs",
     "test:participation-ui": "node scripts/check-participation-ui.mjs && node scripts/check-mission-flow-ui.mjs",
-    "test:results-ui": "node scripts/check-results-ui.mjs",
+    "test:results-ui": "node scripts/check-results-ui.mjs && node scripts/check-game-rules-ui.mjs",
     "test:content-ui": "node scripts/check-content-ui.mjs",
     "test:reactions-ui": "node scripts/check-reactions-ui.mjs",
     "test:discovery-ui": "node scripts/check-discovery-ui.mjs",

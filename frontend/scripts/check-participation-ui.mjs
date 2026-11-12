@@ -135,7 +135,9 @@ try {
   record('profile imports readonly identity, groups domain and stack interests, requires one acknowledgement and automatically awards the first S without a tag');
 
   await visit('/missions/show-me');
-  await page.getByRole('heading', { name: '연결의 한 조각을 모았어요', exact: true }).waitFor();
+  await page.getByRole('heading', { name: '나의 프로필', exact: true }).waitFor();
+  await page.getByRole('link', { name: '프로필 수정하기', exact: true }).waitFor();
+  assert.equal(await page.getByText('글자 획득 완료', { exact: true }).count(), 1);
   await page.screenshot({ path: resolve(output, 'participation-show-me-complete-390.png'), fullPage: true });
   await page.getByRole('link', { name: '뒤로가기', exact: true }).click();
   await page.getByRole('progressbar').waitFor(); assert.equal(await page.getByRole('progressbar').getAttribute('aria-valuenow'), '1');

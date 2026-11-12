@@ -559,3 +559,7 @@ kind 상수 CHECK와 (id,kind) 복합 FK가 소원/카드/댓글의 혼용을 �
 ## V9 가져온 프로필과 분류 카탈로그
 
 users의 real_name/region/class_no는 Mattermost에서 파싱한 원본 표시 정보다. mattermost_profile_synced_at은 가져오기 성공 시각, mattermost_picture_updated_at은 사진 버전(0은 사진 없음)이다. interests에 category DOMAIN/TECH_STACK가 추가되며 user_interests 관계는 그대로다. 이미지 원본은 저장하지 않는다. profiles.is_public은 내부 레거시 컬럼으로 남고 새 저장은 항상 true다. 사용자가 이름/반/비공개 여부를 입력하지 않는다. 관심사·소개·링크는 선택이다. [현재 프로필 계약](mattermost-profile.md)이 이전 직접 입력/공개 철회 설계를 대체한다.
+
+## V13 기록 갱신 관계
+
+`tap_attempts (id,user_id)` 1 → 0..1 `tap_record_achievements (attempt_id,user_id)`이며 복합 FK가 소유권을 보장한다. 소감은 갱신 권한 행의 nullable 필드로 한 번 저장하며 `(user_id,message_key)` UNIQUE를 갖는다. `tap_record_lock`은 id=1 단일 행이다. 참여 초기화 시 시도/갱신 권한은 삭제하지 않고 부모 시도를 보관한다. 콘텐츠 revision 본문은 300자로 확장한다. [DDL·규칙](mission-rules.md).

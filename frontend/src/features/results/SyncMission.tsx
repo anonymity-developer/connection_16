@@ -42,7 +42,7 @@ export function SyncResultCard({ result }: { result: SyncResult }) {
   const preview = !!useMissionRuntime();
   return <section className="sync-result sync-result-ticket" aria-labelledby="sync-result-heading">
     <header className="sync-ticket-header"><div><p className="context-label">SYNC ME · 나의 최초 결과</p><h2 id="sync-result-heading">나의 성향 결과</h2></div><LetterSticker code="SYNC_ME" /></header>
-    {!preview && <p className="content-status" role="status">두 번째 S를 획득했어요!</p>}
+
     <div className="sync-ticket-type"><span className="sync-ticket-code" aria-label={`성향 코드 ${result.type.code}`}>{result.type.code}</span><p className="sync-type-title">{result.type.title}</p></div>
     <div className="sync-ticket-description"><p className="context-label">이런 대화를 나눠보세요</p><p>{result.type.description}</p></div>
     <footer className="sync-ticket-footer"><p className="result-footnote">동료와 대화를 시작하기 위한 재미용 성향이에요. 전문적인 성격 진단이 아니며 최초 결과는 다시 바뀌지 않아요.</p>{preview ? <p className="result-footnote">관리자 미리보기 결과예요. 실제 동료 조회나 방문 기록은 만들지 않아요.</p> : <Link className="button button--primary" href="/discovery">나와 통하는 동료 만나기<Icon name="arrow" size={18} /></Link>}</footer>

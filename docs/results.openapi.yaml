@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: TAG ME SYNC/FAST TAP API
-  version: 0.4.1
+  version: 0.4.2
   description: 정책/프로필/해금/기간을 서버 확인. TAP은 정상/무효를 자동 판정한다. 변경 요청은 수집판의 resetGeneration을 X-Participation-Generation 헤더로 전송하며 초기화 전 요청은 409다.
 servers:
 - url: /api/v1
@@ -159,8 +159,90 @@ paths:
               $ref: '#/components/schemas/FinishRequest'
       description: 점수는 배열 크기로 서버 계산. VALID만 글자 지급, REVIEW_REQUIRED/INTERRUPTED/EXPIRED는
         미지급. 같은 payload 재시도만 허용. 상세 기한/의심 기준은 results.md 참조.
+  /tap/leaderboard:
+    get:
+      summary: 현재 유효 공식 기록 상위 10명과 본인 순위
+      description: 세션·현재 프로필/동의·활성 미션·해금 필요. 순서는 횟수 내림차순, 제출 시각/시도 ID 오름차순. 본인 순위는 10위 밖에서도 제공한다.
+      security:
+      - session: []
+      responses:
+        '200':
+          description: 현재 공개 순위와 본인 권한
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TapBoard'
+        default:
+          $ref: '#/components/responses/Error'
+  /tap/record-message:
+    post:
+      summary: 기록 갱신 당시 부여한 권한으로 소감 1회 저장
+      description: OPEN·본인 현재 시도·해금·현재 프로필/동의 확인. 추월당해도 권한 유지. 같은 키/내용 재시도만 허용하며 수정 불가. 마감 후 동일 재시도 가능.
+      security:
+      - session: []
+        csrfCookie: []
+        csrfHeader: []
+      parameters:
+      - name: Idempotency-Key
+        in: header
+        required: true
+        schema:
+          type: string
+          pattern: ^[A-Za-z0-9_-]{16,64}$
+      - name: X-Participation-Generation
+        in: header
+        schema:
+          type: integer
+          minimum: 0
+          default: 0
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [attemptId, content]
+              properties:
+                attemptId: {type: integer, minimum: 1}
+                content: {type: string, minLength: 1, maxLength: 100}
+      responses:
+        '200':
+          description: 저장 후 현재 순위와 본인 권한
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TapBoard'
+        default:
+          $ref: '#/components/responses/Error'
 components:
   schemas:
+    TapBoard:
+      type: object
+      required: [top, own]
+      properties:
+        top:
+          type: array
+          maxItems: 10
+          items:
+            type: object
+            required: [rank, nickname, tapCount, submittedAt, message]
+            properties:
+              rank: {type: integer, minimum: 1, maximum: 10}
+              nickname: {type: string}
+              tapCount: {type: integer, minimum: 0}
+              submittedAt: {type: string, format: date-time}
+              message: {type: [string, 'null'], maxLength: 100}
+        own:
+          type: [object, 'null']
+          description: 타인의 사용자/시도 ID는 제공하지 않으며 본인 시도만 식별한다.
+          required: [attemptId, rank, tapCount, recordBreaker, canWriteMessage, message]
+          properties:
+            attemptId: {type: integer, minimum: 1}
+            rank: {type: [integer, 'null'], minimum: 1}
+            tapCount: {type: integer, minimum: 0}
+            recordBreaker: {type: boolean}
+            canWriteMessage: {type: boolean}
+            message: {type: [string, 'null'], maxLength: 100}
     QuestionOption:
       type: object
       additionalProperties: false

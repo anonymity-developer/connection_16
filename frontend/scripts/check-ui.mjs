@@ -230,6 +230,8 @@ try {
       const path = new URL(route.request().url()).pathname.slice(7);
       const data = path === '/users/me' ? { id: userId, nickname: '수집 검증', onboardingRequired: true }
         : path === '/event' ? { status: 'CLOSED' }
+        : path === '/users/me/profile' ? { profile: { nickname: '수집 검증', bio: '저장된 프로필', interestIds: [1] }, consents: { ready: true, policies: [] }, profileComplete: true, participationReady: true }
+        : path === '/interests' ? [{ id: 1, name: '백엔드' }]
         : path === '/missions/collection' ? {
           missions: codes.map(code => ({ code, active: true, state: completed.has(code) ? 'COMPLETED' : code === 'SYNC_ME' ? 'IN_PROGRESS' : 'LOCKED' })),
           completedCount: completed.size,
@@ -246,7 +248,8 @@ try {
     assert.match(await page.locator('.mission-row[data-mission="SAY_SOMETHING"]').innerText(), /태그를 찾아주세요/);
     assert.match(await page.locator('.mission-row[data-mission="MAKE_A_WISH"]').innerText(), /글자 획득 완료/);
     await visit(`${productionUrl}/missions/show-me`);
-    await page.getByRole('heading', { name: '연결의 한 조각을 모았어요', exact: true }).waitFor();
+    await page.getByRole('heading', { name: '나의 프로필', exact: true }).waitFor();
+    await page.locator('.show-me-record-name').getByText('수집 검증', { exact: true }).waitFor();
     assert.equal(await page.locator('.letter-sticker.celebrate').count(), 0);
 
     completed.add('SYNC_ME');

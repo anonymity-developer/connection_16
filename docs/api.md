@@ -129,7 +129,7 @@ GET `/event`, `/policies`, `/users/me/profile`, GET/POST `/tags/pending`, POST `
 
 최초 작성 재시도는 Idempotency-Key를 사용한다. 같은 key/payload는 같은 리소스를 반환하고 같은 key/다른 payload는 409다. 사용자 슬롯 UNIQUE가 키 변경으로 인한 중복 생성도 막는다. 공개 목록에는 pending/거절 revision이 포함되지 않는다.
 
-요청은 `content/templateId/style/anonymous/expectedVersion`, 응답은 OwnSlot(approvedRevision/pendingRevision/latestRevision/version)이다. 최초 소원도 `templateId=PLAIN`, `style=ROSE`, `anonymous=true`를 전송한다. 수정에는 현재 `expectedVersion`이 필요하며 최초 작성/수정 모두 Idempotency-Key를 요구한다. [콘텐츠 계약](content.md)과 [OpenAPI](content.openapi.yaml)에 정확한 DTO/상태/오류를 정리했다.
+요청은 `content/templateId/style/anonymous/expectedVersion`, 응답은 OwnSlot(approvedRevision/pendingRevision/latestRevision/version)이다. 소원은 `templateId=PLAIN`, `style=ROSE`이며 익명 여부를 선택한다. 소원·응원은 300자, 댓글은 200자다. 수정에는 현재 `expectedVersion`이 필요하며 최초 작성/수정 모두 Idempotency-Key를 요구한다. [콘텐츠 계약](content.md)과 [OpenAPI](content.openapi.yaml)에 정확한 DTO/상태/오류를 정리했다.
 
 ## 5. 게임과 성향 구현
 
@@ -139,7 +139,8 @@ GET `/event`, `/policies`, `/users/me/profile`, GET/POST `/tags/pending`, POST `
 | POST | `/tap/cancel` | attemptId → 시작 전 취소만 기회 복구 |
 | POST | `/tap/finish` | attemptId, events, interruptions → 확정/보류 결과 |
 | GET | `/tap/me` | 공식 슬롯과 현재 도전 상태 복구 |
-| GET | `/tap/rankings` | 후속: 유효 점수/잠정 여부/커서 |
+| GET | `/tap/leaderboard` | 현재 공개 가능한 VALID 기록 상위 10명 + 본인 순위·소감 권한 |
+| POST | `/tap/record-message` | attemptId/content(100자), Idempotency-Key/현재 회차 → 1회 소감 |
 | GET | `/sync/questions` | 버전 및 문항/선택지 |
 | POST | `/sync/submit` | questionnaireVersion, answers → 서버 계산 최초 결과 |
 | GET | `/sync/me` | 저장된 결과 |

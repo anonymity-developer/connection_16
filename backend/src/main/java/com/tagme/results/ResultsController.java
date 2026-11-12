@@ -25,13 +25,17 @@ public class ResultsController {
     public record SyncState(SyncResult result) { }
     public record TapAttempt(long attemptId,int generation,String status,Instant serverNow,Instant startsAt,Instant endsAt,Instant submitDeadline,Integer tapCount,String reviewReason,boolean provisional) { }
     public record TapState(boolean officialAvailable,TapAttempt attempt) { }
+    public record RecordMessage(@Positive long attemptId,@NotBlank @Size(max=100) String content) { }
     private final ResultsService service;
-    public ResultsController(ResultsService service){this.service=service;}
+    private final TapRankingService rankings;
+    public ResultsController(ResultsService service,TapRankingService rankings){this.service=service;this.rankings=rankings;}
     @GetMapping("/sync/questions") public Questions questions(Authentication auth){return service.questions(actor(auth));}
     @GetMapping("/sync/me") public SyncState sync(Authentication auth){return new SyncState(service.sync(actor(auth).userId()));}
     @GetMapping("/sync/types") public List<Questionnaire.Type> types(Authentication auth){return service.types(actor(auth));}
     @PostMapping("/sync/submit") public SyncResult submit(Authentication auth,@Valid @RequestBody SyncRequest body,@RequestHeader(value="X-Participation-Generation",defaultValue="0") long generation){return service.submit(actor(auth),body,generation);}
     @GetMapping("/tap/me") public TapState tap(Authentication auth){return service.tap(actor(auth).userId());}
+    @GetMapping("/tap/leaderboard") public TapRankingService.Board leaderboard(Authentication auth){return rankings.board(actor(auth));}
+    @PostMapping("/tap/record-message") public TapRankingService.Board message(Authentication auth,@Valid @RequestBody RecordMessage body,@RequestHeader("Idempotency-Key") String key,@RequestHeader(value="X-Participation-Generation",defaultValue="0") long generation){return rankings.message(actor(auth),body.attemptId(),body.content(),key,generation);}
     @PostMapping("/tap/start") public TapAttempt start(Authentication auth,@RequestHeader("Idempotency-Key") String key,@RequestHeader(value="X-Participation-Generation",defaultValue="0") long generation){return service.start(actor(auth),key,generation);}
     @PostMapping("/tap/cancel") public TapAttempt cancel(Authentication auth,@Valid @RequestBody CancelRequest body,@RequestHeader(value="X-Participation-Generation",defaultValue="0") long generation){return service.cancel(actor(auth),body.attemptId(),generation);}
     @PostMapping("/tap/finish") public TapAttempt finish(Authentication auth,@Valid @RequestBody FinishRequest body,@RequestHeader(value="X-Participation-Generation",defaultValue="0") long generation){return service.finish(actor(auth),body,generation);}

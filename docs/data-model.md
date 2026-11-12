@@ -198,3 +198,7 @@ moderation_jobs.manual_retry_count는 기본 0, CHECK 0~3이다. 자동 attempts
 users에 mattermost_profile_synced_at nullable DATETIME(6), mattermost_picture_updated_at BIGINT NOT NULL DEFAULT 0 CHECK >=0을 추가한다. 가져온 이름/지역/반은 기존 real_name/region/class_no를 사용한다. 기존 계정을 임의로 동기화 완료 처리하지 않는다. 이미지 원본/직접 URL은 저장하지 않는다. interests.category VARCHAR(16) NOT NULL DEFAULT DOMAIN과 CHECK(DOMAIN/TECH_STACK), 기술 스택 카탈로그를 추가한다. 기존 도메인 ID는 보존한다.
 
 닉네임만 필수 입력이며 bio/링크 nullable, user_interests 0~10개다. 유효한 프로필 저장은 내부 is_public=true다. 레거시 비공개 행을 일괄 공개하지 않으며 동기화 기록과 현재 두 안내 확인까지 공개 필터에 포함한다. 소스 변경은 users 잠금 아래 profile.version도 증가시켜 stale 저장을 막는다. [상세 계약](mattermost-profile.md)을 따른다.
+
+## V13 미션 안내·글 길이·기록 갱신
+
+`content_revisions.content_text`는 VARCHAR(300)이며 댓글은 서비스에서 200자로 제한한다. `missions.hint`에 승인한 1/10/20/19층 안내를 적용한다. `tap_record_lock`은 id=1 단일 행으로 VALID 확정·소프트리셋을 직렬화한다. `tap_record_achievements`는 attempt_id PK, user_id, previous_best nullable, achieved_at, message_text VARCHAR(100)/message_key/message_at nullable을 저장한다. `(attempt_id,user_id)` FK는 소유권을 보장하고 `(user_id,message_key)` UNIQUE는 재시도 키 재사용을 막는다. 세 소감 필드는 전부 NULL이거나 전부 존재해야 한다. 소프트리셋은 부모 tap_attempts를 보관해 갱신 권한/소감도 유지하되 현재 슬롯/공개 순위에서는 제외한다. 자세한 동시성·복원 기준은 [확정 규칙](mission-rules.md).

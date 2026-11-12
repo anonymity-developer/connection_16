@@ -83,7 +83,12 @@ try {
   await page.clock.install();
   await page.getByRole('button', { name: '기록 없이 연습하기', exact: true }).click(); await page.clock.fastForward(5100); await page.getByRole('button', { name: '탭 영역', exact: true }).click(); await page.clock.fastForward(10000); await page.getByText('연습 결과 1회', { exact: false }).waitFor();
   await page.getByRole('button', { name: '미리보기 도전 시작하기', exact: true }).click(); await page.clock.fastForward(5100); await page.getByRole('button', { name: '탭 영역', exact: true }).click(); await page.clock.fastForward(10000); await page.getByRole('heading', { name: '미리보기 결과를 확인했어요', exact: true }).waitFor();
+  await page.getByLabel('최고 기록 갱신 소감', { exact: true }).fill('미리보기에서만 저장되는 소감');
+  await page.getByRole('button', { name: '소감 남기기', exact: true }).click();
+  await page.locator('.tap-ranking-list').getByText('미리보기에서만 저장되는 소감', { exact: true }).waitFor();
+  assert.equal(await page.getByLabel('최고 기록 갱신 소감', { exact: true }).count(), 0);
   await page.getByRole('button', { name: '미리보기 초기화', exact: true }).click(); await page.getByRole('button', { name: '미리보기 도전 시작하기', exact: true }).waitFor();
+  assert.equal(await page.locator('.tap-ranking-list li').count(), 0);
   record('real tap component supports practice, simulated official round and replay reset with no server mutations');
   await page.getByLabel('미리 볼 미션', { exact: true }).selectOption('SYNC_ME'); await page.getByRole('radio', { name: '먼저 말 걸기', exact: true }).check(); await page.getByRole('button', { name: '나의 성향 확인하기', exact: true }).click(); await page.getByText('반가운 대화', { exact: true }).waitFor(); record('real sync component computes an explicit preview-only result from example questions');
   for (const code of ['MAKE_A_WISH', 'SAY_SOMETHING']) {

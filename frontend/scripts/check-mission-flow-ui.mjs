@@ -38,6 +38,7 @@ try {
         if(path === '/sync/me')return reply(200,{result:sync});
         if(path === '/sync/questions')return reply(200,{available:true,version:'fixture-v1',title:'검사용 질문',questions:[{id:'q1',text:'검사용 취향 선택',options:[{id:'a',label:'함께 만들기'}]}]});
         if(path === '/tap/me')return reply(200,{officialAvailable:false,attempt:{attemptId:9,status:'INVALID',tapCount:2,reviewReason:'DUPLICATE_MILLISECOND'}});
+        if(path === '/tap/leaderboard')return reply(200,{top:[],own:null});
       }
       assert.equal(request.headers()['x-xsrf-token'],'flow-csrf');
       const body = request.postDataJSON();

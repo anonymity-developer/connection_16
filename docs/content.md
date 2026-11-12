@@ -14,8 +14,8 @@ MAKE A WISH와 SAY SOMETHING의 최초 작성, 내 슬롯, 수정, 승인된 공
 
 - `content_items`는 WISH/CHEER 각각 한 슬롯을 보장한다. V6의 직접 UNIQUE는 V7에서 동일한 의미의 `(author_id, slot_kind)` generated key UNIQUE로 확장해 COMMENT만 다중으로 허용한다. 수정은 같은 슬롯의 새 revision이다.
 - 쓰기마다 사용자 잠금 → 행사/활성 미션/해금/현재 공개 프로필 및 동의 → 슬롯/수정 조건을 검사한다. 최초 작성은 POST, 기존 슬롯 수정은 PUT이며 `expectedVersion`이 현재 슬롯 버전과 같아야 한다.
-- 본문은 공백 제외 1~200 UTF-16 code unit이다. 앞뒤 공백만 제거하고 저장한다. 클라이언트 HTML/CSS, 사용자 ID, 점수, 판정 필드는 받지 않는다.
-- WISH는 `PLAIN / ROSE / anonymous=true`로 고정한다. CHEER는 `PLAIN|NOTE`, `ROSE|INK`, 익명 여부를 선택한다. 본문과 카드 형태/색상/익명 여부는 revision의 일부이며 승인 시 함께 전환된다.
+- 소원·응원 본문은 공백 제외 1~300 UTF-16 code unit이다. 댓글은 200자를 유지한다. 앞뒤 공백만 제거하고 저장한다. 클라이언트 HTML/CSS, 사용자 ID, 점수, 판정 필드는 받지 않는다.
+- WISH는 `PLAIN / ROSE`를 사용한다. CHEER는 `PLAIN|NOTE`, `ROSE|INK`를 선택한다. 둘 다 익명 또는 닉네임 공개를 선택할 수 있다. 본문과 카드 형태/색상/익명 여부는 revision의 일부이며 공개본과 함께 전환된다.
 - 같은 슬롯에서 최대 20개 revision을 저장한다. 사용자별 쓰기 30회/분 제한과 실제 DB 제약을 함께 사용한다.
 - `Idempotency-Key`는 16~64자의 영문/숫자/`_`/`-`다. `(item_id, key)`를 보관하고 동일 본문/카드 설정은 현재 슬롯 상태를 반환한다. 같은 키/다른 내용은 409다. 새 키의 POST로 두 번째 슬롯을 만들 수 없다.
 - `expectedVersion`은 내용 해시에서 제외한다. 이미 저장된 요청의 재전송을 상태 변화 뒤에도 확인할 수 있게 하기 위함이다. 저장된 본문/설정과 다르면 재전송으로 인정하지 않는다.
@@ -63,7 +63,7 @@ MAKE A WISH와 SAY SOMETHING의 최초 작성, 내 슬롯, 수정, 승인된 공
 
 공개 목록은 승인된 포인터/APPROVED, 비숨김, 작성자 ACTIVE, 공개 프로필 및 현재 두 동의 버전을 SQL에서 함께 필터링한다. 최신 pending/거절본은 공개 목록에 절대 섞지 않는다.
 
-공개 JSON은 콘텐츠 ID/본문/카드 설정/익명 여부/표시 닉네임/운 결과와 nullable profileId를 반환한다. 승인된 비익명 응원이고 작성자가 현재 공개 가능한 경우에만 nickname/profileId를 제공한다. 익명일 때 둘 다 null이며 소원은 항상 익명이다. revision ID/접수 시각/해시/Mattermost ID는 반환하지 않는다. 콘텐츠 자체의 ID는 목록 식별자이며 프로필 ID가 아니다. 프로필 링크는 [탐색 계약](discovery.md)의 CSRF POST 상세로 연결한다. 수정 대기 중에는 기존 승인본의 익명 여부를 따른다.
+공개 JSON은 콘텐츠 ID/본문/카드 설정/익명 여부/표시 닉네임/운 결과와 nullable profileId를 반환한다. 승인된 비익명 소원·응원이고 작성자가 현재 공개 가능한 경우에만 nickname/profileId를 제공한다. 익명일 때 둘 다 null이다. 기존 익명 소원도 작성자의 명시적 변경 전에는 익명으로 유지한다. revision ID/접수 시각/해시/Mattermost ID는 반환하지 않는다. 콘텐츠 자체의 ID는 목록 식별자이며 프로필 ID가 아니다. 프로필 링크는 [탐색 계약](discovery.md)의 CSRF POST 상세로 연결한다. 수정 대기 중에는 기존 승인본의 익명 여부를 따른다.
 
 내 슬롯에는 승인본/대기본/최신본과 수정용 버전이 포함된다. 다른 사용자의 ID로 내 슬롯을 지정하는 파라미터는 없다. 공개 응답/내 상태는 no-store다. 프로필 공개 철회나 신규 동의 버전 적용 후 조회에서는 현재 조건에 맞지 않는 글을 제외한다. 과거 글자/증빙 기록을 개인정보 공개 상태와 함께 지우지 않는다.
 

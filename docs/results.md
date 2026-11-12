@@ -1,12 +1,12 @@
 # SYNC ME와 FAST TAP 구현
 
-페이즈 4-1은 성향 결과와 공식 탭 도전을 서버에 연결한다. 소원/응원의 슬롯·revision·비동기 검수, 공개 순위와 관리자 재도전/검토 확정은 후속 PR이다. 실제 운영 문항/일정/참가자/태그나 외부 발송은 만들지 않는다.
+성향 결과와 공식 탭 도전을 서버에 연결한다. 현재 공개 순위·기록 갱신 소감은 [확정 미션 규칙](mission-rules.md), 네 게임 초기화는 [소프트리셋 계약](direct-publication-and-reset.md)을 따른다. 실제 운영 문항/일정/참가자/태그나 외부 발송은 만들지 않는다.
 
 ## 공통 조건과 저장
 
 V1~V4는 수정하지 않고 V5를 추가했다. 새 테이블은 sync_questionnaires/current_sync_questionnaire/sync_results/tap_slots/tap_attempts/tap_attempt_events다. 모든 변경은 로그인과 CSRF를 요구한다. 새 수행에는 ACTIVE와 credential version, 행사 진행, 미션 활성/태그 해금, 필수 프로필과 두 현재 동의/공개 상태가 필요하다. 동일 사용자 행부터 잠가 다른 탭/동시 요청을 직렬화한다.
 
-결과/도전/이벤트/receipt/글자는 같은 트랜잭션에 저장한다. SYNC_RESULT의 source_id는 사용자 ID, GAME_ATTEMPT의 source_id는 attempt ID다. 각각 실제 결과 존재와 VALID 상태를 확인하는 CompletionRule을 등록했다. SHOW_ME와 합쳐 세 미션만 실제 완료 가능하며 소원/응원 규칙은 아직 없다. 운영상 전체 완료 순번과 시상 순위는 계속 구분한다.
+결과/도전/이벤트/receipt/글자는 같은 트랜잭션에 저장한다. SYNC_RESULT의 source_id는 사용자 ID, GAME_ATTEMPT의 source_id는 attempt ID다. 각각 실제 결과 존재와 VALID 상태를 확인하는 CompletionRule을 등록했다. SHOW_ME와 소원/응원까지 다섯 미션이 공통 완료 경로를 사용한다. 운영상 전체 완료 순번과 시상 순위는 계속 구분한다.
 
 ## SYNC ME
 
@@ -100,5 +100,7 @@ finish는 attemptId, taps(상대 밀리초 배열), interruptions(type/atMs)을 
 | POST | /tap/start | Idempotency-Key로 준비 시작 |
 | POST | /tap/cancel | 시작 전만 기회 복구, 이후는 중단 |
 | POST | /tap/finish | 서버 이벤트 검증과 최초 확정 |
+| GET | /tap/leaderboard | 현재 유효 상위 10명과 본인 순위·소감 권한 |
+| POST | /tap/record-message | 최고 기록 갱신 소감 100자, 최초 1회·동일 요청 재시도 |
 
-공개 게임 순위/관리자 재도전/검토 판정, 소원/응원/AI 검수는 이번 PR에 없다. 실제 휴대전화의 연타/확대/스크롤/가려짐, 행사 네트워크 지연과 부하, Mattermost 권한/DM은 자동 테스트와 구분해 검증해야 한다. 브라우저 API 대역/테스트 시간 제어는 운영 우회 기능이 아니다.
+공개 순위·소감과 관리자 소프트리셋은 구현되어 있으며 외부 AI 검수는 사용하지 않는다. 실제 휴대전화의 연타/확대/스크롤/가려짐, 행사 네트워크 지연과 부하, Mattermost 권한/DM은 자동 테스트와 구분해 검증해야 한다. 브라우저 API 대역/테스트 시간 제어는 운영 우회 기능이 아니다.

@@ -29,8 +29,15 @@ test('public coin buttons stay keyboard accessible and cloud view exposes all pu
   assert.match(cloud,/가상 소원 20/);
 });
 test('wish cards stay anonymous, escape content and expose only the public body', () => {
-  const html=renderToStaticMarkup(createElement(WishCard,{item:{...item(1),anonymous:false,nickname:'MUST_NOT_RENDER',profileId:42,content:'<script>danger()</script>',luckScore:999,landingZone:9}}));
+  const html=renderToStaticMarkup(createElement(WishCard,{item:{...item(1),anonymous:true,nickname:'MUST_NOT_RENDER',profileId:42,content:'<script>danger()</script>',luckScore:999,landingZone:9}}));
   assert.match(html,/익명의 소원/); assert.match(html,/&lt;script&gt;/); assert.doesNotMatch(html,/MUST_NOT_RENDER|\/profiles\/|999|<script>/);
+});
+test('explicitly public wishes show the public nickname and profile link without interpreting HTML', () => {
+  const previous=globalThis.window;globalThis.window={location:{href:'http://localhost/',origin:'http://localhost'}};
+  try {
+    const html=renderToStaticMarkup(createElement(WishCard,{item:{...item(1),anonymous:false,nickname:'공개 별명',profileId:42,content:'<script>danger()</script>'}}));
+    assert.match(html,/공개 별명/);assert.match(html,/\/discovery\/profiles\/42/);assert.match(html,/&lt;script&gt;/);assert.doesNotMatch(html,/<script>/);
+  }finally{globalThis.window=previous;}
 });
 test('pending receipts animate only after fulfilled revisions, with no public wish or fake A', () => {
   const feedback=createWishFeedback(); const pending={id:1,latestRevision:{id:10,status:'QUEUED'},missionCompleted:false};

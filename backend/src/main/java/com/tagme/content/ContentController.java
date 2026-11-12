@@ -10,7 +10,7 @@ import static com.tagme.content.ContentModels.*;
 
 @RestController @RequestMapping("/api/v1")
 public class ContentController {
-    public record Submit(@NotBlank @Size(max=200) String content,@NotNull @Pattern(regexp="PLAIN|NOTE") String templateId,
+    public record Submit(@NotBlank @Size(max=300) String content,@NotNull @Pattern(regexp="PLAIN|NOTE") String templateId,
                          @NotNull @Pattern(regexp="ROSE|INK") String style,@NotNull Boolean anonymous,@Positive Long expectedVersion) { }
     private final ContentService service;
     public ContentController(ContentService service) { this.service=service; }

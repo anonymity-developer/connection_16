@@ -45,6 +45,7 @@ try {
       if(path==='/event')return reply(200,{status:'OPEN',opensAt:null,submitClosesAt:null,profilePreparationEnabled:false});
       if(path==='/missions/collection')return reply(200,{missions:codes.map((code,index)=>({id:index+1,code,state:code==='SHOW_ME'||slots[code==='MAKE_A_WISH'?'wishes':'cheers'].missionCompleted&&['MAKE_A_WISH','SAY_SOMETHING'].includes(code)?'COMPLETED':'UNLOCKED',active:true})),completedCount:1+Number(slots.wishes.missionCompleted)+Number(slots.cheers.missionCompleted),completion:{complete:false,completionOrder:null,completedAt:null,awardConfirmed:false},resetGeneration:generation});
       if(path==='/tap/me')return reply(200,{officialAvailable:false,attempt:{attemptId:1,generation:1,status:'INVALID',serverNow:now,startsAt:now,endsAt:now,submitDeadline:now,tapCount:118,reviewReason:'DUPLICATE_MILLISECOND',provisional:false}});
+      if(path==='/tap/leaderboard')return reply(200,{top:[],own:null});
       if(path==='/wishes/40/comments/me')return reply(200,{items:comments,nextCursor:null});
       if(path==='/wishes/40/comments'){
         if(method==='POST'){assert.equal(req.headers()['x-participation-generation'],String(generation));const body=req.postDataJSON();const row={id:50,content:body.content,revealProfile:body.revealProfile,status:'APPROVED',reason:null,submittedAt:now,requestKey:req.headers()['idempotency-key']};comments.push(row);return reply(202,row);}

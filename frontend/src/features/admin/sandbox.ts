@@ -17,6 +17,12 @@ const empty = (): OwnSlot => ({ id: null, version: 0, visibility: null, approved
 export function createSandbox(definition: PreviewDefinition, interests: Interest[]) {
   let sync: SyncResult | null = null, tap: TapState = { officialAvailable: true, attempt: null };
   let serial = 0;
+  let tapMessage: string | null = null, tapMessageKey: string | null = null;
+  const tapBoard = () => {
+    const attempt=tap.attempt;
+    if(!attempt || attempt.status!=='VALID')return {top:[],own:null};
+    return {top:[{rank:1,nickname:'관리자 미리보기',tapCount:attempt.tapCount ?? 0,submittedAt:attempt.endsAt,message:tapMessage}],own:{attemptId:attempt.attemptId,rank:1,tapCount:attempt.tapCount ?? 0,recordBreaker:true,canWriteMessage:tapMessage===null,message:tapMessage}};
+  };
   const slots: Record<ContentKind, OwnSlot> = { wishes: empty(), cheers: empty() };
   const comments = new Map<number, OwnComment[]>();
   const hearts = new Map<number, LikeState>();
@@ -29,6 +35,14 @@ export function createSandbox(definition: PreviewDefinition, interests: Interest
     consents: { ready: true, policies: (['PARTICIPATION', 'PROFILE_PUBLICATION'] as const).map(type => ({ type, version: 'admin-preview', title: '관리자 미리보기 안내', body: '참여 화면 확인용 예시입니다. 실제 동의·프로필·완료 기록은 생성하지 않습니다.', agreed: false })) }, profileComplete: false, participationReady: false };
   const runtime: MissionRuntime = {
     refresh: async () => {},
+    tapRanking: {
+      board: async () => copy(tapBoard()),
+      message: async (attemptId,content,key) => {
+        if(!tapBoard().own || tap.attempt?.attemptId!==attemptId || !content.trim() || content.length>100)throw new ApiError(400,'INVALID_RECORD_MESSAGE','미리보기 소감을 확인해 주세요.');
+        if(tapMessage!==null && (tapMessageKey!==key || tapMessage!==content.trim()))throw new ApiError(409,'RECORD_MESSAGE_SAVED','이미 소감을 남겼어요.');
+        tapMessage=content.trim();tapMessageKey=key;return copy(tapBoard());
+      },
+    },
     showMeCompleted: false,
     participation: {
       profile: async () => copy(profile), interests: async () => copy(interests),
@@ -89,10 +103,10 @@ export function createSandbox(definition: PreviewDefinition, interests: Interest
       submit: async (kind, editing, key, input) => {
         const requestKey = `${kind}:${key}`, fingerprint = JSON.stringify([editing, input]), saved = submissions.get(requestKey);
         if (saved) { if (saved.fingerprint !== fingerprint) throw new ApiError(409, 'REQUEST_CHANGED', '같은 요청의 내용을 바꿀 수 없어요.'); return copy(saved.result); }
-        if (!input.content.trim() || input.content.length > 200) throw new Error('내용을 1~200자로 입력해 주세요.');
+        if (!input.content.trim() || input.content.length > 300) throw new Error('내용을 1~300자로 입력해 주세요.');
         const previous = slots[kind];
         if (!!previous.id !== editing || editing && input.expectedVersion !== previous.version) throw new ApiError(409, 'CONTENT_CHANGED', '미리보기 글을 다시 불러와 주세요.');
-        const revision: Revision = { id: ++serial, itemId: previous.id ?? serial, number: (previous.latestRevision?.number ?? 0) + 1, content: input.content.trim(), templateId: input.templateId, style: input.style, anonymous: kind === 'wishes' || input.anonymous, submittedAt: new Date().toISOString(), status: 'APPROVED', reason: null };
+        const revision: Revision = { id: ++serial, itemId: previous.id ?? serial, number: (previous.latestRevision?.number ?? 0) + 1, content: input.content.trim(), templateId: input.templateId, style: input.style, anonymous: input.anonymous, submittedAt: new Date().toISOString(), status: 'APPROVED', reason: null };
         slots[kind] = { ...previous, id: revision.itemId, version: previous.version + 1, visibility: 'VISIBLE', approvedRevision: revision, pendingRevision: null, latestRevision: revision, missionCompleted: true };
         submissions.set(requestKey, { fingerprint, result: copy(slots[kind]) }); return copy(slots[kind]);
       },
