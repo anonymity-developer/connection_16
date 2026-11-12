@@ -21,18 +21,18 @@ public class DiscoveryService {
     static AuthException error(int status,String code,String message) { return new AuthException(status,code,message); }
     private void guard(AuthPrincipal actor) {
         participation.lockPrincipal(actor);
-        if(!participation.eligible(actor.userId())||!participation.discoveryReady(actor.userId()))throw error(409,"PROFILE_REQUIRED","한 줄 소개와 관심 산업·개발 분야·기술 스택을 먼저 완성해 주세요.");
+        if(!participation.eligible(actor.userId())||!participation.discoveryReady(actor.userId()))throw error(409,"PROFILE_REQUIRED","한 줄 소개와 관심 산업·개발 분야을 먼저 완성해 주세요.");
     }
     public People people(AuthPrincipal actor,Long cursor,Integer limit,String q,Long interest,String type,String version) {
-        return people(actor,cursor,limit,q,interest,type,version,List.of(),List.of(),List.of());
+        return people(actor,cursor,limit,q,interest,type,version,List.of(),List.of());
     }
-    public People people(AuthPrincipal actor,Long cursor,Integer limit,String q,Long interest,String type,String version,List<Long> industries,List<Long> developments,List<Long> stacks) {
+    public People people(AuthPrincipal actor,Long cursor,Integer limit,String q,Long interest,String type,String version,List<Long> industries,List<Long> developments) {
         int size=limit==null?20:limit;
         if((cursor!=null&&cursor<1)||size<1||size>30||(q!=null&&q.length()>30)||(interest!=null&&interest<1)
           ||(type==null)!=(version==null)||(type!=null&&(!type.matches("[A-Z]{1,4}")||!version.matches("[A-Za-z0-9._-]{1,64}"))))throw error(400,"INVALID_FILTER","검색어나 목록 조건을 확인해 주세요.");
-        var filters=List.of(industries==null?List.<Long>of():industries,developments==null?List.<Long>of():developments,stacks==null?List.<Long>of():stacks);
+        var filters=List.of(industries==null?List.<Long>of():industries,developments==null?List.<Long>of():developments);
         for(var filter:filters)if(filter.size()>50||filter.stream().anyMatch(id->id==null||id<1)||filter.stream().distinct().count()!=filter.size())throw error(400,"INVALID_FILTER","관심사 검색 조건을 다시 확인해 주세요.");
-        return tx.execute(s->{guard(actor);return repository.people(actor.userId(),cursor==null?Long.MAX_VALUE:cursor,size,q,interest,type,version,filters.get(0),filters.get(1),filters.get(2));});
+        return tx.execute(s->{guard(actor);return repository.people(actor.userId(),cursor==null?Long.MAX_VALUE:cursor,size,q,interest,type,version,filters.get(0),filters.get(1));});
     }
     public RecommendationBatch batch(AuthPrincipal actor,String seed) {
         limits.check("recommendation-batch",Long.toString(actor.userId()),30,60);

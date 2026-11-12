@@ -352,12 +352,14 @@ class ParticipationIntegrationTest {
         login();var body=payload(true,0);body.put("realName","위조 이름");assertThat(send(HttpMethod.PUT,"/users/me/profile",body).getStatusCode().value()).isEqualTo(400);
         body=payload(true,0);body.put("isPublic",false);assertThat(send(HttpMethod.PUT,"/users/me/profile",body).getStatusCode().value()).isEqualTo(400);
         body=payload(true,0);body.put("bio"," ");assertThat(send(HttpMethod.PUT,"/users/me/profile",body).getStatusCode().value()).isEqualTo(400);
-        body=payload(true,0);body.put("interestIds",interestIds().subList(0,2));assertThat(send(HttpMethod.PUT,"/users/me/profile",body).getStatusCode().value()).isEqualTo(400);
+        body=payload(true,0);body.put("interestIds",interestIds().subList(0,1));assertThat(send(HttpMethod.PUT,"/users/me/profile",body).getStatusCode().value()).isEqualTo(400);
         assertThat(service.save(principal,request(true,0)).participationReady()).isTrue();
-        assertThat(repository.interests()).hasSize(72);
+        var retired=new java.util.ArrayList<>(interestIds());retired.add(db.queryForObject("SELECT MIN(id) FROM interests WHERE category='TECH_STACK' AND active=FALSE",Long.class));
+        body=payload(true,1);body.put("interestIds",retired);assertThat(send(HttpMethod.PUT,"/users/me/profile",body).getStatusCode().value()).isEqualTo(400);
+        assertThat(repository.interests()).hasSize(22);
         assertThat(repository.interests().stream().filter(i->i.category().equals("INDUSTRY"))).hasSize(10);
         assertThat(repository.interests().stream().filter(i->i.category().equals("DEVELOPMENT"))).hasSize(12);
-        assertThat(repository.interests().stream().filter(i->i.category().equals("TECH_STACK"))).hasSize(50);
+        assertThat(repository.interests().stream().filter(i->i.category().equals("TECH_STACK"))).isEmpty();
     }
     @Test void showMeRequiresCompleteProfileAndPreservesItsFirstCompletionTime() {
         legacyProfile();

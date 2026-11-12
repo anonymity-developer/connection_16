@@ -9,8 +9,8 @@ const { createSandbox } = await server.ssrLoadModule('/src/features/admin/sandbo
 const { MissionRuntimeContext } = await server.ssrLoadModule('/src/features/admin/MissionRuntime.tsx');
 const { SyncResultCard } = await server.ssrLoadModule('/src/features/results/SyncMission.tsx');
 const definition = { version: 'test', source: 'EXAMPLE', definition: { title: '검사용 예시', axes: [{ id: 'talk', negative: 'L', positive: 'W', tie: 'NEGATIVE' }], questions: [{ id: 'q', text: '검사 질문', options: [{ id: 'a', label: '검사 선택', scores: { talk: 1 } }] }], types: [{ code: 'W', title: '검사 결과', description: '가상 결과' }] } };
-const catalog = [{id:1,name:'검사 산업',category:'INDUSTRY'},{id:2,name:'검사 분야',category:'DEVELOPMENT'},{id:3,name:'검사 스택',category:'TECH_STACK'}];
-const input = { nickname: '검사 별명', bio: '소개', githubUrl: null, blogUrl: null, expectedVersion: 0, interestIds: [1,2,3], acceptPolicies: ['PARTICIPATION', 'PROFILE_PUBLICATION'].map(type => ({ type, version: 'admin-preview' })) };
+const catalog = [{id:1,name:'검사 산업',category:'INDUSTRY'},{id:2,name:'검사 분야',category:'DEVELOPMENT'}];
+const input = { nickname: '검사 별명', bio: '소개', githubUrl: null, blogUrl: null, expectedVersion: 0, interestIds: [1,2], acceptPolicies: ['PARTICIPATION', 'PROFILE_PUBLICATION'].map(type => ({ type, version: 'admin-preview' })) };
 
 test('admin preview requires all profile groups and reset drops all example state', async () => {
   const { runtime } = createSandbox(definition, catalog);

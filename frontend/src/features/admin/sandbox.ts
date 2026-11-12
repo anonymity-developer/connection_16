@@ -49,7 +49,7 @@ export function createSandbox(definition: PreviewDefinition, interests: Interest
       profile: async () => copy(profile), interests: async () => copy(interests),
       event: async () => ({ status: 'OPEN', opensAt: null, submitClosesAt: null, profilePreparationEnabled: true }),
       saveProfile: async input => {
-        if (!input.nickname.trim() || input.nickname.trim().length > 30 || input.interestIds.length > 10) throw new ApiError(400, 'INVALID_PROFILE', '닉네임과 관심사를 확인해 주세요.');
+        if (!input.nickname.trim() || input.nickname.trim().length > 30 || input.interestIds.length > 6) throw new ApiError(400, 'INVALID_PROFILE', '닉네임과 관심사를 확인해 주세요.');
         if (input.expectedVersion !== (profile.profile?.version ?? 0)) throw new ApiError(409, 'PROFILE_CHANGED', '미리보기 프로필을 다시 불러와 주세요.');
         if (profile.consents.policies.some(policy => !policy.agreed && !input.acceptPolicies.some(value => value.type === policy.type && value.version === policy.version))) throw new ApiError(409, 'CONSENT_REQUIRED', '미리보기 참여 안내를 확인해 주세요.');
         if (!input.bio?.trim() || !interestsComplete(input.interestIds,interests) || (input.bio?.length ?? 0) > 200 || new Set(input.interestIds).size !== input.interestIds.length || input.interestIds.some(id => !interests.some(item => item.id === id))) throw new ApiError(400, 'INVALID_PROFILE', '소개와 관심사를 확인해 주세요.');

@@ -7,7 +7,7 @@ export interface Detail { person: Person; realName: string; region: string; clas
 export interface Stats { visitedCount: number; visitorCount: number; mutualCount: number }
 export interface Graph { self: { id: number; nickname: string }; nodes: Person[]; edges: { from: number; to: number; weight?: number; strength?: string }[]; truncated: boolean }
 export const discoveryApi = {
-  people: (filters: URLSearchParams, cursor?: number) => { const query = new URLSearchParams(); for (const key of ['q', 'interestId']) { const value = filters.get(key); if (value) query.set(key, value); } for (const key of ['industryIds','developmentIds','stackIds']) for (const value of filters.getAll(key)) query.append(key,value); if (cursor) query.set('cursor', String(cursor)); return request<People>(`/discovery/people?${query}`); },
+  people: (filters: URLSearchParams, cursor?: number) => { const query = new URLSearchParams(); for (const key of ['q', 'interestId']) { const value = filters.get(key); if (value) query.set(key, value); } for (const key of ['industryIds','developmentIds']) for (const value of filters.getAll(key)) query.append(key,value); if (cursor) query.set('cursor', String(cursor)); return request<People>(`/discovery/people?${query}`); },
   recommended: (seed?: string) => request<Person[]>(`/discovery/recommendations${seed ? `?seed=${encodeURIComponent(seed)}` : ''}`),
   batch: (seed?: string) => request<RecommendationBatch>(`/discovery/recommendations/batch${seed ? `?seed=${encodeURIComponent(seed)}` : ''}`),
   expose: (batchId: string, profileIds: number[]) => request<void>('/discovery/recommendations/exposures','POST',{batchId,profileIds},{keepalive:true}),

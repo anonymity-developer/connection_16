@@ -39,7 +39,7 @@ export function ProfilePage() {
   async function save() {
     if (busy || !state || !canWrite || conflict) return;
     if (!values.accepted) { setError('참여 안내와 상세 정보 공개 범위를 확인해 주세요.'); form.current?.querySelector<HTMLElement>('[name="policy"]')?.focus(); return; }
-    if (!values.bio.trim() || !interestsComplete(values.interestIds, interests)) { setError('한 줄 소개와 관심 산업·개발 분야·기술 스택의 필수 선택을 완료해 주세요.'); return; }
+    if (!values.bio.trim() || !interestsComplete(values.interestIds, interests)) { setError('한 줄 소개와 관심 산업·개발 분야의 필수 선택을 완료해 주세요.'); return; }
     setBusy(true); setError('');
     try {
       const result = await api.saveProfile({ nickname: values.nickname, bio: values.bio || null, githubUrl: values.githubUrl || null, blogUrl: values.blogUrl || null, expectedVersion: state.profile?.version ?? 0, interestIds: values.interestIds, acceptPolicies: state.consents.policies.filter(p => !p.agreed).map(p => ({ type: p.type, version: p.version })) });
@@ -54,7 +54,7 @@ export function ProfilePage() {
   const showMe = runtime ? { state: runtime.showMeCompleted ? 'COMPLETED' : 'LOCKED' } : participation.collection?.missions.find(mission => mission.code === 'SHOW_ME');
   const rewardChecks = [
     { label: '한 줄 소개', done: !!values.bio.trim(), detail: values.bio.trim() ? '입력됨' : '작성해 주세요' },
-    { label: '산업·개발 분야·기술 스택', done: interestsComplete(values.interestIds,interests), detail: interestsComplete(values.interestIds,interests) ? '선택됨' : '각 분류를 골라 주세요' },
+    { label: '산업·개발 분야', done: interestsComplete(values.interestIds,interests), detail: interestsComplete(values.interestIds,interests) ? '선택됨' : '각 분류를 골라 주세요' },
     { label: '참여 안내·공개 동의', done: values.accepted, detail: values.accepted ? '확인함 · 저장 후 서버 검증' : '아래 안내를 확인해 주세요' },
   ];
   return <div className="page profile-page account-theme"><Link href="/me" className="back-link"><Icon name="arrowLeft" size={16} />내 계정</Link><div className="page-heading"><p className="context-label">SHOW ME · 첫 번째 S</p>{runtime ? <h2>나의 프로필</h2> : <h1>나의 프로필</h1>}<p>닉네임으로 만나고, 상세 소개로 대화를 시작해요.</p></div>

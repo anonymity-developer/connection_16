@@ -20,7 +20,7 @@
 .participant-shell .button:disabled { box-shadow: none; }
 .participant-shell .button--quiet { box-shadow: none; }
 .participant-shell .input-wrap input, .participant-shell textarea, .participant-shell select,
-.participant-shell .people-filters input { border-radius: 14px; background: #fbfdff; }
+.participant-shell .people-filters input:not([type="checkbox"]) { border-radius: 14px; background: #fbfdff; }
 .participant-shell .field label { font-weight: 600; }
 .participant-shell .context-label { color: var(--accent-ink); font-size: 13px; }
 .connection-stickers { display: block; width: 220px; height: auto; pointer-events: none; }

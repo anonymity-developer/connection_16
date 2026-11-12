@@ -104,7 +104,7 @@ class DiscoveryIntegrationTest {
         for (var peer: List.of(actor,bob)) db.update("INSERT INTO user_interests VALUES (?,?)",peer.userId(),second);
         var first=service.recommended(actor).getFirst();
         assertThat(first.id()).isEqualTo(bob.userId());
-        assertThat(first.sharedInterests()).hasSize(4);
+        assertThat(first.sharedInterests()).hasSize(3);
     }
     @Test void strongOlderRelationshipSurvivesLimitAndNextPageIsReachable() {
         service.open(actor,bob.userId());
@@ -115,7 +115,7 @@ class DiscoveryIntegrationTest {
         assertThat(next.nodes().getFirst().id()).isEqualTo(charlie.userId());
         assertThat(next.truncated()).isFalse();
     }
-    @Test void recommendationsUsePublicSharedInterestsAndUnvisitedOrdering(){service.open(actor,charlie.userId());var rows=service.recommended(actor);assertThat(rows.getFirst().id()).isEqualTo(bob.userId());assertThat(rows.getFirst().sharedInterests()).hasSize(3);assertThat(rows.getFirst().sameType()).isFalse();assertThat(rows.getFirst().type()).isNull();}
+    @Test void recommendationsUsePublicSharedInterestsAndUnvisitedOrdering(){service.open(actor,charlie.userId());var rows=service.recommended(actor);assertThat(rows.getFirst().id()).isEqualTo(bob.userId());assertThat(rows.getFirst().sharedInterests()).hasSize(2);assertThat(rows.getFirst().sameType()).isFalse();assertThat(rows.getFirst().type()).isNull();}
     long publishedContent(AuthPrincipal owner,String kind,boolean anonymous) {
         db.update("INSERT INTO content_items(author_id,kind) VALUES (?,?)",owner.userId(),kind);
         long item=db.queryForObject("SELECT MAX(id) FROM content_items WHERE author_id=? AND kind=?",Long.class,owner.userId(),kind);
@@ -139,11 +139,20 @@ class DiscoveryIntegrationTest {
         // Charlie: 30 affinity + 5 other class. Bob: 10 like + 20 unvisited.
         assertThat(service.recommended(actor).getFirst().id()).isEqualTo(charlie.userId());
     }
+    @Test void retiredStackSelectionsRemainStoredButCannotAffectDiscovery() {
+        long retired=db.queryForObject("SELECT MIN(id) FROM interests WHERE category='TECH_STACK' AND active=FALSE",Long.class);
+        var before=service.recommended(actor);
+        for(long id:List.of(actor.userId(),bob.userId()))db.update("INSERT INTO user_interests VALUES (?,?)",id,retired);
+        assertThat(participation.discoveryReady(actor.userId())).isTrue();
+        assertThat(service.recommended(actor)).isEqualTo(before);
+        assertThat(people().items()).allSatisfy(person->assertThat(person.interests()).noneMatch(i->i.id()==retired));
+        assertThat(service.people(actor,null,20,null,retired,null,null).items()).isEmpty();
+        assertThat(db.queryForObject("SELECT COUNT(*) FROM user_interests WHERE interest_id=?",Integer.class,retired)).isEqualTo(2);
+    }
     @Test void interestSimilarityDoesNotRewardSelectingEveryInterest() {
-        var interests=db.queryForList("SELECT id FROM interests WHERE active=TRUE AND category='TECH_STACK' ORDER BY id LIMIT 9",Long.class);
-        db.update("INSERT INTO user_interests VALUES (?,?)",actor.userId(),interests.get(1));
+        var interests=db.queryForList("SELECT id FROM interests WHERE active=TRUE AND category='DEVELOPMENT' ORDER BY id LIMIT 3",Long.class);
         for(long id:interests.subList(1,interests.size()))db.update("INSERT INTO user_interests VALUES (?,?)",bob.userId(),id);
-        // Charlie: 1/2 of the union. Bob: 2/9, despite more raw common interests.
+        // Charlie: 1/1 of the union. Bob: 1/3; extra choices do not add affinity.
         assertThat(service.recommended(actor).getFirst().id()).isEqualTo(charlie.userId());
     }
     @Test void repeatedAnonymousCommentsAreBoundedAndNeverEnterThePublicGraphOrDto() throws Exception {
@@ -226,9 +235,9 @@ class DiscoveryIntegrationTest {
         long industry=db.queryForObject("SELECT MIN(id) FROM interests WHERE active=TRUE AND category='INDUSTRY'",Long.class);
         db.update("DELETE FROM user_interests WHERE user_id=? AND interest_id=?",charlie.userId(),development.getFirst());
         db.update("INSERT INTO user_interests VALUES (?,?)",charlie.userId(),development.getLast());
-        assertThat(service.people(actor,null,20,null,null,null,null,List.of(industry),development,List.of()).items()).hasSize(2);
-        assertThat(service.people(actor,null,20,null,null,null,null,List.of(industry),List.of(development.getFirst()),List.of()).items()).extracting(DiscoveryModels.Person::id).containsExactly(bob.userId());
-        assertThat(service.people(actor,null,20,null,null,null,null,List.of(development.getFirst()),List.of(),List.of()).items()).isEmpty();
+        assertThat(service.people(actor,null,20,null,null,null,null,List.of(industry),development).items()).hasSize(2);
+        assertThat(service.people(actor,null,20,null,null,null,null,List.of(industry),List.of(development.getFirst())).items()).extracting(DiscoveryModels.Person::id).containsExactly(bob.userId());
+        assertThat(service.people(actor,null,20,null,null,null,null,List.of(development.getFirst()),List.of()).items()).isEmpty();
         assertThat(people().items()).extracting(DiscoveryModels.Person::id).containsExactly(charlie.userId(),bob.userId());
     }
     @Test void relationshipFiltersKeepIncomingOnlyPeersAndPublicIntroductions() {

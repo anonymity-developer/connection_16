@@ -353,7 +353,6 @@ components:
           enum:
           - INDUSTRY
           - DEVELOPMENT
-          - TECH_STACK
         groupName:
           type: [string, 'null']
       required:
@@ -429,7 +428,7 @@ components:
     ProfileRequest:
       type: object
       additionalProperties: false
-      description: 산업 1~3개·개발 분야 1~3개·기술 스택 1~10개. 중복·비활성 항목·공백 소개 거절.
+      description: 산업 1~3개·개발 분야 1~3개. 중복·비활성 항목·공백 소개 거절.
       properties:
         nickname:
           type: string
@@ -457,8 +456,8 @@ components:
           items:
             type: integer
             minimum: 1
-          minItems: 3
-          maxItems: 16
+          minItems: 2
+          maxItems: 6
           uniqueItems: true
         acceptPolicies:
           type: array

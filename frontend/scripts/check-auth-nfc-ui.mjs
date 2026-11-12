@@ -90,7 +90,7 @@ try {
         await page.getByRole('button', { name: '가입하기', exact: true }).click();
         await page.waitForURL('**/me/profile');
         await page.reload();
-        await page.getByLabel('닉네임', { exact: true }).fill('테스트'); await page.getByLabel('한 줄 소개 (필수)',{exact:true}).fill('테스트 소개'); for (const name of ['금융·핀테크','백엔드','Java']) await page.getByRole('checkbox',{name,exact:true}).check();
+        await page.getByLabel('닉네임', { exact: true }).fill('테스트'); await page.getByLabel('한 줄 소개 (필수)',{exact:true}).fill('테스트 소개'); for (const name of ['금융·핀테크','백엔드']) await page.getByRole('checkbox',{name,exact:true}).check();
         for (const box of await page.locator('input[name="policy"]').all()) await box.check();
         await page.getByRole('button', { name: '프로필 저장하기', exact: true }).click();
       }

@@ -52,13 +52,13 @@ public class DiscoveryRepository {
     }
     private List<Person> query(String sql,List<Object> args) { Map<String,Questionnaire> definitions=new HashMap<>();return db.query(sql,(r,n)->person(r,definitions),args.toArray()); }
     public People people(long actor,long cursor,int limit,String q,Long interest,String type,String version) {
-        return people(actor,cursor,limit,q,interest,type,version,List.of(),List.of(),List.of());
+        return people(actor,cursor,limit,q,interest,type,version,List.of(),List.of());
     }
-    public People people(long actor,long cursor,int limit,String q,Long interest,String type,String version,List<Long> industries,List<Long> developments,List<Long> stacks) {
+    public People people(long actor,long cursor,int limit,String q,Long interest,String type,String version,List<Long> industries,List<Long> developments) {
         var args=args(actor);String sql=SELECT+" AND u.id<>? AND u.id<?";args.add(actor);args.add(cursor);
         if(q!=null&&!q.isBlank()) { sql+=" AND p.nickname LIKE ? ESCAPE '!'";args.add("%"+q.strip().replace("!","!!").replace("%","!%").replace("_","!_")+"%"); }
-        if(interest!=null) { sql+=" AND EXISTS(SELECT 1 FROM user_interests fi WHERE fi.user_id=u.id AND fi.interest_id=?)";args.add(interest); }
-        var filters=List.of(industries,developments,stacks);
+        if(interest!=null) { sql+=" AND EXISTS(SELECT 1 FROM user_interests fi JOIN interests ci ON ci.id=fi.interest_id WHERE fi.user_id=u.id AND fi.interest_id=? AND ci.active=TRUE)";args.add(interest); }
+        var filters=List.of(industries,developments);
         for(int index=0;index<filters.size();index++)if(!filters.get(index).isEmpty()) {
             var ids=filters.get(index);
             sql+=" AND EXISTS(SELECT 1 FROM user_interests fi JOIN interests ci ON ci.id=fi.interest_id WHERE fi.user_id=u.id AND ci.active=TRUE AND ci.category=? AND fi.interest_id IN ("+String.join(",",Collections.nCopies(ids.size(),"?")) +"))";
@@ -80,9 +80,6 @@ public class DiscoveryRepository {
           (SELECT COUNT(*) FROM user_interests a JOIN user_interests b ON b.interest_id=a.interest_id AND b.user_id=me.id JOIN interests ci ON ci.id=a.interest_id WHERE a.user_id=u.id AND ci.active=TRUE AND ci.category='DEVELOPMENT') AS development_common,
           (SELECT COUNT(*) FROM user_interests vi JOIN interests ci ON ci.id=vi.interest_id WHERE vi.user_id=me.id AND ci.active=TRUE AND ci.category='DEVELOPMENT') AS development_viewer,
           (SELECT COUNT(*) FROM user_interests pi JOIN interests ci ON ci.id=pi.interest_id WHERE pi.user_id=u.id AND ci.active=TRUE AND ci.category='DEVELOPMENT') AS development_peer,
-          (SELECT COUNT(*) FROM user_interests a JOIN user_interests b ON b.interest_id=a.interest_id AND b.user_id=me.id JOIN interests ci ON ci.id=a.interest_id WHERE a.user_id=u.id AND ci.active=TRUE AND ci.category='TECH_STACK') AS stack_common,
-          (SELECT COUNT(*) FROM user_interests vi JOIN interests ci ON ci.id=vi.interest_id WHERE vi.user_id=me.id AND ci.active=TRUE AND ci.category='TECH_STACK') AS stack_viewer,
-          (SELECT COUNT(*) FROM user_interests pi JOIN interests ci ON ci.id=pi.interest_id WHERE pi.user_id=u.id AND ci.active=TRUE AND ci.category='TECH_STACK') AS stack_peer,
           (SELECT COUNT(*) FROM recommendation_exposures e WHERE e.viewer_id=me.id AND e.peer_id=u.id AND e.shown_at>=UTC_TIMESTAMP(6)-INTERVAL 24 HOUR) AS exposures,
           COALESCE(s.type_code=mine.type_code AND s.questionnaire_version=mine.questionnaire_version,FALSE) AS same_type,
           EXISTS(SELECT 1 FROM profile_views v WHERE v.viewer_id=me.id AND v.viewed_id=u.id) AS visited,

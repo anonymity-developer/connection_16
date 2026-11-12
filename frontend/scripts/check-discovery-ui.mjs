@@ -87,6 +87,30 @@ try {
   const nextSeed=new URL(page.url()).searchParams.get('seed'); assert.match(nextSeed,/^[0-9a-f-]{36}$/); assert.equal(recommendationSeeds.at(-1),nextSeed);
   await page.goBack(); await page.locator('.person-row').first().waitFor(); assert.equal(recommendationSeeds.at(-1),'batch-a'); assert.equal(opens,0);
   record('recommendation batches keep their seed on reload/back and explicit refresh changes only the seed without recording visits');
+  await page.getByRole('link', { name: '전체 동료', exact: true }).click();
+  await page.locator('.interest-filter').first().waitFor();
+  assert.equal(await page.locator('.interest-filter').count(),2);
+  assert.equal(await page.getByText('기술 스택',{exact:true}).count(),0);
+  for (const width of [360,390,430,768,1440]) {
+    await page.setViewportSize({width,height:900});
+    for (const [index,category] of ['industry','development'].entries()) {
+      const filter=page.locator('.interest-filter').nth(index);
+      await filter.locator('summary').click();
+      const boxes=await filter.locator('input[type="checkbox"]').evaluateAll(elements=>elements.map(el=>{const r=el.getBoundingClientRect();return {width:r.width,height:r.height};}));
+      assert.equal(boxes.length,index===0?10:12);
+      for(const box of boxes) { assert.equal(box.width,16);assert.equal(box.height,16); }
+      await filter.screenshot({path:resolve(output,`discovery-filter-${category}-${width}.png`)});
+      for(const label of await filter.locator('label').all()) {
+        const size=await label.evaluate(el=>{const r=el.getBoundingClientRect(),text=el.querySelector('span'),t=text.getBoundingClientRect(),line=Number.parseFloat(getComputedStyle(text).lineHeight);return {height:r.height,textWidth:r.right-t.left-Number.parseFloat(getComputedStyle(el).paddingRight)-1,lines:t.height/line,overflow:el.scrollWidth>el.clientWidth};});
+        assert.ok(size.height>=44);assert.ok(size.textWidth>=60,`readable label at ${width}: ${JSON.stringify(size)}`);assert.ok(size.lines<=3);assert.equal(size.overflow,false);
+      }
+      assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>window.innerWidth),false);
+      await filter.locator('summary').click();
+    }
+  }
+  await page.setViewportSize({width:390,height:900});
+  await page.goBack(); await page.getByRole('link', { name: '전체 동료', exact: true }).waitFor();
+  record('both expanded filters keep 16px checkboxes, readable labels and touch targets at five widths without a technical stack');
   await page.getByRole('link', { name: '전체 동료', exact: true }).click(); await page.getByLabel('닉네임 검색', { exact: true }).fill('테스트_%!'); await page.getByText('관심 개발 분야',{exact:true}).first().click(); await page.getByRole('checkbox',{name:'백엔드',exact:true}).check(); await page.getByRole('button', { name: '동료 검색하기', exact: true }).click(); await page.getByRole('link', { name: '테스트_%! 프로필 보기', exact: true }).waitFor(); assert.equal(await page.locator('.person-row').count(), 1);
   await page.goBack(); await page.getByRole('button', { name: '동료 더 보기', exact: true }).waitFor(); assert.equal(await page.getByLabel('닉네임 검색', { exact: true }).inputValue(), '');
   holdCursor = true; await page.getByRole('button', { name: '동료 더 보기', exact: true }).click(); await page.getByLabel('닉네임 검색', { exact: true }).fill('테스트'); await page.getByRole('button', { name: '동료 검색하기', exact: true }).click(); await page.getByRole('button', { name: '동료 더 보기', exact: true }).waitFor(); assert.equal(await page.getByRole('button', { name: '동료 더 보기', exact: true }).isDisabled(), false); assert.ok(releaseCursor); releaseCursor();

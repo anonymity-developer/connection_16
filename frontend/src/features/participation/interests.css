@@ -7,9 +7,10 @@
 .interest-picker .interest-choice-grid { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 8px; }
 .interest-picker .interest-choice-grid label { display: flex; align-items: center; gap: 8px; min-width: 0; min-height: 48px; padding: 10px; margin: 0; border: 1px solid var(--control); border-radius: var(--control-radius); font-size: 14px; cursor: pointer; }
 .interest-choice-grid label:has(:checked) { border-color: var(--accent); background: var(--accent-soft); }
-.interest-choice-grid input { flex: 0 0 auto; width: 16px; height: 16px; accent-color: var(--accent); }
+.interest-picker .interest-choice-grid input[type="checkbox"] { flex: 0 0 16px; width: 16px; min-width: 16px; max-width: 16px; height: 16px; min-height: 16px; padding: 0; margin: 0; accent-color: var(--accent); }
 .interest-choice-grid span { overflow-wrap: anywhere; }
-.interest-picker--filter { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 8px; width: 100%; }
+.interest-picker--filter { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 8px; width: 100%; }
+.people-filters > .interest-picker--filter { flex: 1 1 100%; }
 .interest-filter { flex: 1 1 160px; min-width: 0; border: 1px solid var(--border); border-radius: var(--control-radius); background: var(--surface); }
 .interest-filter > summary { padding: 12px; min-height: 48px; cursor: pointer; }
 .interest-filter[open] { grid-column: 1 / -1; }
@@ -17,3 +18,5 @@
 @media (max-width: 600px) { .interest-picker .interest-choice-grid { grid-template-columns: repeat(2,minmax(0,1fr)); } }
 
 @media (max-width: 600px) { .interest-filter > summary { min-height: 64px; padding: 10px 8px; font-size: 13px; } }
+
+#profile-interests { margin-bottom: 16px; }

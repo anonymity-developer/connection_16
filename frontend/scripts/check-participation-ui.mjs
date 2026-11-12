@@ -87,7 +87,7 @@ try {
   async function fill() {
     await page.getByLabel('닉네임', { exact: true }).fill('테스트별명');
     await page.getByLabel('한 줄 소개 (필수)', { exact: true }).fill('함께 배우고 만드는 걸 좋아해요.');
-    await page.getByRole('checkbox', { name: '백엔드', exact: true }).check(); await page.getByRole('checkbox', { name: 'React', exact: true }).check();
+    await page.getByRole('checkbox', { name: '백엔드', exact: true }).check();
     await page.getByRole('checkbox', { name: '금융·핀테크', exact: true }).check();
     await page.getByRole('checkbox', { name: 'IT·플랫폼', exact: true }).check();
     await page.getByRole('checkbox', { name: '제조·스마트팩토리', exact: true }).check();
@@ -119,6 +119,10 @@ try {
     for (const heading of await page.locator('h1,h2').all()) {
       assert.ok(await heading.evaluate(el => el.getBoundingClientRect().height / Number.parseFloat(getComputedStyle(el).lineHeight) <= 2.1));
     }
+    const heading=await page.locator('#profile-interests').boundingBox(), picker=await page.locator('#profile-interests + .interest-picker').boundingBox();
+    assert.ok(picker.y-heading.y-heading.height>=16,'interest heading has at least 16px of space');
+    assert.equal(await page.locator('.interest-picker fieldset').count(),2);
+    assert.equal(await page.getByText('기술 스택',{exact:true}).count(),0);
     await page.screenshot({ path: resolve(output, `participation-profile-${width}.png`), fullPage: true });
   }
   await page.setViewportSize({ width: 390, height: 900 });
@@ -133,7 +137,7 @@ try {
   assert.equal(await page.getByRole('progressbar').getAttribute('aria-valuenow'), '1');
   assert.equal(await page.getByText('S를 획득했어요!', { exact: true }).count(),0,'already acknowledged first S does not announce twice');
   assert.equal(await page.locator('input[name="realName"],input[name="classNo"]').count(), 0);
-  record('profile imports readonly identity, groups domain and stack interests, requires one acknowledgement and automatically awards the first S without a tag');
+  record('profile imports readonly identity, groups industry and development interests, requires one acknowledgement and automatically awards the first S without a tag');
 
   await visit('/missions/show-me');
   await page.getByRole('heading', { name: '나의 프로필', exact: true }).waitFor();
@@ -171,9 +175,9 @@ try {
   assert.equal(await page.getByRole('button', { name: /비공개/ }).count(), 0);assert.equal(await page.getByRole('checkbox', { name: /내 프로필을 참여자에게 공개하기/ }).count(), 0);assert.equal(completed, true);
   record('stale profile saves require reload and closure never restores a removed private-profile control');
   closed = false; profile = null; agreements = false; unlocked = false; completed = false; photoFails = true;
-  await visit('/me/profile'); await page.getByLabel('닉네임', { exact: true }).fill('닉네임만'); await agree(); await page.getByRole('button', { name: '프로필 저장하기', exact: true }).click(); assert.equal(profile,null); await fill(); await page.getByRole('button', { name: '프로필 저장하기', exact: true }).click(); await page.waitForURL('**/me'); assert.equal(profile.interestIds.length,3); assert.ok(profile.bio);
+  await visit('/me/profile'); await page.getByLabel('닉네임', { exact: true }).fill('닉네임만'); await agree(); await page.getByRole('button', { name: '프로필 저장하기', exact: true }).click(); assert.equal(profile,null); await fill(); await page.getByRole('button', { name: '프로필 저장하기', exact: true }).click(); await page.waitForURL('**/me'); assert.equal(profile.interestIds.length,2); assert.ok(profile.bio);
   sourceReady = false; await visit('/me/profile'); await page.getByRole('heading', { name: 'Mattermost 정보를 다시 확인해 주세요', exact: true }).waitFor();assert.equal(await page.locator('input[name="nickname"]').count(), 0);sourceReady = true;
-  record('onboarding requires bio and all three interest categories; missing source identity requires login rather than manual names');
+  record('onboarding requires bio and both interest categories; missing source identity requires login rather than manual names');
 
   pending = false; await visit('/t/resume');
   await page.getByRole('alert').waitFor(); assert.ok((await page.getByRole('alert').innerText()).includes('만료'));
