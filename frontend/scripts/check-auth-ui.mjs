@@ -28,7 +28,7 @@ try {
     const method = request.method();
     const reply = (status, data, headers = {}) => route.fulfill({ status, contentType: 'application/json', headers, body: status === 204 ? undefined : JSON.stringify(data) });
       if (method === 'POST' && path === '/missions/show-me/reconcile') { assert.ok(request.headers()['x-xsrf-token']); return reply(200, { newlyCompleted: false }); }
-    if (method === 'GET' && path === '/auth/config') return reply(200, { available: true, passwordMinLength: 8, passwordMaxLength: 64 });
+    if (method === 'GET' && path === '/auth/config') return reply(200, { available: true, passwordMinLength: 8, passwordMaxLength:20 });
     if (method === 'GET' && path === '/users/me') return user ? reply(200, user) : reply(401, { code: 'UNAUTHENTICATED', message: '로그인이 필요합니다.' });
     if (method === 'GET' && path === '/tags/pending') return reply(200, { present: false });
     if (method === 'GET' && path === '/event') return reply(200, { status: 'NOT_CONFIGURED', opensAt: null, submitClosesAt: null, profilePreparationEnabled: false });
@@ -39,6 +39,7 @@ try {
     assert.equal(request.headers()['x-xsrf-token'], 'test-csrf-token', 'every mutation includes CSRF');
     const body = request.postDataJSON();
     if (path === '/auth/otp/request') {
+      if(body.purpose==='SIGN_UP'&&body.username==='existing-user')return reply(409,{code:'ACCOUNT_ALREADY_REGISTERED',message:'이미 가입된 아이디예요. 로그인해 주세요.'});
       otpCount++; lastOtp = body;
       if (heldOtp) await heldOtp;
       if (limited) return reply(429, { code: 'RATE_LIMITED', message: '요청이 많아요. 잠시 기다려 주세요.', retryAfter: 2 }, { 'Retry-After': '2' });
@@ -62,6 +63,14 @@ try {
   await page.clock.install();
 
   await visit('/auth/signup');
+  await page.getByLabel('Mattermost 아이디',{exact:true}).fill('existing-user');
+  await page.getByRole('button',{name:'인증번호 받기',exact:true}).click();
+  await page.getByText('이미 가입된 아이디예요. 로그인해 주세요.',{exact:true}).waitFor();
+  assert.equal(await page.getByLabel('인증번호',{exact:true}).count(),0);
+  assert.equal(await page.getByLabel('비밀번호',{exact:true}).count(),0);
+  assert.equal(await page.getByLabel('Mattermost 아이디',{exact:true}).isEnabled(),true);
+  assert.equal(signupCount,0);assert.equal(otpCount,0);
+  await record('registered signup stays on the account step without issuing a challenge or accepting a password');
   await page.getByLabel(/^(Mattermost )?아이디$/, { exact: true }).fill('contract-test');
   heldOtp = new Promise((done) => { releaseOtp = done; });
   await page.getByRole('button', { name: '인증번호 받기', exact: true }).click();
@@ -82,6 +91,9 @@ try {
   await page.getByLabel('비밀번호 확인', { exact: true }).fill('short');
   await page.getByRole('button', { name: '가입하기', exact: true }).click();
   assert.equal(signupCount, 0);
+  await page.getByLabel('비밀번호',{exact:true}).fill('a'.repeat(21));await page.getByLabel('비밀번호 확인',{exact:true}).fill('a'.repeat(21));
+  await page.getByRole('button',{name:'가입하기',exact:true}).click();await page.getByText('비밀번호는 공백을 포함해 8~20자로 설정해 주세요.',{exact:true}).waitFor();assert.equal(signupCount,0);
+  await page.getByLabel('비밀번호',{exact:true}).fill('😀'.repeat(20));await page.getByLabel('비밀번호 확인',{exact:true}).fill('😀'.repeat(20));assert.equal(Array.from(await page.getByLabel('비밀번호',{exact:true}).inputValue()).length,20);
   await page.getByLabel('비밀번호', { exact: true }).fill(password);
   await page.getByLabel('비밀번호 확인', { exact: true }).fill(password);
   for (const width of [360, 390, 430, 768, 1440]) {
@@ -137,8 +149,8 @@ try {
   await page.getByLabel('인증번호', { exact: true }).waitFor();
   assert.deepEqual(lastOtp, { purpose: 'PASSWORD_CHANGE' });
   await page.getByLabel('인증번호', { exact: true }).fill('012345');
-  await page.getByLabel('새 비밀번호', { exact: true }).fill('replacement test password');
-  await page.getByLabel('새 비밀번호 확인', { exact: true }).fill('replacement test password');
+  await page.getByLabel('새 비밀번호', { exact: true }).fill('replacement pwd');
+  await page.getByLabel('새 비밀번호 확인', { exact: true }).fill('replacement pwd');
   await page.getByRole('button', { name: '비밀번호 변경하기', exact: true }).click();
   await page.getByRole('heading', { name: '로그인', exact: true }).waitFor();
   assert.equal(changeCount, 1);

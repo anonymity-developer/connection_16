@@ -11,7 +11,7 @@ const output = resolve('../output/playwright');
 await mkdir(output, { recursive: true });
 const catalog = [{ id: 1, name: '백엔드', category: 'DOMAIN' }, { id: 2, name: 'AI', category: 'DOMAIN' }, { id: 3, name: '클라우드', category: 'DOMAIN' }, { id: 4, name: 'React', category: 'TECH_STACK' }, ...['프론트엔드', '데이터', '게임', '디자인'].map((name, i) => ({ id: i + 5, name, category: 'DOMAIN' })), ...['Java', 'Spring Boot', 'Python', 'FastAPI', 'Django', 'JavaScript', 'TypeScript', 'Vue', 'Next.js', 'MySQL', 'PostgreSQL', 'Redis', 'Docker', 'Kubernetes', 'AWS', 'Flutter', 'Kotlin', 'Swift', 'C++', 'PyTorch'].map((name, i) => ({ id: i + 9, name, category: 'TECH_STACK' }))];
 const renderFixture = path => ({
-  '/auth/config': { available: true, passwordMinLength: 15, passwordMaxLength: 64 },
+  '/auth/config': { available: true, passwordMinLength:8, passwordMaxLength:20 },
   '/users/me': { id: 1, username: 'profile-render-test', nickname: null, onboardingRequired: true },
   '/tags/pending': { present: false },
   '/event': { status: 'OPEN', opensAt: null, submitClosesAt: null, profilePreparationEnabled: false },
@@ -39,7 +39,7 @@ try {
       const req = route.request(); const path = new URL(req.url()).pathname.replace('/api/v1', ''); const method = req.method();
       const reply = (status, data) => route.fulfill({ status, contentType: 'application/json', body: [202, 204].includes(status) ? undefined : JSON.stringify(data) });
       if (method === 'POST' && path === '/missions/show-me/reconcile') { assert.ok(req.headers()['x-xsrf-token']); return reply(200, { newlyCompleted: false }); }
-      if (method === 'GET' && path === '/auth/config') return reply(200, { available: true, passwordMinLength: 15, passwordMaxLength: 64 });
+      if (method === 'GET' && path === '/auth/config') return reply(200, { available: true, passwordMinLength:8, passwordMaxLength:20 });
       if (method === 'GET' && path === '/discovery/graph') return reply(200, { self: { id: 1, nickname: '테스트' }, nodes: [], edges: [], truncated: false });
       if (method === 'GET' && path === '/users/me') return signedIn ? reply(200, user()) : reply(401, { code: 'UNAUTHENTICATED', message: '로그인이 필요합니다.' });
       if (method === 'GET' && path === '/tags/pending') return reply(200, { present: pending });

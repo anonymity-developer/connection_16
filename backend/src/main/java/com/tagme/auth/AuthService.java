@@ -57,6 +57,9 @@ public class AuthService {
         var target = identity.get();
         limits.check("otp-account", target.id(), properties.otpAccountLimit(), 900);
         var account = accounts.byExternalId(target.id()).orElse(null);
+        // Explicit signup UX: report registered participants before issuing a challenge.
+        // Login/reset retain their generic responses; existing request limits still apply.
+        if (purpose == OtpStore.Purpose.SIGN_UP && active(account) && account.hash() != null) throw AuthException.alreadyRegistered();
         boolean eligible = purpose == OtpStore.Purpose.SIGN_UP ? account == null || active(account) && account.hash() == null
                 : active(account) && account.hash() != null;
         if (!eligible) return response;
@@ -107,7 +110,8 @@ public class AuthService {
                     // the transaction, including the legacy first-password path.
                     accounts.lockUser(userId);
                     var locked = accounts.byId(userId).orElseThrow(AuthException::invalid);
-                    if (!active(locked) || locked.hash() != null || !locked.mattermostId().equals(verified.identity().id())) throw AuthException.conflict();
+                    if (!active(locked) || !locked.mattermostId().equals(verified.identity().id())) throw AuthException.conflict();
+                    if (locked.hash() != null) throw AuthException.alreadyRegistered();
                     accounts.updateUsername(userId, verified.identity().username());
                 }
                 accounts.syncProfile(userId,verified.identity().profile());

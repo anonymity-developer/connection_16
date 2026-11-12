@@ -63,9 +63,9 @@ export function Collection({ data, celebrations, completion }: { data: ScreenDat
   const notice = !newLetters.length ? '' : newLetters.length === 1 ? `${newLetters[0]}를 획득했어요!` : `${newLetters.join(' · ')} 글자를 획득했어요!`;
 
   return <section className="collection-section" aria-labelledby="collection-heading">
-    <ParticipantSectionHeading id="collection-heading" title="나의 SSAFY 수집판" />
+    <ParticipantSectionHeading id="collection-heading" title="나의 SSAFY 수집판">{known && <span className="collection-count"><b>{completed}</b> / 5 획득</span>}</ParticipantSectionHeading>
     <div className={`collection-panel sticker-board${complete && earned.length ? ' collection-celebrating' : ''}`}>
-    <WinterDecor /><div className="collection-board-heading"><div className="collection-invitation" aria-hidden="true">{!complete && <span className="collection-bubble" aria-hidden="true">우리를 찾아봐!</span>}</div>{known && <span className="collection-count"><b>{completed}</b> / 5 획득</span>}</div>
+    <WinterDecor /><div className="collection-board-heading"><div className="collection-invitation" aria-hidden="true">{!complete && <span className="collection-bubble" aria-hidden="true">우리를 찾아봐!</span>}</div></div>
     <div className="letter-slots">{missions.map((mission) => {
       const state = known ? data.progress[mission.code] : 'LOCKED'; const visual = collectionVisual(mission.code, state, known);
       return <Link key={mission.code} data-mission={mission.code} href={`/missions/${mission.slug}`} data-visual={visual} className={`letter-slot ${visual === 'collected' ? 'is-collected' : ''}`} title={mission.name} aria-label={`${mission.letter}, ${mission.name}, ${data.preview || data.serverLoaded ? missionStatusLabel(state, mission.code) : '미션 알아보기'}`}>

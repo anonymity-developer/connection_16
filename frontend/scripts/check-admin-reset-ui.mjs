@@ -23,7 +23,7 @@ try {
     try {
       const req=route.request(),url=new URL(req.url()),path=url.pathname.slice('/api/v1'.length),method=req.method();
       const reply=(status,value)=>route.fulfill({status,json:value});
-      if(path==='/auth/config')return reply(200,{available:true,participantAvailable:true,adminAvailable:true,passwordMinLength:15,passwordMaxLength:64});
+      if(path==='/auth/config')return reply(200,{available:true,participantAvailable:true,adminAvailable:true,passwordMinLength:8,passwordMaxLength:20});
       if(path==='/users/me')return reply(200,{id:actor==='admin'?1:10,username:actor==='admin'?'admin:fixture':'fixture-reset',nickname:actor==='admin'?null:'가상 참가자',onboardingRequired:false,admin:actor==='admin'});
       if(path==='/tags/pending')return reply(200,{present:false});
       if(path==='/csrf')return reply(200,{headerName:'X-XSRF-TOKEN',token:'reset-test-csrf'});

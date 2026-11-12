@@ -10,7 +10,7 @@ try{
   const request=route.request(),url=new URL(request.url());if(url.origin!=='http://127.0.0.1:4481')return route.abort();
   if(!url.pathname.startsWith('/api/v1/'))return route.continue();assert.equal(request.method(),'GET','result workspace must not mutate data');
   const path=url.pathname.slice(7),reply=(status,json)=>route.fulfill({status,json});
-  if(path==='/auth/config')return reply(200,{available:false,passwordMinLength:15,passwordMaxLength:64});
+  if(path==='/auth/config')return reply(200,{available:false,passwordMinLength:8,passwordMaxLength:20});
   if(path==='/users/me')return reply(200,{id:1,username:'fixture',nickname:'fixture',onboardingRequired:false});
   if(path==='/event')return reply(200,{status:'CLOSED'});if(path==='/missions/collection')return reply(200,{missions:[],completedCount:0,completion:{complete:false}});if(path==='/tags/pending')return reply(200,{present:false});
   if(path==='/admin/access')return reply(admin?200:403,admin?{admin:true}:{code:'ADMIN_REQUIRED',message:'권한 없음'});

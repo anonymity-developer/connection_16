@@ -151,7 +151,7 @@ class AuthIntegrationTest {
         assertThat(first.send(HttpMethod.POST, "/auth/otp/request", Map.of("purpose", "PASSWORD_CHANGE", "username", "bob")).getStatusCode().value()).isEqualTo(400);
         allowResend();
         String challenge = first.otp(null, OtpStore.Purpose.PASSWORD_CHANGE); String code = sent.getLast().code();
-        var payload = Map.of("challengeId", challenge, "code", code, "newPassword", "the replacement password");
+        var payload = Map.of("challengeId", challenge, "code", code, "newPassword", "replacement password");
         assertThat(second.send(HttpMethod.PUT, "/users/me/password", payload).getStatusCode().value()).isEqualTo(401);
         assertThat(first.send(HttpMethod.POST, "/auth/password/reset", payload).getStatusCode().value()).isEqualTo(401);
         var foreignTarget = new HashMap<String, Object>(payload); foreignTarget.put("userId", 999);
@@ -164,7 +164,7 @@ class AuthIntegrationTest {
         assertThat(stale.getBody()).containsEntry("code", "SESSION_EXPIRED");
         var fresh = new Browser();
         assertThat(fresh.login("alice", PASSWORD).getStatusCode().value()).isEqualTo(401);
-        assertThat(fresh.login("alice", "the replacement password").getStatusCode().value()).isEqualTo(200);
+        assertThat(fresh.login("alice", "replacement password").getStatusCode().value()).isEqualTo(200);
     }
     @Test void resetRequiresDmDoesNotCreateAccountsOrAutoLoginAndRejectsReplay() {
         var signedIn = signup("alice"); var resetter = new Browser(); allowResend();
@@ -192,9 +192,11 @@ class AuthIntegrationTest {
     @Test void legacyRowGetsInitialPasswordOnlyAfterDmAndExistingHashCannotBeOverwritten() {
         jdbc.update("INSERT INTO users (mattermost_id, real_name, region, class_no) VALUES (?,?,?,?)", ALICE, "legacy", "서울", 1);
         var browser = signup("alice"); var hash = accounts.byExternalId(ALICE).orElseThrow().hash(); allowResend(); int messages = sent.size();
-        String dummy = browser.otp("alice", OtpStore.Purpose.SIGN_UP);
+        var duplicate = browser.send(HttpMethod.POST,"/auth/otp/request",Map.of("username","alice","purpose","SIGN_UP"));
+        assertThat(duplicate.getStatusCode().value()).isEqualTo(409);
+        assertThat(duplicate.getBody()).containsEntry("code","ACCOUNT_ALREADY_REGISTERED").doesNotContainKey("challengeId");
         assertThat(sent).hasSize(messages);
-        assertThat(browser.send(HttpMethod.POST, "/auth/signup", Map.of("challengeId", dummy, "code", "012345", "password", "another long password")).getStatusCode().value()).isEqualTo(401);
+        assertThat(browser.send(HttpMethod.POST, "/auth/signup", Map.of("challengeId", crypto.identifier(), "code", "012345", "password", "another password")).getStatusCode().value()).isEqualTo(401);
         assertThat(accounts.byExternalId(ALICE).orElseThrow().hash()).isEqualTo(hash);
     }
     @Test void suspendedAccountCannotSetInitialPasswordOrKeepAnOldSession() {
@@ -283,6 +285,27 @@ class AuthIntegrationTest {
         assertThat(accounts.profileIdentity(account.id()).region()).isEqualTo("대전");assertThat(accounts.profileIdentity(account.id()).pictureVersion()).isEqualTo(123);
         assertThat(jdbc.queryForObject("SELECT nickname FROM profiles WHERE user_id=?",String.class,account.id())).isEqualTo("내 닉네임");assertThat(jdbc.queryForObject("SELECT version FROM profiles WHERE user_id=?",Long.class,account.id())).isEqualTo(before+1);
         jdbc.update("DELETE FROM profiles WHERE user_id=?",account.id());
+    }
+    @Test void newPasswordBoundsCountUnicodeAndRejectBeforeConsumingOtp() {
+        var browser=new Browser();String challenge=browser.otp("alice",OtpStore.Purpose.SIGN_UP),code=sent.getLast().code();
+        assertThat(browser.get("/auth/config").getBody()).containsEntry("passwordMinLength",8).containsEntry("passwordMaxLength",20);
+        for(String invalid:List.of("a".repeat(7),"가".repeat(21),"😀".repeat(21)," ".repeat(8))) {
+            var result=browser.send(HttpMethod.POST,"/auth/signup",Map.of("challengeId",challenge,"code",code,"password",invalid));
+            assertThat(result.getStatusCode().value()).isEqualTo(400);assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM users",Integer.class)).isZero();
+        }
+        String twenty="😀".repeat(20);
+        assertThat(browser.send(HttpMethod.POST,"/auth/signup",Map.of("challengeId",challenge,"code",code,"password",twenty)).getStatusCode().value()).isEqualTo(201);
+        var account=accounts.byExternalId(ALICE).orElseThrow();assertThat(passwords.matches(twenty,account.hash())).isTrue();
+        allowResend();String change=browser.otp(null,OtpStore.Purpose.PASSWORD_CHANGE),changeCode=sent.getLast().code();
+        var rejected=browser.send(HttpMethod.PUT,"/users/me/password",Map.of("challengeId",change,"code",changeCode,"newPassword","a".repeat(21)));
+        assertThat(rejected.getStatusCode().value()).isEqualTo(400);assertThat(accounts.byId(account.id()).orElseThrow().hash()).isEqualTo(account.hash());
+        assertThat(browser.send(HttpMethod.PUT,"/users/me/password",Map.of("challengeId",change,"code",changeCode,"newPassword","a".repeat(8))).getStatusCode().value()).isEqualTo(204);
+        assertThat(new Browser().login("alice","a".repeat(8)).getStatusCode().value()).isEqualTo(200);
+    }
+    @Test void existingLongPasswordCanStillLoginWithoutTruncation() {
+        long id=accounts.insertUser(ALICE,"alice");String legacy="가".repeat(64);accounts.insertCredential(id,passwords.encode(legacy));
+        assertThat(new Browser().login("alice",legacy).getStatusCode().value()).isEqualTo(200);
+        assertThat(new Browser().login("alice",legacy.substring(0,20)).getStatusCode().value()).isEqualTo(401);
     }
     @Test void missingImportedNameNeverCreatesAnAccountWithInventedIdentity() {
         var browser=new Browser();String challenge=browser.otp("alice",OtpStore.Purpose.SIGN_UP);

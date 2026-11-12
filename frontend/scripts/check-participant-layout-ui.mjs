@@ -12,7 +12,7 @@ try {
  page.on('pageerror',error=>errors.push(error.message));
  await page.route('**/api/v1/**',async route=>{const req=route.request(),path=new URL(req.url()).pathname.slice(7);if(req.method()!=='GET')writes.push(path);
   const json=path==='/users/me'?account===null?null:{id:account,username:'layout-fixture',nickname:'화면 검사',onboardingRequired:false}
-    :path==='/auth/config'?{available:true,passwordMinLength:8,passwordMaxLength:64}
+    :path==='/auth/config'?{available:true,passwordMinLength:8,passwordMaxLength:20}
     :path==='/tags/pending'?{present:false}:path==='/event'?{status:'CLOSED'}
     :path==='/missions/collection'?{missions:codes.map((code,i)=>({code,state:i<completed?'COMPLETED':'LOCKED',active:true})),completedCount:completed,resetGeneration:0,completion:{complete:completed===5,completionOrder:completed===5?7:null,awardConfirmed:false}}
     :path==='/discovery/recommendations'?[]:path==='/discovery/stats'?{visitedCount:0,visitorCount:0,mutualCount:0}:path==='/interests'?[]:undefined;
@@ -39,6 +39,10 @@ try {
    if(account!==null)await page.waitForFunction(count=>document.querySelector('[role="progressbar"]')?.getAttribute('aria-valuenow')===String(count),completed);
    else assert.equal(await page.locator('.collection-count,[role="progressbar"]').count(),0,'guest never gets an invented count');
    assert.equal(await page.locator('.sticker-board h2').count(),0,'collection heading is outside the board');
+   assert.equal(await page.locator('.sticker-board .collection-count').count(),0,'earned count stays beside the external title');
+   if(account!==null){const heading=await page.locator('.collection-section > .section-heading').boundingBox(),count=await page.locator('.collection-section > .section-heading .collection-count').boundingBox();assert.ok(Math.abs(count.x+count.width-heading.x-heading.width)<1);}
+   if(state!=='complete'){const board=await page.locator('.sticker-board').boundingBox(),bubble=await page.locator('.collection-bubble').boundingBox();assert.ok(Math.abs(bubble.x+bubble.width/2-board.x-board.width/2)<1,'invitation is centered for every collecting state');}
+   for(const row of await page.locator('.mission-section .mission-row').all()){const art=await row.locator('.letter-sticker').boundingBox(),copy=await row.locator('.mission-row-copy').boundingBox();assert.ok(copy.x-art.x-art.width>=(width<=640?18:22),`artwork has a real gap before text at ${width}`);}
    const headings=await metrics('.home-page .participant-section-heading h2');assert.equal(headings.length,2);assert.equal(headings[0].size,headings[1].size);assert.equal(headings[0].weight,headings[1].weight);assert.equal(headings[0].x,headings[1].x);
    const layout=await metrics('.collection-section > .section-heading,.sticker-board,.letter-slots,.collection-progress-slot,.collection-footer,.home-page > .event-encouragement,.mission-section');
    if(baseline)assert.deepEqual(layout,baseline,`${state} retains collection and section positions at ${width}`);else baseline=layout;

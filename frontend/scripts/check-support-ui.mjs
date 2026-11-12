@@ -16,7 +16,7 @@ try {
  await page.route('**/api/v1/**',async route=>{try{
   const req=route.request(),url=new URL(req.url()),path=url.pathname.slice(7),method=req.method(),reply=(status,json)=>route.fulfill({status,json});
   if(path==='/users/me')return actor==='guest'?reply(401,{code:'UNAUTHENTICATED',message:'로그인이 필요해요.'}):reply(200,{id:actor==='admin'?1:10,username:actor==='admin'?'admin:fixture':person.username,nickname:person.nickname,admin:actor==='admin',onboardingRequired:false});
-  if(path==='/auth/config')return reply(200,{available:true,participantAvailable:true,adminAvailable:true,passwordMinLength:8,passwordMaxLength:64});
+  if(path==='/auth/config')return reply(200,{available:true,participantAvailable:true,adminAvailable:true,passwordMinLength:8,passwordMaxLength:20});
   if(path==='/csrf')return reply(200,{headerName:'X-XSRF-TOKEN',token:'support-fixture-csrf'});
   if(path==='/tags/pending')return reply(200,{present:false});if(path==='/event')return reply(200,{status:'CLOSED'});
   if(path==='/missions/collection')return reply(200,{missions:codes.map(code=>({code,state:'LOCKED',active:true})),completedCount:0,completion:{complete:false},resetGeneration:0});

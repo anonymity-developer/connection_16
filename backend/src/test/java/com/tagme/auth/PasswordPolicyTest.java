@@ -5,12 +5,20 @@ import static org.assertj.core.api.Assertions.*;
 
 class PasswordPolicyTest {
     @Test void policyCountsUnicodeCodePointsAndDoesNotTrim() {
-        assertThatCode(() -> PasswordPolicy.validate(" a sufficiently long password ")).doesNotThrowAnyException();
-        assertThatCode(() -> PasswordPolicy.validate("가".repeat(64))).doesNotThrowAnyException();
+        assertThatCode(() -> PasswordPolicy.validate(" a valid password ")).doesNotThrowAnyException();
+        assertThatCode(() -> PasswordPolicy.validate("a".repeat(8))).doesNotThrowAnyException();
+        assertThatCode(() -> PasswordPolicy.validate("가".repeat(20))).doesNotThrowAnyException();
+        assertThatCode(() -> PasswordPolicy.validate("😀".repeat(20))).doesNotThrowAnyException();
         assertThatCode(() -> PasswordPolicy.validate("😀".repeat(8))).doesNotThrowAnyException();
         assertThatThrownBy(() -> PasswordPolicy.validate(" ".repeat(8))).isInstanceOf(AuthException.class);
         assertThatThrownBy(() -> PasswordPolicy.validate("a".repeat(7))).isInstanceOf(AuthException.class);
-        assertThatThrownBy(() -> PasswordPolicy.validate("가".repeat(65))).isInstanceOf(AuthException.class);
+        assertThatThrownBy(() -> PasswordPolicy.validate("가".repeat(21))).isInstanceOf(AuthException.class);
+        assertThatThrownBy(() -> PasswordPolicy.validate("😀".repeat(21))).isInstanceOf(AuthException.class);
+    }
+    @Test void administratorBootstrapKeepsItsSeparateExistingBounds() {
+        assertThatCode(()->PasswordPolicy.validateAdmin("a".repeat(64))).doesNotThrowAnyException();
+        assertThatThrownBy(()->PasswordPolicy.validateAdmin("a".repeat(14))).isInstanceOf(AuthException.class);
+        assertThatThrownBy(()->PasswordPolicy.validateAdmin("a".repeat(65))).isInstanceOf(AuthException.class);
     }
     @Test void hashesAreSaltedAndSupportKoreanBeyondBcryptByteLimit() {
         var passwords = new AuthBeans().passwordEncoder();

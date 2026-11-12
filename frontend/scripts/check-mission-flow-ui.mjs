@@ -25,7 +25,7 @@ try {
     const reply = (status, json) => route.fulfill({ status, json });
     try {
       if(method === 'GET') {
-        if(path === '/auth/config')return reply(200,{available:true,passwordMinLength:8,passwordMaxLength:64});
+        if(path === '/auth/config')return reply(200,{available:true,passwordMinLength:8,passwordMaxLength:20});
         if(path === '/users/me')return signedIn ? reply(200,{id:73,username:'flow-contract',nickname:'검사용 참가자',onboardingRequired:false}) : reply(401,{code:'UNAUTHENTICATED'});
         if(path === '/tags/pending')return reply(200,{present:false});
         if(path === '/csrf')return reply(200,{headerName:'X-XSRF-TOKEN',token:'flow-csrf'});
