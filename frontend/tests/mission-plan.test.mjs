@@ -42,7 +42,7 @@ test('SYNC result shows the same-type colleague list without using the relations
   const previous = globalThis.window; globalThis.window = { location: { href: 'http://localhost/', origin: 'http://localhost' } };
   try {
     const html = renderToStaticMarkup(createElement(SyncResultCard, { result: { questionnaireVersion:'test-v1', type: { code:'FIXTURE', title:'검토용 성향', description:'테스트 결과' } } }));
-    assert.match(html, /나와 같은 유형의 동료/);
+    assert.match(html, /나와 같은 성향의 동료/);
     assert.match(html, /href="\/discovery"[^>]*>전체 동료 둘러보기/);
     assert.doesNotMatch(html, /graph|궁합|%/);
   } finally { if(previous === undefined) delete globalThis.window; else globalThis.window = previous; }

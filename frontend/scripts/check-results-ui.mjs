@@ -48,22 +48,43 @@ try {
   const visit = path => page.goto(`http://127.0.0.1:4473${path}`);
   const record = name => { checks.push(name); console.log(`PASS ${name}`); };
   await page.clock.install();
-  await visit('/missions/sync-me'); await page.getByRole('button', { name: '나의 성향 확인하기', exact: true }).waitFor();
-  await page.getByRole('button', { name: '나의 성향 확인하기', exact: true }).click(); await page.getByRole('alert').waitFor(); assert.equal(sync, null);
-  for (const question of approved.questions) await page.getByRole('radio', { name: question.options[0].label, exact: true }).check();
+  await visit('/missions/sync-me'); await page.getByText(`질문 1 / ${approved.questions.length}`, { exact: true }).waitFor();
+  assert.equal(await page.locator('.sync-question-list fieldset:visible').count(), 1);
+  assert.equal(await page.getByRole('button', { name: '다음', exact: true }).isDisabled(), true);
+  assert.equal(await page.getByRole('button', { name: '결과 확인하기', exact: true }).count(), 0);
+  await page.getByRole('radio', { name: approved.questions[0].options[0].label, exact: true }).check();
+  await page.getByRole('button', { name: '다음', exact: true }).click();
+  await page.getByText(`질문 2 / ${approved.questions.length}`, { exact: true }).waitFor();
+  await page.getByRole('radio', { name: approved.questions[1].options[0].label, exact: true }).check();
+  await page.getByRole('button', { name: '이전', exact: true }).click();
+  assert.equal(await page.getByRole('radio', { name: approved.questions[0].options[0].label, exact: true }).isChecked(), true);
+  await page.getByRole('button', { name: '다음', exact: true }).click();
+  assert.equal(await page.getByRole('radio', { name: approved.questions[1].options[0].label, exact: true }).isChecked(), true);
+  for (let index = 2; index < approved.questions.length; index++) {
+    await page.getByRole('button', { name: '다음', exact: true }).click();
+    await page.getByText(`질문 ${index + 1} / ${approved.questions.length}`, { exact: true }).waitFor();
+    await page.getByRole('radio', { name: approved.questions[index].options[0].label, exact: true }).check();
+  }
+  assert.equal(await page.getByRole('button', { name: '다음', exact: true }).count(), 0);
+  await page.getByRole('button', { name: '결과 확인하기', exact: true }).waitFor();
   for (const width of [360, 375, 390, 412, 430, 768, 1440]) {
     await page.setViewportSize({ width, height: 900 }); assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth), false);
     for (const heading of await page.locator('h1,h2').all()) assert.ok(await heading.evaluate(el => el.getBoundingClientRect().height / Number.parseFloat(getComputedStyle(el).lineHeight) <= 2.1));
     await page.screenshot({ path: resolve(output, `sync-questions-${width}.png`), fullPage: true });
   }
-  await page.setViewportSize({ width: 390, height: 900 }); await page.getByRole('button', { name: '나의 성향 확인하기', exact: true }).click();
+  await page.setViewportSize({ width: 390, height: 900 }); await page.getByRole('button', { name: '결과 확인하기', exact: true }).click();
   await page.getByRole('heading', { name: '나의 성향 결과', exact: true }).waitFor(); await page.locator('.mission-progress-summary').getByText('글자 획득 완료', { exact: true }).waitFor(); assert.equal(await page.getByRole('radio').count(), 0);
   await page.getByRole('link', { name: '같은유형 하나', exact: false }).waitFor(); assert.equal(await page.locator('.sync-peer-list a').count(), 2); assert.equal(await page.getByRole('link', { name: '같은유형 하나', exact: false }).getAttribute('href'), '/discovery/profiles/2');
   await page.getByRole('button', { name: '동료 더 보기', exact: true }).click(); await page.getByRole('link', { name: '같은유형 셋', exact: false }).waitFor(); assert.equal(await page.locator('.sync-peer-list a').count(), 3);
   for (const width of [360, 390, 430, 768, 1440]) { await page.setViewportSize({ width, height: 900 }); assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth), false); await page.screenshot({ path: resolve(output, `sync-result-${width}.png`), fullPage: true }); }
   await page.setViewportSize({ width: 390, height: 900 }); await page.reload(); await page.getByRole('heading', { name: '나의 성향 결과', exact: true }).waitFor(); await page.getByRole('link', { name: '같은유형 하나', exact: false }).waitFor(); await page.screenshot({ path: resolve(output, 'sync-result-restored-390.png'), fullPage: true });
   record('SYNC answers are required, only option IDs are sent, and same-version same-type nicknames link to profiles');
-  sync = null; changed = true; await visit('/missions/sync-me'); for (const question of approved.questions) await page.getByRole('radio', { name: question.options[1].label, exact: true }).check(); await page.getByRole('button', { name: '나의 성향 확인하기', exact: true }).click(); await page.getByRole('button', { name: '질문과 저장된 결과 다시 불러오기', exact: true }).waitFor(); assert.equal(sync, null);
+  sync = null; changed = true; await visit('/missions/sync-me');
+  for (let index = 0; index < approved.questions.length; index++) {
+    await page.getByRole('radio', { name: approved.questions[index].options[1].label, exact: true }).check();
+    if (index < approved.questions.length - 1) await page.getByRole('button', { name: '다음', exact: true }).click();
+  }
+  await page.getByRole('button', { name: '결과 확인하기', exact: true }).click(); await page.getByRole('button', { name: '질문과 저장된 결과 다시 불러오기', exact: true }).waitFor(); assert.equal(sync, null);
   changed = false; available = false; await page.getByRole('button', { name: '질문과 저장된 결과 다시 불러오기', exact: true }).click(); await page.getByText('성향 질문을 준비하고 있어요.', { exact: false }).waitFor(); assert.equal(await page.getByRole('radio').count(), 0);
   record('changed or unconfigured questionnaires never produce a local result');
   await visit('/missions/fast-tap'); await page.getByRole('button', { name: '기록 없이 연습하기', exact: true }).click(); await page.clock.fastForward(5100); await page.getByRole('button', { name: '탭 영역', exact: true }).click(); await page.clock.fastForward(10000); await page.getByText('연습 결과 1회', { exact: false }).waitFor(); assert.equal(starts, 0); assert.equal(finishes, 0);
