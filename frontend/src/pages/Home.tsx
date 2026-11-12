@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react';
 import { LetterSticker } from '../components/LetterSticker';
 import { WinterDecor } from '../components/WinterDecor';
-import { ConnectionStickers } from '../components/EventArtwork';
 import { useParticipation } from '../features/participation/context';
 import type { CollectionCelebrations } from '../features/participation/collection-celebrations';
 import { useAuth } from '../features/auth/context';
@@ -80,7 +79,7 @@ export function Home({ data }: { data: ScreenData }) {
   const auth = useAuth();
   const participation = useParticipation();
   return <div className="page home-page participant-page">
-    <div className="page-heading home-welcome"><div><h1>태그를 찾고, SSAFY를 모아요</h1><p>곳곳의 NFC 태그를 찾아 미션을 완료하고, 새로운 동료를 만나보세요.</p></div><div className="home-artwork"><ConnectionStickers className="welcome-stickers" /><WinterDecor /></div></div>
+    <div className="page-heading"><p className="context-label">TAG ME 미션</p><h1>미션 모으기</h1><p>곳곳의 NFC 태그를 찾아 미션을 완료하고, 새로운 동료를 만나보세요.</p></div>
     {!data.preview && auth.user && participation.error && <div className="collection-error" role="alert"><p>{participation.error}</p><button className="text-button" onClick={() => void participation.refresh()}>기록 다시 불러오기</button></div>}
     <div className="home-overview" aria-busy={participation.loading}><Collection key={data.preview ? 'preview' : auth.user?.id ?? 'guest'} data={data} celebrations={data.preview ? null : participation.celebrations} />
 

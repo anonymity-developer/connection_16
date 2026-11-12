@@ -23,9 +23,6 @@
 .participant-shell .people-filters input { border-radius: 14px; background: #fbfdff; }
 .participant-shell .field label { font-weight: 600; }
 .participant-shell .context-label { color: var(--accent-ink); font-size: 13px; }
-.participant-shell .home-welcome { display: grid; grid-template-columns: minmax(0, 1fr) 220px; align-items: center; gap: 24px; padding: 8px 4px 12px; }
-.participant-shell .home-welcome h1 { margin: 10px 0 12px; font-size: 30px; }
-.participant-shell .home-welcome > div > p:last-child { font-size: 16px; line-height: 1.8; }
 .connection-stickers { display: block; width: 220px; height: auto; pointer-events: none; }
 .sticker-thread { fill: none; stroke: var(--accent-track); stroke-width: 5; stroke-linecap: round; }
 .sticker-back { fill: var(--accent-track); }
@@ -126,10 +123,6 @@
 .participant-shell .tag-page .empty-state .button { margin-top: 20px; }
 .participant-shell .tag-footnote { text-align: center; }
 @media (max-width: 640px) {
-  .participant-shell .home-welcome { grid-template-columns: minmax(0, 1fr) 104px; gap: 8px; padding: 0; }
-  .participant-shell .home-welcome h1 { font-size: 24px; }
-  .participant-shell .home-welcome > div > p:last-child { font-size: 14px; }
-  .participant-shell .welcome-stickers { width: 104px; }
   .participant-shell .sticker-board { padding: 20px 16px; }
   .participant-shell .letter-slots { gap: 6px; }
   .participant-shell .letter-slot { border-radius: 14px; padding: 14px 2px 10px; }

@@ -39,10 +39,8 @@
 .participant-shell .sticker-board.collection-celebrating { animation: collection-glow .55s ease-out; }
 .collection-earned { color: var(--accent-ink); }
 @keyframes collection-glow { 50% { box-shadow: var(--event-shadow), 0 0 0 4px var(--accent-track); } }
-.participant-shell .home-artwork { position: relative; justify-self: end; }
 .winter-decor { display: var(--winter-display, block); position: absolute; pointer-events: none; color: #9bcadd; width: 100px; height: 58px; }
 .winter-star { fill: #c8e4ee; }
-.home-artwork > .winter-decor { right: -8px; top: -18px; }
 .sticker-board > .winter-decor { right: 24px; top: -25px; width: 76px; height: 44px; }
 .participant-shell .letter-slot { padding: 12px 4px 10px; gap: 6px; }
 .participant-shell .letter-slot .letter-sticker { width: clamp(50px, 6.4vw, 80px); height: clamp(63px, 8vw, 100px); max-width: 100%; }
@@ -68,7 +66,6 @@
   .participant-shell .mission-row .mission-letter .letter-sticker, .participant-shell .mission-detail-heading .mission-letter .letter-sticker { width: 56px; height: 70px; }
   .participant-shell .mission-row-state { padding-left: 68px; }
   .participant-shell .mission-detail-heading .state-badge { margin-left: 68px; }
-  .home-artwork > .winter-decor { width: 64px; height: 38px; right: 0; top: -10px; }
   .participant-shell .quest-letter { width: 58px; height: 92px; }
   .participant-shell .quest-letter .letter-sticker { width: 56px; height: 70px; }
 }
@@ -78,10 +75,6 @@
 }
 
 /* Fifth pass: compact navigation, shared progress and operations presentation. */
-.participant-shell .home-page { padding-top: 24px; }
-.participant-shell .home-welcome { grid-template-columns: minmax(0, 1fr) 140px; margin-bottom: 18px; padding: 0; gap: 16px; }
-.participant-shell .welcome-stickers { width: 140px; }
-.participant-shell .home-welcome h1 { margin: 4px 0 6px; }
 .participant-shell .home-overview { grid-template-columns: minmax(0, 1fr); gap: 16px; }
 .participant-shell .sticker-board { padding: 20px; }
 .participant-shell .panel-heading { margin-bottom: 12px; flex-wrap: wrap; gap: 6px 12px; }
@@ -140,11 +133,6 @@
   .participant-shell { padding-bottom: calc(76px + env(safe-area-inset-bottom, 0px)); }
   .participant-shell .mobile-nav { padding: 4px 12px calc(4px + env(safe-area-inset-bottom, 0px)); }
   .participant-shell .mobile-nav a { min-height: 56px; }
-  .participant-shell .home-page { padding-top: 16px; }
-  .participant-shell .home-welcome { grid-template-columns: minmax(0, 1fr) 72px; gap: 8px; margin-bottom: 14px; }
-  .participant-shell .home-welcome h1 { font-size: clamp(20px, 5.6vw, 24px); }
-  .participant-shell .welcome-stickers { width: 72px; }
-  .participant-shell .home-welcome .context-label { font-size: 12px; }
   .participant-shell .sticker-board { padding: 14px 12px; border-radius: 22px; }
   .participant-shell .panel-heading h2 { font-size: 15px; }
   .participant-shell .collection-count { font-size: 11px; padding: 3px 8px; }
@@ -221,7 +209,6 @@
 .participant-shell .mission-access-note p { flex: 1 1 180px; color: var(--muted); font-size: 14px; }
 .participant-shell .mission-access-note .text-link { min-height: 44px; }
 @media (max-width: 640px) {
-  .participant-shell .home-welcome .context-label { font-size: 12px; line-height: 1.6; }
   .participant-shell .home-page .letter-slot .letter-sticker { width: 100%; max-height: 88px; }
   .participant-shell .home-page .letter-slot { padding: 5px 1px; }
   .participant-shell .mission-row { padding: 16px; }
