@@ -52,7 +52,7 @@ class EventRehearsalIntegrationTest {
     @Autowired org.springframework.core.env.Environment environment;
     @MockitoSpyBean ParticipationRepository participation;
     @MockitoBean MattermostClient mattermost;@MockitoBean ModerationProvider provider;
-    static final String PASSWORD="rehearsal only long password";
+    static final String PASSWORD="rehearsal test pass";
     final Map<String,String> codes=new ConcurrentHashMap<>();final Map<MissionCode,String> tokens=new EnumMap<>(MissionCode.class);
     static final String QUESTIONS="""
       {"title":"REHEARSAL ONLY","axes":[{"id":"social","negative":"I","positive":"E","tie":"NEGATIVE"}],"questions":[{"id":"q1","text":"REHEARSAL ONLY","options":[{"id":"a","label":"A","scores":{"social":-1}},{"id":"b","label":"B","scores":{"social":1}}]}],"types":[{"code":"I","title":"TEST I","description":"TEST"},{"code":"E","title":"TEST E","description":"TEST"}]}
