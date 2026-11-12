@@ -82,6 +82,7 @@ public class ParticipationService {
                 if (!repository.agreed(principal.userId(),type,policies.get(type).version())) throw error(409,"CONSENT_REQUIRED","필요한 동의 문구를 확인하고 선택해 주세요.");
             }
             repository.saveProfile(principal.userId(),value);
+            repository.allowShowMeRegrant(principal.userId());
             var saved = repository.profile(principal.userId());
             if (repository.showMeEligible(principal.userId())) repository.receipt(principal.userId(),"PROFILE",saved.version(),repository.now());
             completion.completeShowMe(principal.userId());

@@ -27,7 +27,7 @@ public class MissionCompletionService {
         var event = repository.event(true);
         if (!"OPEN".equals(event.status())) return false;
         var mission = repository.mission(userId,MissionCode.SHOW_ME);
-        if (!mission.active() || "COMPLETED".equals(mission.state()) || !repository.showMeEligible(userId)) return false;
+        if (!mission.active() || "COMPLETED".equals(mission.state()) || repository.showMeRegrantBlocked(userId) || !repository.showMeEligible(userId)) return false;
         repository.activeMission(mission.id());
         var processed = repository.requireOpenTime();
         var profile = repository.profile(userId);

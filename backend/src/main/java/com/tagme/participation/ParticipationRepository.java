@@ -125,6 +125,8 @@ public class ParticipationRepository {
     return present(profile.bio())
             && !profile.interestIds().isEmpty();
     }
+    public boolean showMeRegrantBlocked(long userId) { return db.queryForObject("SELECT COUNT(*) FROM show_me_regrant_blocks WHERE user_id=?",Integer.class,userId)>0; }
+    public void allowShowMeRegrant(long userId) { db.update("DELETE FROM show_me_regrant_blocks WHERE user_id=?",userId); }
     public void hide(long userId) { db.update("UPDATE profiles SET is_public=FALSE,updated_at=UTC_TIMESTAMP(6),version=version+1 WHERE user_id=? AND is_public=TRUE",userId); }
     public void saveProfile(long userId, ParticipationController.ProfileRequest value) {
 

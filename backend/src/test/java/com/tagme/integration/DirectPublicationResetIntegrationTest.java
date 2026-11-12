@@ -43,10 +43,11 @@ class DirectPublicationResetIntegrationTest {
     @Autowired TapRankingService rankings;@Autowired com.tagme.discovery.DiscoveryService discovery;
     @MockitoSpyBean ResultsRepository resultRows;@MockitoBean MattermostClient mattermost;@MockitoBean ModerationProvider provider;
     @MockitoSpyBean AdminAuditRepository audit;
+    @Autowired MemberControlService controls;@Autowired ErrorReportService reports;@Autowired ParticipationService participationService;@Autowired OtpStore otpStore;@Autowired AuthService authService;
     AuthPrincipal admin,alice,bob;Instant time;
     @BeforeEach void setup() {
         db.update("UPDATE content_items SET approved_revision_id=NULL,pending_revision_id=NULL");
-        for(String table:List.of("admin_audit_logs","game_participation_resets","cheer_likes","wish_comments","moderation_reviews","moderation_jobs","content_revisions","content_items","content_settings","mission_completion_evidence","submission_receipts","event_completions","mission_progress","tags","sync_results","current_sync_questionnaire","sync_questionnaires","tap_attempt_events","tap_slots","tap_attempts","profile_views","user_consent_events","user_consents","user_interests","profiles","connection_sessions","user_credentials","users","current_consent_policies","consent_policies","event_settings"))db.update("DELETE FROM "+table);
+        for(String table:List.of("error_reports","account_deactivations","show_me_regrant_blocks","admin_audit_logs","game_participation_resets","cheer_likes","wish_comments","moderation_reviews","moderation_jobs","content_revisions","content_items","content_settings","mission_completion_evidence","submission_receipts","event_completions","mission_progress","tags","sync_results","current_sync_questionnaire","sync_questionnaires","tap_attempt_events","tap_slots","tap_attempts","profile_views","user_consent_events","user_consents","user_interests","profiles","connection_sessions","user_credentials","users","current_consent_policies","consent_policies","event_settings"))db.update("DELETE FROM "+table);
         try(var c=redis.getConnectionFactory().getConnection()){c.serverCommands().flushDb();}
         admins.run(null);admin=accounts.byAdminLogin("admin:reset-test").orElseThrow().principal();
         db.update("INSERT INTO event_settings(id,opens_at,submit_closes_at,moderation_closes_at) VALUES(1,UTC_TIMESTAMP(6)-INTERVAL 1 HOUR,UTC_TIMESTAMP(6)+INTERVAL 1 HOUR,UTC_TIMESTAMP(6)+INTERVAL 2 HOUR)");
@@ -375,6 +376,98 @@ class DirectPublicationResetIntegrationTest {
         assertThat(browser.call(HttpMethod.POST,messagePath,body,csrf).getStatusCode()).isEqualTo(HttpStatus.CONFLICT);
         db.update("DELETE FROM mission_progress WHERE user_id=? AND mission_id=(SELECT id FROM missions WHERE code='FAST_TAP')",alice.userId());
         assertThat(browser.call(HttpMethod.GET,boardPath,null,null).getStatusCode()).isEqualTo(HttpStatus.FORBIDDEN);
+    }
+    MemberControlService.ChangeRequest change(String action,long generation) {return new MemberControlService.ChangeRequest(generation,"운영 지원 통합 검사",action.equals("DEACTIVATE")?"DEACTIVATE":"APPLY",action);}
+    @Test void errorReportsBindReporterAndUnicodeLimitWithIdempotencyAndProtectedReads() throws Exception {
+        var browser=new Browser();browser.call(HttpMethod.POST,"/api/v1/auth/login",Map.of("username","reset-alice","password","isolated participant password"),browser.csrf());
+        String csrf=browser.csrf();var input=Map.of("body","😀".repeat(200),"pagePath","/t/secret-token?password=secret");
+        assertThat(browser.call(HttpMethod.POST,"/api/v1/error-reports",input,null).getStatusCode()).isEqualTo(HttpStatus.FORBIDDEN);
+        assertThat(browser.call(HttpMethod.POST,"/api/v1/error-reports",Map.of("body","신고자 위조 검사","pagePath","/","reporterId",bob.userId()),csrf).getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        var first=browser.call(HttpMethod.POST,"/api/v1/error-reports",input,csrf);assertThat(first.getStatusCode()).as("report response: %s",first.getBody()).isEqualTo(HttpStatus.OK);
+        var replay=browser.call(HttpMethod.POST,"/api/v1/error-reports",input,csrf);assertThat(replay.getStatusCode()).as("report retry: %s",replay.getBody()).isEqualTo(HttpStatus.OK);
+        assertThat(replay.getBody().get("id")).isEqualTo(first.getBody().get("id"));
+        var row=reports.list(admin,0,25).items().getFirst();assertThat(row.reporterId()).isEqualTo(alice.userId());assertThat(row.body()).isEqualTo("😀".repeat(200));assertThat(row.pagePath()).isEqualTo("/t/[tag]");
+        browser.key="report-too-long-001";assertThat(browser.call(HttpMethod.POST,"/api/v1/error-reports",Map.of("body","가".repeat(201),"pagePath","/"),csrf).getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        assertThat(browser.call(HttpMethod.GET,"/api/v1/admin/error-reports",null,null).getStatusCode()).isEqualTo(HttpStatus.FORBIDDEN);
+        var guest=new Browser();assertThat(guest.call(HttpMethod.POST,"/api/v1/error-reports",input,guest.csrf()).getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
+        assertThat(reports.list(admin,0,1).total()).isEqualTo(1);
+        for(int i=0;i<4;i++)reports.submit(alice,"report-rate-check-"+i,new ErrorReportService.ReportRequest("추가 신고 "+i,"/"));
+        assertThatThrownBy(()->reports.submit(alice,"report-rate-overflow",new ErrorReportService.ReportRequest("추가 신고 제한","/"))).isInstanceOf(AuthException.class).satisfies(e->assertThat(((AuthException)e).status()).isEqualTo(429));
+    }
+    @Test void revokeOnlyOneMissionArchivesItsSlotAndAllowsReplayWhileOthersStayIntact() {
+        var wish=content.submit(alice,WISH,"control-wish-0001",text("보관할 소원",null),false);
+        var cheer=content.submit(alice,CHEER,"control-cheer-0001",text("유지할 응원",null),false);
+        var record=controls.change(admin,alice.userId(),"MAKE_A_WISH","control-revoke-001",change("REVOKE",0));
+        assertThat(record.generation()).isEqualTo(1);assertThat(participation.mission(alice.userId(),MAKE_A_WISH).state()).isEqualTo("UNLOCKED");
+        assertThat(db.queryForObject("SELECT archived_at IS NOT NULL FROM content_items WHERE id=?",Boolean.class,wish.id())).isTrue();
+        assertThat(content.own(alice.userId(),CHEER).id()).isEqualTo(cheer.id());assertThat(participation.mission(alice.userId(),SAY_SOMETHING).state()).isEqualTo("COMPLETED");
+        assertThat(controls.change(admin,alice.userId(),"MAKE_A_WISH","control-revoke-001",change("REVOKE",0)).id()).isEqualTo(record.id());
+        assertThatThrownBy(()->content.submit(alice,WISH,"stale-wish-000001",text("오래된 화면",null),false,0)).isInstanceOf(AuthException.class);
+        assertThat(content.submit(alice,WISH,"new-round-wish-01",text("새 소원",null),false,1).id()).isNotEqualTo(wish.id());
+        assertThatThrownBy(()->controls.change(admin,alice.userId(),"FAST_TAP","stale-control-001",change("LOCK",0))).isInstanceOf(AuthException.class);
+    }
+    @Test void lockingARealTagCanBeUnlockedAgainAndManualGrantsDoNotInventGameResults() {
+        long mission=participation.mission(alice.userId(),FAST_TAP).id();
+        participation.receipt(alice.userId(),"TAG_UNLOCK",mission,participation.now());
+        String token=Base64.getUrlEncoder().withoutPadding().encodeToString(new byte[32]);String hash=ParticipationService.tokenHash(token);
+        db.update("INSERT INTO tags(mission_id,token_hash) VALUES(?,?)",mission,hash);
+        controls.change(admin,alice.userId(),"FAST_TAP","control-lock-0001",change("LOCK",0));
+        assertThat(participation.mission(alice.userId(),FAST_TAP).state()).isEqualTo("LOCKED");
+        assertThat(participationService.resolve(alice,hash).newlyUnlocked()).isTrue();
+        for(var code:List.of("SYNC_ME","MAKE_A_WISH","FAST_TAP","SAY_SOMETHING"))controls.change(admin,alice.userId(),code,UUID.randomUUID().toString(),change("GRANT",participation.generation(alice.userId())));
+        assertThat(participation.completion(alice.userId()).complete()).isTrue();
+        assertThat(db.queryForObject("SELECT COUNT(*) FROM sync_results WHERE user_id=?",Integer.class,alice.userId())).isZero();
+        assertThat(db.queryForObject("SELECT COUNT(*) FROM tap_attempts WHERE user_id=?",Integer.class,alice.userId())).isZero();
+        assertThat(db.queryForObject("SELECT COUNT(*) FROM content_items WHERE author_id=?",Integer.class,alice.userId())).isZero();
+        assertThat(awardRows.awardFacts().proofs().stream().filter(p->p.userId()==alice.userId()&&p.sourceKind().equals("ADMIN_ADJUSTMENT")).toList()).hasSize(4).allMatch(p->!p.valid());
+    }
+    @Test void showMeRevocationStaysRevokedUntilAnExplicitProfileSave() {
+        var old=participation.profile(alice.userId());
+        controls.change(admin,alice.userId(),"SHOW_ME","revoke-show-me-01",change("REVOKE",0));
+        assertThat(participationService.reconcileShowMe(alice)).isFalse();assertThat(participation.mission(alice.userId(),SHOW_ME).state()).isEqualTo("UNLOCKED");
+        assertThatThrownBy(()->participationService.save(alice,new ParticipationController.ProfileRequest(old.nickname(),old.bio(),old.githubUrl(),old.blogUrl(),old.interestIds(),List.of(),old.version()))).isInstanceOf(AuthException.class);
+        var p=participation.profile(alice.userId());
+        participationService.save(alice,new ParticipationController.ProfileRequest(p.nickname(),p.bio(),p.githubUrl(),p.blogUrl(),p.interestIds(),List.of(),p.version()));
+        assertThat(participation.mission(alice.userId(),SHOW_ME).state()).isEqualTo("COMPLETED");
+    }
+    @Test void deactivationRevokesSessionsAndRelationshipsAndSameMattermostSignupStartsFresh() {
+        var wish=content.submit(alice,WISH,"deactivate-wish-1",text("이전 계정 소원",null),false);
+        var cheer=content.submit(bob,CHEER,"deactivate-cheer1",text("다른 참가자 응원",null),false);reactions.like(alice,cheer.id(),true);
+        db.update("INSERT INTO profile_views VALUES(?,?,UTC_TIMESTAMP(6))",alice.userId(),bob.userId());
+        var browser=new Browser();browser.call(HttpMethod.POST,"/api/v1/auth/login",Map.of("username","reset-alice","password","isolated participant password"),browser.csrf());
+        var old=accounts.byId(alice.userId()).orElseThrow();long before=analytics.overview(admin).members();
+        var record=controls.change(admin,alice.userId(),null,"deactivate-user1",change("DEACTIVATE",0));
+        assertThat(controls.change(admin,alice.userId(),null,"deactivate-user1",change("DEACTIVATE",0)).id()).isEqualTo(record.id());
+        assertThat(browser.call(HttpMethod.GET,"/api/v1/users/me",null,null).getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
+        assertThat(accounts.byExternalId(old.mattermostId())).isEmpty();assertThat(analytics.detail(admin,alice.userId()).member().username()).isEqualTo("reset-alice");
+        assertThat(analytics.overview(admin).members()).isEqualTo(before-1);assertThat(participation.missions(alice.userId())).allMatch(m->m.state().equals("LOCKED"));
+        assertThat(db.queryForObject("SELECT COUNT(*) FROM profile_views WHERE viewer_id=? OR viewed_id=?",Integer.class,alice.userId(),alice.userId())).isZero();
+        assertThat(db.queryForObject("SELECT COUNT(*) FROM cheer_likes WHERE user_id=?",Integer.class,alice.userId())).isZero();
+        assertThat(content.feed(WISH,null).items()).noneMatch(i->i.id()==wish.id());assertThat(content.own(bob.userId(),CHEER).id()).isEqualTo(cheer.id());
+        assertThatThrownBy(()->discovery.open(bob,alice.userId())).isInstanceOf(AuthException.class);
+        var identity=new MattermostClient.Identity(old.mattermostId(),old.username(),new MattermostProfile("통합 검사","서울",1,0));when(mattermost.byId(old.mattermostId())).thenReturn(Optional.of(identity));
+        String challenge="S".repeat(43);otpStore.issue(challenge,new OtpStore.Challenge(OtpStore.Purpose.SIGN_UP,old.mattermostId(),0,0,""),"012345");
+        var fresh=authService.signup(challenge,"012345","new isolated participant password","127.0.0.91");
+        assertThat(fresh.id()).isNotEqualTo(alice.userId());assertThat(fresh.onboardingRequired()).isTrue();assertThat(participation.missions(fresh.id())).allMatch(m->m.state().equals("LOCKED"));
+        var interest=db.queryForObject("SELECT MIN(id) FROM interests",Long.class);
+        participationService.save(fresh.principal(),new ParticipationController.ProfileRequest("새 계정","다시 첫 S",null,null,List.of(interest),Arrays.stream(com.tagme.participation.ParticipationModels.PolicyType.values()).map(type->new ParticipationController.Acceptance(type,"reset-v1")).toList(),0));
+        assertThat(participation.mission(fresh.id(),SHOW_ME).state()).isEqualTo("COMPLETED");assertThat(participation.generation(fresh.id())).isZero();
+    }
+    @Test void memberControlsRequireAdminCsrfAndRollbackAndSerializeRepeatedRequests() throws Exception {
+        assertThatThrownBy(()->controls.change(alice,bob.userId(),"SYNC_ME","not-admin-000001",change("GRANT",0))).isInstanceOf(AuthException.class);
+        assertThatThrownBy(()->controls.change(admin,admin.userId(),null,"admin-target-001",change("DEACTIVATE",0))).isInstanceOf(AuthException.class);
+        var browser=new Browser();browser.call(HttpMethod.POST,"/api/v1/auth/login",Map.of("username","admin:reset-test","password","integration reset operator password"),browser.csrf());
+        String path="/api/v1/admin/members/"+alice.userId()+"/missions/SYNC_ME";
+        assertThat(browser.call(HttpMethod.POST,path,change("GRANT",0),null).getStatusCode()).isEqualTo(HttpStatus.FORBIDDEN);
+        doThrow(new org.springframework.dao.DataAccessResourceFailureException("isolated audit failure")).when(audit).record(anyLong(),anyString(),anyString(),anyLong(),anyString(),any(),any());
+        try{assertThatThrownBy(()->controls.change(admin,alice.userId(),"SHOW_ME","rollback-change1",change("REVOKE",0))).isInstanceOf(RuntimeException.class);}
+        finally{doCallRealMethod().when(audit).record(anyLong(),anyString(),anyString(),anyLong(),anyString(),any(),any());}
+        assertThat(participation.generation(alice.userId())).isZero();assertThat(participation.mission(alice.userId(),SHOW_ME).state()).isEqualTo("COMPLETED");
+        try(var pool=Executors.newFixedThreadPool(3)) {
+            var futures=new ArrayList<Future<ParticipationResetService.ResetRecord>>();for(int i=0;i<5;i++)futures.add(pool.submit(()->controls.change(admin,alice.userId(),"SYNC_ME","concurrent-grant1",change("GRANT",0))));
+            long first=futures.getFirst().get(30,TimeUnit.SECONDS).id();for(var f:futures)assertThat(f.get(30,TimeUnit.SECONDS).id()).isEqualTo(first);
+        }
+        assertThat(participation.generation(alice.userId())).isEqualTo(1);assertThat(db.queryForObject("SELECT COUNT(*) FROM mission_completion_evidence WHERE user_id=? AND source_kind='ADMIN_ADJUSTMENT'",Integer.class,alice.userId())).isEqualTo(1);
     }
     class Browser {
         final Map<String,String> cookies=new HashMap<>();

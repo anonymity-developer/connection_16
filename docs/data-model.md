@@ -1,5 +1,7 @@
 # 데이터 모델과 마이그레이션 계획
 
+V15는 error_reports(신고자/당시 표시 정보/200자 본문/안전한 경로/중복 요청 키), account_deactivations(보관 계정의 원래 외부 ID/아이디), show_me_regrant_blocks(명시적 재저장 전 첫 S 재지급 차단)를 추가한다. game_participation_resets에 operation/mission_code를 추가하고 ADMIN_ADJUSTMENT 접수와 관리자 감사 종류를 확장한다. 기존 데이터의 하드 삭제나 이전 마이그레이션 변경은 없다. [현재 조정·재가입 계약](support-and-member-controls.md).
+
 V12는 `game_participation_resets`(대상/운영자 FK, 사용자별 generation·운영자별 요청 키 UNIQUE, 원본/요약 JSON, 사유·시각), 콘텐츠/탭 `archived_at`, 현재 콘텐츠만 포함하는 슬롯 UNIQUE와 탭 INVALID 상태를 추가한다. 감사에 GAME_PARTICIPATION_RESET/USER를 허용한다. [현재 공개·초기화 계약](direct-publication-and-reset.md).
 
 V10은 `local_admin_accounts`(user_id PK/FK, login_id UNIQUE)와 `connection_sessions`(임의 UUID PK, 사용자/credential version, 시작/최근 요청/만료/종료 시각·사유)를 추가한다. [관리자 콘솔](admin-console.md)의 집계·보관 경계를 따른다.

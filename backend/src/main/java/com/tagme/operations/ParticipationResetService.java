@@ -18,7 +18,7 @@ import org.springframework.transaction.support.TransactionTemplate;
 public class ParticipationResetService {
     public record ResetRequest(@PositiveOrZero long expectedGeneration,@NotBlank @Size(max=300) String reason,
                                @NotNull @Pattern(regexp="RESET") String confirmation) { }
-    public record ResetRecord(long id,long generation,long actorId,String reason,Instant createdAt,JsonNode summary) { }
+    public record ResetRecord(long id,long generation,long actorId,String reason,Instant createdAt,JsonNode summary,String operation,String missionCode) { }
     private final JdbcTemplate db;
     private final AuthRepository accounts;
     private final ParticipationRepository participation;
@@ -35,11 +35,11 @@ public class ParticipationResetService {
     }
     private AuthException error(int status,String code,String message){return new AuthException(status,code,message);}
     private ResetRecord record(ResultSet r,int n)throws SQLException {
-        try{return new ResetRecord(r.getLong("id"),r.getLong("generation"),r.getLong("actor_id"),r.getString("reason"),r.getTimestamp("created_at").toInstant(),json.readTree(r.getString("summary_json")));}
+        try{return new ResetRecord(r.getLong("id"),r.getLong("generation"),r.getLong("actor_id"),r.getString("reason"),r.getTimestamp("created_at").toInstant(),json.readTree(r.getString("summary_json")),r.getString("operation"),r.getString("mission_code"));}
         catch(java.io.IOException invalid){throw new IllegalStateException("Cannot read reset summary",invalid);}
     }
     public List<ResetRecord> history(long user) {
-        return db.query("SELECT id,generation,actor_id,reason,created_at,summary_json FROM game_participation_resets WHERE user_id=? ORDER BY generation DESC LIMIT 10",this::record,user);
+        return db.query("SELECT * FROM game_participation_resets WHERE user_id=? ORDER BY generation DESC LIMIT 10",this::record,user);
     }
     private Object normalized(Object value) {
         if(value instanceof Timestamp time)return time.toInstant().toString();
@@ -59,17 +59,18 @@ public class ParticipationResetService {
             java.util.stream.LongStream.of(actor.userId(),user).distinct().sorted().forEach(accounts::lockUser);
             participation.lockPrincipal(actor);
             if(!"ADMIN".equals(accounts.byId(actor.userId()).orElseThrow(AuthException::invalid).role()))throw error(403,"ADMIN_REQUIRED","관리자 권한이 필요해요.");
-            if(db.queryForObject("SELECT COUNT(*) FROM users u JOIN user_credentials c ON c.user_id=u.id WHERE u.id=? AND NOT EXISTS(SELECT 1 FROM local_admin_accounts a WHERE a.user_id=u.id)",Integer.class,user)!=1)
+            if(db.queryForObject("SELECT COUNT(*) FROM users u JOIN user_credentials c ON c.user_id=u.id WHERE u.id=? AND u.role='USER' AND NOT EXISTS(SELECT 1 FROM local_admin_accounts a WHERE a.user_id=u.id)",Integer.class,user)!=1)
                 throw error(404,"MEMBER_NOT_FOUND","참가자를 찾을 수 없어요.");
             var replay=db.query("SELECT * FROM game_participation_resets WHERE actor_id=? AND request_key=?",this::record,actor.userId(),key);
             if(!replay.isEmpty()) {
                 var previous=replay.getFirst();
                 Long owner=db.queryForObject("SELECT user_id FROM game_participation_resets WHERE id=?",Long.class,previous.id());
-                if(owner!=user||previous.generation()!=body.expectedGeneration()+1||!previous.reason().equals(body.reason().strip()))
+                if(owner!=user||!"RESET_GAMES".equals(previous.operation())||previous.generation()!=body.expectedGeneration()+1||!previous.reason().equals(body.reason().strip()))
                     throw error(409,"IDEMPOTENCY_CONFLICT","같은 초기화 요청의 대상이나 내용이 바뀌었어요.");
                 return previous;
             }
             participation.requireGeneration(user,body.expectedGeneration());
+            if(!"ACTIVE".equals(accounts.byId(user).orElseThrow(AuthException::invalid).status()))throw error(409,"MEMBER_INACTIVE","비활성화된 참가자는 변경할 수 없어요.");
             tapRankings.lockForReset();
             Map<String,Object> snapshot=new LinkedHashMap<>();
             snapshot.put("schemaVersion",1);snapshot.put("userId",user);snapshot.put("previousGeneration",body.expectedGeneration());
