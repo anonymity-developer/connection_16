@@ -30,7 +30,7 @@ export function FountainExperience({store}:{store:Experience}) {
       {phase==='flying'&&landing==='water'&&<span className="fountain-splash" aria-hidden="true"/>}
   </>;
   return <section className="demo-fountain">
-    <form className="demo-wish-composer" onSubmit={e=>{e.preventDefault();issue();}}><label htmlFor="demo-wish">분수에 전하고 싶은 소원</label><textarea ref={input} id="demo-wish" maxLength={300} rows={3} value={text} disabled={phase!=='write'} onChange={e=>setText(e.target.value)}/><small>{text.length}/300 · 가상 소원, 실제 전송 없음</small><label className="content-choice"><input type="checkbox" checked={anonymous} disabled={phase!=='write'} onChange={event=>setAnonymous(event.target.checked)} />익명으로 남기기</label>{phase==='write'&&<Button type="submit">소원 동전 받기</Button>}</form>
+    <form className="demo-wish-composer" onSubmit={e=>{e.preventDefault();issue();}}><label htmlFor="demo-wish">분수에 전하고 싶은 소원</label><textarea ref={input} id="demo-wish" maxLength={400} rows={3} value={text} disabled={phase!=='write'} onChange={e=>setText(e.target.value)}/><small>{text.length}/400 · 가상 소원, 실제 전송 없음</small><label className="content-choice"><input type="checkbox" checked={anonymous} disabled={phase!=='write'} onChange={event=>setAnonymous(event.target.checked)} />익명으로 남기기</label>{phase==='write'&&<Button type="submit">소원 동전 받기</Button>}</form>
     {phase==='issued'&&<p role="status" className="demo-coin-notice">소원 동전이 발급됐어요! 소원 동전을 동상에 던져보세요!</p>}
     <div className={`demo-throw-scene phase-${phase}`}>
       <WishGallery sceneRef={scene} sceneOverlay={overlay} items={store.feeds.wishes} renderComments={id=><WishComments id={id} api={store.reactions}/>}/>

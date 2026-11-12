@@ -103,7 +103,7 @@ export function createSandbox(definition: PreviewDefinition, interests: Interest
       submit: async (kind, editing, key, input) => {
         const requestKey = `${kind}:${key}`, fingerprint = JSON.stringify([editing, input]), saved = submissions.get(requestKey);
         if (saved) { if (saved.fingerprint !== fingerprint) throw new ApiError(409, 'REQUEST_CHANGED', '같은 요청의 내용을 바꿀 수 없어요.'); return copy(saved.result); }
-        if (!input.content.trim() || input.content.length > 300) throw new Error('내용을 1~300자로 입력해 주세요.');
+        if (!input.content.trim() || input.content.length > 400) throw new Error('내용을 1~400자로 입력해 주세요.');
         const previous = slots[kind];
         if (!!previous.id !== editing || editing && input.expectedVersion !== previous.version) throw new ApiError(409, 'CONTENT_CHANGED', '미리보기 글을 다시 불러와 주세요.');
         const revision: Revision = { id: ++serial, itemId: previous.id ?? serial, number: (previous.latestRevision?.number ?? 0) + 1, content: input.content.trim(), templateId: input.templateId, style: input.style, anonymous: input.anonymous, submittedAt: new Date().toISOString(), status: 'APPROVED', reason: null };

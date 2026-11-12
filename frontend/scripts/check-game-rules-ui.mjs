@@ -55,7 +55,7 @@ try {
         if(method==='GET'&&path.includes('/comments'))return reply(200,{items:[],nextCursor:null});
         if(method==='GET')return reply(200,{items:slots[kind].approvedRevision?[{...slots[kind].approvedRevision,id:slots[kind].id,nickname:slots[kind].approvedRevision.anonymous?null:'공개한 동료',profileId:slots[kind].approvedRevision.anonymous?null:81,luckScore:null,landingZone:null}]:[],nextCursor:null});
         assert.equal(req.headers()['x-xsrf-token'],'rules-csrf');assert.equal(req.headers()['x-participation-generation'],'2');
-        const body=req.postDataJSON();assert.equal(body.content.length,300);const previous=slots[kind];
+        const body=req.postDataJSON();assert.equal(body.content.length,400);const previous=slots[kind];
         assert.equal(body.expectedVersion,previous.id?previous.version:null);
         const revision={...body,id:100+previous.version,itemId:kind==='wishes'?40:41,number:previous.version+1,status:'APPROVED',reason:null,submittedAt:now};
         slots[kind]={...blank(),id:revision.itemId,version:revision.number,visibility:'VISIBLE',approvedRevision:revision,latestRevision:revision,missionCompleted:true};return reply(202,slots[kind]);
@@ -69,7 +69,11 @@ try {
     for(const slug of slugs) {
       await visit(slug);await page.locator('.mission-progress-summary').getByText('글자 획득 완료',{exact:true}).waitFor();
       if(slug==='show-me')await page.locator('.show-me-record-name').getByText('내 프로필 닉네임',{exact:true}).waitFor();
-      if(slug==='fast-tap')await page.locator('.tap-ranking-list li').last().waitFor();
+      if(slug==='fast-tap') {
+        await page.locator('.tap-ranking-list li').last().waitFor();
+        await page.locator('.mission-hint summary').click();
+        await page.getByText('19층과 20층 사이 계단에서 F를 찾아 NFC 태그를 읽어주세요.',{exact:true}).waitFor();
+      }
       assert.equal(await page.getByText('글자 획득 완료',{exact:true}).count(),1);
       assert.equal(await page.getByText('획득한 글자예요.',{exact:true}).count(),0);
       assert.equal(await page.locator('.mission-detail-heading .state-badge,.mission-complete-artwork').count(),0);
@@ -82,17 +86,19 @@ try {
   editing=true;slots.wishes=blank();slots.cheers=blank();await page.setViewportSize({width:390,height:900});
   for(const [kind,slug] of [['wishes','make-a-wish'],['cheers','say-something']]) {
     await visit(slug);const input=page.locator('#content-text'),anonymous=page.getByRole('checkbox',{name:'익명으로 남기기',exact:true});
-    await input.waitFor();assert.equal(await input.getAttribute('maxlength'),'300');assert.equal(await anonymous.isChecked(),true);
-    await input.fill('가'.repeat(300));await anonymous.uncheck();
+    await input.waitFor();assert.equal(await input.getAttribute('maxlength'),'400');assert.equal(await anonymous.isChecked(),true);
+    await input.fill('가'.repeat(400));await anonymous.uncheck();
+    assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>window.innerWidth),false);
+    await page.screenshot({path:resolve(output,`rules-${kind}-400-390.png`),fullPage:true});
     await page.getByRole('button',{name:kind==='wishes'?'동전 던지기':'응원 보내기',exact:true}).click();
     await page.getByRole('button',{name:'같은 글 수정하기',exact:true}).waitFor();assert.equal(slots[kind].latestRevision.anonymous,false);
     if(kind==='wishes'){await page.getByRole('button',{name:'소원 1 열기',exact:true}).click();await page.getByRole('link',{name:'공개한 동료의 소원',exact:true}).waitFor();}
-    await page.getByRole('button',{name:'같은 글 수정하기',exact:true}).click();assert.equal(await input.inputValue(),'가'.repeat(300));assert.equal(await anonymous.isChecked(),false);
+    await page.getByRole('button',{name:'같은 글 수정하기',exact:true}).click();assert.equal(await input.inputValue(),'가'.repeat(400));assert.equal(await anonymous.isChecked(),false);
     await anonymous.check();await page.getByRole('button',{name:'수정 내용 보내기',exact:true}).click();await page.getByRole('button',{name:'같은 글 수정하기',exact:true}).waitFor();
     assert.equal(slots[kind].latestRevision.anonymous,true);assert.equal(slots[kind].latestRevision.number,2);
     assert.equal(await page.locator('a[href="/discovery/profiles/81"]').count(),0);
   }
-  console.log('PASS 300-character wish/cheer edits preserve a single slot and explicitly toggle public profile links');
+  console.log('PASS 400-character wish/cheer edits preserve a single slot and explicitly toggle public profile links');
   await visit('fast-tap');await page.locator('.tap-ranking-list li').last().waitFor();
   assert.equal(await page.locator('.tap-ranking-list li').count(),10);await page.getByText('12위',{exact:true}).waitFor();
   assert.equal(await page.locator('.tap-ranking-list img,.tap-ranking-list script').count(),0);

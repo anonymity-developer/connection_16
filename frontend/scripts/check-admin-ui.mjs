@@ -93,7 +93,8 @@ try {
   await page.getByLabel('미리 볼 미션', { exact: true }).selectOption('SYNC_ME'); await page.getByRole('radio', { name: '먼저 말 걸기', exact: true }).check(); await page.getByRole('button', { name: '나의 성향 확인하기', exact: true }).click(); await page.getByText('반가운 대화', { exact: true }).waitFor(); record('real sync component computes an explicit preview-only result from example questions');
   for (const code of ['MAKE_A_WISH', 'SAY_SOMETHING']) {
     await page.getByLabel('미리 볼 미션', { exact: true }).selectOption(code);
-    await page.locator('#content-text').fill('미리보기 동작 확인용 문구');
+    assert.equal(await page.locator('#content-text').getAttribute('maxlength'), '400');
+    await page.locator('#content-text').fill('가'.repeat(400));
     await page.getByRole('button', { name: code === 'MAKE_A_WISH' ? '동전 던지기' : '응원 보내기', exact: true }).click();
     await page.getByText('공개된 글', { exact: true }).waitFor();
   }

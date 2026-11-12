@@ -129,7 +129,7 @@ GET `/event`, `/policies`, `/users/me/profile`, GET/POST `/tags/pending`, POST `
 
 최초 작성 재시도는 Idempotency-Key를 사용한다. 같은 key/payload는 같은 리소스를 반환하고 같은 key/다른 payload는 409다. 사용자 슬롯 UNIQUE가 키 변경으로 인한 중복 생성도 막는다. 공개 목록에는 pending/거절 revision이 포함되지 않는다.
 
-요청은 `content/templateId/style/anonymous/expectedVersion`, 응답은 OwnSlot(approvedRevision/pendingRevision/latestRevision/version)이다. 소원은 `templateId=PLAIN`, `style=ROSE`이며 익명 여부를 선택한다. 소원·응원은 300자, 댓글은 200자다. 수정에는 현재 `expectedVersion`이 필요하며 최초 작성/수정 모두 Idempotency-Key를 요구한다. [콘텐츠 계약](content.md)과 [OpenAPI](content.openapi.yaml)에 정확한 DTO/상태/오류를 정리했다.
+요청은 `content/templateId/style/anonymous/expectedVersion`, 응답은 OwnSlot(approvedRevision/pendingRevision/latestRevision/version)이다. 소원은 `templateId=PLAIN`, `style=ROSE`이며 익명 여부를 선택한다. 소원·응원은 400자, 댓글은 200자다. 수정에는 현재 `expectedVersion`이 필요하며 최초 작성/수정 모두 Idempotency-Key를 요구한다. [콘텐츠 계약](content.md)과 [OpenAPI](content.openapi.yaml)에 정확한 DTO/상태/오류를 정리했다.
 
 ## 5. 게임과 성향 구현
 

@@ -14,7 +14,7 @@ MAKE A WISH와 SAY SOMETHING의 최초 작성, 내 슬롯, 수정, 승인된 공
 
 - `content_items`는 WISH/CHEER 각각 한 슬롯을 보장한다. V6의 직접 UNIQUE는 V7에서 동일한 의미의 `(author_id, slot_kind)` generated key UNIQUE로 확장해 COMMENT만 다중으로 허용한다. 수정은 같은 슬롯의 새 revision이다.
 - 쓰기마다 사용자 잠금 → 행사/활성 미션/해금/현재 공개 프로필 및 동의 → 슬롯/수정 조건을 검사한다. 최초 작성은 POST, 기존 슬롯 수정은 PUT이며 `expectedVersion`이 현재 슬롯 버전과 같아야 한다.
-- 소원·응원 본문은 공백 제외 1~300 UTF-16 code unit이다. 댓글은 200자를 유지한다. 앞뒤 공백만 제거하고 저장한다. 클라이언트 HTML/CSS, 사용자 ID, 점수, 판정 필드는 받지 않는다.
+- 소원·응원 본문은 공백 제외 1~400 UTF-16 code unit이다. 댓글은 200자를 유지한다. 앞뒤 공백만 제거하고 저장한다. 클라이언트 HTML/CSS, 사용자 ID, 점수, 판정 필드는 받지 않는다.
 - WISH는 `PLAIN / ROSE`를 사용한다. CHEER는 `PLAIN|NOTE`, `ROSE|INK`를 선택한다. 둘 다 익명 또는 닉네임 공개를 선택할 수 있다. 본문과 카드 형태/색상/익명 여부는 revision의 일부이며 공개본과 함께 전환된다.
 - 같은 슬롯에서 최대 20개 revision을 저장한다. 사용자별 쓰기 30회/분 제한과 실제 DB 제약을 함께 사용한다.
 - `Idempotency-Key`는 16~64자의 영문/숫자/`_`/`-`다. `(item_id, key)`를 보관하고 동일 본문/카드 설정은 현재 슬롯 상태를 반환한다. 같은 키/다른 내용은 409다. 새 키의 POST로 두 번째 슬롯을 만들 수 없다.

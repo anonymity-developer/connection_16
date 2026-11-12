@@ -78,23 +78,36 @@ class DirectPublicationResetIntegrationTest {
         var attempt=results.start(actor,UUID.randomUUID().toString());time=attempt.endsAt().plusMillis(100);
         return results.finish(actor,new ResultsController.FinishRequest(attempt.attemptId(),java.util.stream.IntStream.range(0,count).boxed().toList(),List.of()));
     }
-    @Test void threeHundredCharacterWishesAndCheersRespectEachRevisionPrivacyAndKeepCommentLimit() {
+    @Test void fourHundredCharacterWishesAndCheersRespectEachRevisionPrivacyAndKeepCommentLimit() {
+        assertThat(participation.mission(alice.userId(),FAST_TAP).hint()).isEqualTo("19층과 20층 사이 계단에서 F를 찾아 NFC 태그를 읽어주세요.");
         for(var kind:List.of(WISH,CHEER)) {
-            var hidden=content.submit(alice,kind,UUID.randomUUID().toString(),text("가".repeat(300),null),false);
-            var visible=content.submit(bob,kind,UUID.randomUUID().toString(),new ContentController.Submit("나".repeat(300),"PLAIN","ROSE",false,null),false);
+            var hidden=content.submit(alice,kind,UUID.randomUUID().toString(),text("가".repeat(400),null),false);
+            var visible=content.submit(bob,kind,UUID.randomUUID().toString(),new ContentController.Submit("나".repeat(400),"PLAIN","ROSE",false,null),false);
             var feed=content.feed(kind,null).items();
             var anonymous=feed.stream().filter(i->i.id()==hidden.id()).findFirst().orElseThrow();
-            assertThat(anonymous.content()).hasSize(300);assertThat(anonymous.nickname()).isNull();assertThat(anonymous.profileId()).isNull();
+            assertThat(anonymous.content()).hasSize(400);assertThat(anonymous.nickname()).isNull();assertThat(anonymous.profileId()).isNull();
             var named=feed.stream().filter(i->i.id()==visible.id()).findFirst().orElseThrow();
             assertThat(named.anonymous()).isFalse();assertThat(named.nickname()).isEqualTo("reset-bob");assertThat(named.profileId()).isEqualTo(bob.userId());
             var edit=content.submit(bob,kind,UUID.randomUUID().toString(),text("익명으로 변경",visible.version()),true);
             assertThat(contentRows.revision(visible.approvedRevision().id()).anonymous()).isFalse();
             assertThat(content.feed(kind,null).items().stream().filter(i->i.id()==edit.id()).findFirst().orElseThrow().profileId()).isNull();
-            assertThatThrownBy(()->content.submit(alice,kind,UUID.randomUUID().toString(),text("가".repeat(301),hidden.version()),true)).isInstanceOf(AuthException.class);
+            assertThatThrownBy(()->content.submit(alice,kind,UUID.randomUUID().toString(),text("가".repeat(401),hidden.version()),true)).isInstanceOf(AuthException.class);
         }
         var wish=content.own(alice.userId(),WISH);
         assertThatThrownBy(()->reactions.submit(bob,wish.id(),UUID.randomUUID().toString(),new ReactionController.CommentRequest("가".repeat(201),false))).isInstanceOf(AuthException.class);
         assertThat(reactions.submit(bob,wish.id(),UUID.randomUUID().toString(),new ReactionController.CommentRequest("가".repeat(200),false)).content()).hasSize(200);
+    }
+    @Test void contentHttpAcceptsFourHundredAndRejectsFourHundredOneWithoutChangingTheSavedBody() {
+        Browser browser=new Browser();
+        browser.call(HttpMethod.POST,"/api/v1/auth/login",Map.of("username","reset-alice","password","isolated participant password"),browser.csrf());
+        String csrf=browser.csrf();
+        for(String kind:List.of("wishes","cheers")) {
+            browser.key=UUID.randomUUID().toString();
+            assertThat(browser.call(HttpMethod.POST,"/api/v1/"+kind,new ContentController.Submit("가".repeat(400),"PLAIN","ROSE",false,null),csrf).getStatusCode()).isEqualTo(HttpStatus.ACCEPTED);
+            browser.key=UUID.randomUUID().toString();
+            assertThat(browser.call(HttpMethod.PUT,"/api/v1/"+kind+"/me",new ContentController.Submit("나".repeat(401),"PLAIN","ROSE",false,1L),csrf).getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+            assertThat(content.own(alice.userId(),"wishes".equals(kind)?WISH:CHEER).latestRevision().content()).isEqualTo("가".repeat(400));
+        }
     }
     @Test void recordEntitlementSurvivesBeingOvertakenAndMessagesAreOneTimeAndIdempotent() {
         var first=score(alice,10);score(bob,20);
