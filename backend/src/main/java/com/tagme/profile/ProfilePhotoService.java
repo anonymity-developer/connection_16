@@ -25,7 +25,7 @@ public class ProfilePhotoService {
             if(!"ACTIVE".equals(account.status())||!accounts.profileIdentity(target).ready()||accounts.profileIdentity(target).pictureVersion()<1)throw missing();
             if(!own){
                 participation.requireOpen(false);
-                if(!participation.eligible(actor.userId())||!participation.eligible(target))throw missing();
+                if(!participation.eligible(actor.userId())||!participation.eligible(target)||!participation.discoveryReady(actor.userId())||!participation.discoveryReady(target))throw missing();
                 if(target!=actor.userId()&&db.queryForObject("SELECT COUNT(*) FROM profile_views WHERE viewer_id=? AND viewed_id=?",Integer.class,actor.userId(),target)!=1)throw missing();
             }
             return account.mattermostId();

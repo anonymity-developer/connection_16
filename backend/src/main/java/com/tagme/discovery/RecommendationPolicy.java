@@ -1,38 +1,28 @@
 package com.tagme.discovery;
 
-/** Internal ranking policy. Scores and interaction signals must never enter a public DTO. */
+/** Internal ranking only. Public DTOs never contain scores or private interaction signals. */
 public final class RecommendationPolicy {
-    public static final String VERSION = "weighted-v2";
-    public static final int LIMIT = 12;
-    private static final int INTEREST = 3000, TYPE = 2000, COMMENT = 1500,
-        LIKE = 1000, UNVISITED = 2000, OTHER_CLASS = 500;
-
+    public static final String VERSION="weighted-v3";
+    public static final int LIMIT=12;
     private RecommendationPolicy() { }
-
-    // Integer hundredths of a point: deterministic ordering without floating-point ties.
-    public record Signals(int commonInterests, int viewerInterests, int peerInterests,
-                          boolean sameType, boolean comment, boolean like,
-                          boolean visited, boolean differentClass) {
-        public Signals {
-            if (commonInterests < 0 || viewerInterests < commonInterests || peerInterests < commonInterests)
-                throw new IllegalArgumentException("Invalid interest counts");
-        }
+    public record Similarity(int common,int viewer,int peer) {
+        public Similarity { if(common<0||viewer<common||peer<common)throw new IllegalArgumentException("Invalid interest counts"); }
+        int points() { long union=(long)viewer+peer-common;return union==0?0:(int)(1000L*common/union); }
     }
-
-    public static int score(Signals signals) {
-        long union = (long) signals.viewerInterests() + signals.peerInterests() - signals.commonInterests();
-        int interest = union == 0 ? 0 : (int) ((long) INTEREST * signals.commonInterests() / union);
-        return interest + (signals.sameType() ? TYPE : 0) + (signals.comment() ? COMMENT : 0)
-            + (signals.like() ? LIKE : 0) + (!signals.visited() ? UNVISITED : 0)
-            + (signals.differentClass() ? OTHER_CLASS : 0);
+    public record Signals(Similarity industry,Similarity development,Similarity stack,boolean sameType,
+                          boolean comment,boolean like,boolean visited,boolean differentClass,int exposures) {
+        public Signals { if(exposures<0)throw new IllegalArgumentException("Invalid exposure count"); }
     }
-
-    /** SQL aliases belong to the repository; all weights come from this versioned policy. */
+    public static int score(Signals s) {
+        return s.industry().points()+s.development().points()+s.stack().points()
+            +(s.sameType()?2000:0)+(s.comment()?1500:0)+(s.like()?1000:0)
+            +(!s.visited()?2000:0)+(s.differentClass()?500:0)-(!s.visited()?Math.min(4,s.exposures())*500:0);
+    }
     static String scoreExpression() {
-        return """
-            (COALESCE(FLOOR(%d * common_count / NULLIF(viewer_count + peer_count - common_count, 0)), 0)
-             + %d * same_type + %d * comment_interaction + %d * like_interaction
-             + %d * (NOT visited) + %d * different_class)
-            """.formatted(INTEREST, TYPE, COMMENT, LIKE, UNVISITED, OTHER_CLASS).strip();
+        String interest=java.util.stream.Stream.of("industry","development","stack").map(c->
+            "COALESCE(FLOOR(1000 * "+c+"_common / NULLIF("+c+"_viewer + "+c+"_peer - "+c+"_common,0)),0)")
+            .collect(java.util.stream.Collectors.joining(" + "));
+        return "("+interest+" + 2000 * same_type + 1500 * comment_interaction + 1000 * like_interaction"
+            +" + 2000 * (NOT visited) + 500 * different_class - 500 * (NOT visited) * LEAST(4, exposures))";
     }
 }

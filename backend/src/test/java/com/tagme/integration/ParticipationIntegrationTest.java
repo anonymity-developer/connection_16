@@ -91,7 +91,7 @@ class ParticipationIntegrationTest {
         token=Base64.getUrlEncoder().withoutPadding().encodeToString(new byte[32]);
         db.update("INSERT INTO tags(mission_id,token_hash) VALUES (1,?)",ParticipationService.tokenHash(token));
     }
-    List<Long> interestIds() { return List.of(repository.interests().getFirst().id()); }
+    List<Long> interestIds() { return db.queryForList("SELECT MIN(id) FROM interests WHERE active=TRUE GROUP BY category",Long.class); }
     ParticipationController.ProfileRequest request(boolean visible,long version) {
         return new ParticipationController.ProfileRequest("테스트별명","테스트 소개","https://github.com/example",null,interestIds(),
                 Arrays.stream(PolicyType.values()).map(t -> new ParticipationController.Acceptance(t,"test-v1")).toList(),version);
@@ -305,6 +305,10 @@ class ParticipationIntegrationTest {
         assertThat(List.of(repository.completion(alice).completionOrder(),repository.completion(bob).completionOrder())).containsExactlyInAnyOrder(1L,2L);
         assertThat(db.queryForObject("SELECT next_value FROM event_completion_sequence WHERE id=1",Long.class)).isEqualTo(3);
     }
+    void legacyProfile() {
+        db.update("INSERT INTO profiles(user_id,nickname,is_public) VALUES (?,'이전 프로필',TRUE)",alice);
+        for(var acceptance:request(true,0).acceptPolicies())repository.agree(alice,acceptance.type(),acceptance.version());
+    }
     @Test void inactiveAndUnknownTagsAndUnboundEvidenceCannotUnlockOrComplete() {
         var validUnknown=Base64.getUrlEncoder().withoutPadding().encodeToString(new byte[]{1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0});
         assertThatThrownBy(() -> service.resolve(principal,ParticipationService.tokenHash(validUnknown))).isInstanceOf(AuthException.class).satisfies(e -> assertThat(((AuthException)e).status()).isEqualTo(404));
@@ -313,7 +317,7 @@ class ParticipationIntegrationTest {
         db.update("UPDATE tags SET active=TRUE");db.update("UPDATE missions SET active=FALSE WHERE code='SHOW_ME'");
         assertThatThrownBy(() -> service.resolve(principal,ParticipationService.tokenHash(token))).isInstanceOf(AuthException.class).satisfies(e -> assertThat(((AuthException)e).status()).isEqualTo(403));
         db.update("UPDATE missions SET active=TRUE");
-        service.save(principal,new ParticipationController.ProfileRequest("테스트별명",null,null,null,List.of(),request(true,0).acceptPolicies(),0));
+        legacyProfile();
         var created = new TransactionTemplate(manager).execute(status -> repository.receipt(alice,"PROFILE",1,Instant.now()));
         var receipt=created;
         assertThatThrownBy(() -> completion.complete(alice,MissionCode.SHOW_ME,receipt.id())).isInstanceOf(AuthException.class).satisfies(e -> assertThat(((AuthException)e).status()).isEqualTo(403));
@@ -344,67 +348,30 @@ class ParticipationIntegrationTest {
         assertThatThrownBy(() -> service.save(principal,request(true,0))).isInstanceOf(AuthException.class);
         assertThat(db.queryForObject("SELECT COUNT(*) FROM mission_progress",Integer.class)).isZero();assertThat(repository.profile(alice)).isNull();
     }
-    @Test void importedIdentityCannotBeOverwrittenAndOnlyNicknameIsRequired() {
+    @Test void importedIdentityCannotBeOverwrittenAndEveryCategoryAndBioAreRequired() {
         login();var body=payload(true,0);body.put("realName","위조 이름");assertThat(send(HttpMethod.PUT,"/users/me/profile",body).getStatusCode().value()).isEqualTo(400);
         body=payload(true,0);body.put("isPublic",false);assertThat(send(HttpMethod.PUT,"/users/me/profile",body).getStatusCode().value()).isEqualTo(400);
-        var minimal=new ParticipationController.ProfileRequest("닉네임만",null,null,null,List.of(),Arrays.stream(PolicyType.values()).map(t->new ParticipationController.Acceptance(t,"test-v1")).toList(),0);
-        assertThat(service.save(principal,minimal).participationReady()).isTrue();assertThat(repository.profile(alice).realName()).isEqualTo("테스트이름");assertThat(repository.profile(alice).isPublic()).isTrue();
-        assertThat(repository.interests()).anyMatch(x->"DOMAIN".equals(x.category())).anyMatch(x->"TECH_STACK".equals(x.category()));
+        body=payload(true,0);body.put("bio"," ");assertThat(send(HttpMethod.PUT,"/users/me/profile",body).getStatusCode().value()).isEqualTo(400);
+        body=payload(true,0);body.put("interestIds",interestIds().subList(0,2));assertThat(send(HttpMethod.PUT,"/users/me/profile",body).getStatusCode().value()).isEqualTo(400);
+        assertThat(service.save(principal,request(true,0)).participationReady()).isTrue();
+        assertThat(repository.interests()).hasSize(72);
+        assertThat(repository.interests().stream().filter(i->i.category().equals("INDUSTRY"))).hasSize(10);
+        assertThat(repository.interests().stream().filter(i->i.category().equals("DEVELOPMENT"))).hasSize(12);
+        assertThat(repository.interests().stream().filter(i->i.category().equals("TECH_STACK"))).hasSize(50);
     }
-    @Test
-    void showMeRequiresBioAndInterestForFirstS() {
-        var consents = Arrays.stream(PolicyType.values())
-                .map(t -> new ParticipationController.Acceptance(t, "test-v1"))
-                .toList();
-
-        // 1. 닉네임만 작성: 저장 가능, S 미지급
-        var minimal = new ParticipationController.ProfileRequest(
-                "테스트별명", null, null, null,
-                List.of(), consents, 0
-        );
-        assertThat(service.save(principal, minimal).participationReady()).isTrue();
-
-        var tag = service.resolve(
-                principal, ParticipationService.tokenHash(token)
-        );
-        assertThat(tag.newlyCompleted()).isFalse();
-        assertThat(repository.mission(alice, MissionCode.SHOW_ME).state())
-                .isEqualTo("LOCKED");
-
-        // 2. 소개만 작성: S 미지급
-        service.save(principal, new ParticipationController.ProfileRequest(
-                "테스트별명", "안녕하세요!", null, null,
-                List.of(), consents, 1
-        ));
-        assertThat(repository.mission(alice, MissionCode.SHOW_ME).state())
-                .isEqualTo("LOCKED");
-
-        // 3. 관심사만 선택: S 미지급
-        service.save(principal, new ParticipationController.ProfileRequest(
-                "테스트별명", null, null, null,
-                interestIds(), consents, 2
-        ));
-        assertThat(repository.mission(alice, MissionCode.SHOW_ME).state())
-                .isEqualTo("LOCKED");
-
-        // 4. 소개 + 관심사 완성: 첫 S 지급
-        service.save(principal, new ParticipationController.ProfileRequest(
-                "테스트별명", "안녕하세요!", null, null,
-                interestIds(), consents, 3
-        ));
-        var mission = repository.mission(alice, MissionCode.SHOW_ME);
-        assertThat(mission.state()).isEqualTo("COMPLETED");
-
-        // 5. 다시 태그를 열어도 중복 지급 없음
-        assertThat(service.resolve(
-                principal, ParticipationService.tokenHash(token)
-        ).newlyCompleted()).isFalse();
-        assertThat(repository.mission(alice, MissionCode.SHOW_ME).completedAt())
-                .isEqualTo(mission.completedAt());
+    @Test void showMeRequiresCompleteProfileAndPreservesItsFirstCompletionTime() {
+        legacyProfile();
+        assertThat(service.resolve(principal,ParticipationService.tokenHash(token)).newlyCompleted()).isFalse();
+        assertThat(repository.mission(alice,MissionCode.SHOW_ME).state()).isEqualTo("LOCKED");
+        var missing=new ParticipationController.ProfileRequest("테스트별명","소개",null,null,List.of(),request(true,0).acceptPolicies(),1);
+        assertThatThrownBy(()->service.save(principal,missing)).isInstanceOf(AuthException.class);
+        service.save(principal,new ParticipationController.ProfileRequest("테스트별명","소개",null,null,interestIds(),request(true,0).acceptPolicies(),1));
+        var mission=repository.mission(alice,MissionCode.SHOW_ME);assertThat(mission.state()).isEqualTo("COMPLETED");
+        assertThat(service.resolve(principal,ParticipationService.tokenHash(token)).newlyCompleted()).isFalse();
+        assertThat(repository.mission(alice,MissionCode.SHOW_ME).completedAt()).isEqualTo(mission.completedAt());
     }
     @Test void finalShowMeValidatorCannotCompleteAnEmptyIntroductionThroughInternalEvidence() {
-        var saved = service.save(principal, new ParticipationController.ProfileRequest(
-                "테스트별명", null, null, null, List.of(), request(true,0).acceptPolicies(), 0));
+        legacyProfile(); var saved=service.profile(alice);
         service.resolve(principal, ParticipationService.tokenHash(token));
         assertThat(repository.eligible(alice)).isTrue();
         assertThat(repository.showMeEligible(alice)).isFalse();

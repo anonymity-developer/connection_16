@@ -1,8 +1,8 @@
 openapi: 3.1.0
 info:
   title: TAG ME 동료 탐색과 프로필 방문 API
-  version: 0.5.4
-  description: 목록은 닉네임/관심사/유형. 가져온 이름·지역·반·사진과 선택 입력 정보는 OPEN 기간 상세에서만 제공. 비공개 설정 없음. 계정/현재 정책/가져오기 조건 필수.
+  version: 0.6.0
+  description: 목록은 닉네임/한 줄 소개/분류별 관심사/유형. 가져온 이름·지역·반·사진과 선택 입력 정보는 OPEN 기간 상세에서만 제공. 비공개 설정 없음. 계정/현재 정책/가져오기 조건 필수.
 servers:
 - url: /api/v1
 paths:
@@ -55,6 +55,42 @@ paths:
         schema:
           type: string
           pattern: ^[A-Za-z0-9._-]{1,64}$
+      - name: industryIds
+        in: query
+        style: form
+        explode: true
+        description: 같은 분류 안에서는 OR, 분류 간에는 AND. 결과는 사용자 ID 내림차순.
+        schema:
+          type: array
+          maxItems: 50
+          uniqueItems: true
+          items:
+            type: integer
+            minimum: 1
+      - name: developmentIds
+        in: query
+        style: form
+        explode: true
+        description: 같은 분류 안에서는 OR, 분류 간에는 AND. 결과는 사용자 ID 내림차순.
+        schema:
+          type: array
+          maxItems: 50
+          uniqueItems: true
+          items:
+            type: integer
+            minimum: 1
+      - name: stackIds
+        in: query
+        style: form
+        explode: true
+        description: 같은 분류 안에서는 OR, 분류 간에는 AND. 결과는 사용자 ID 내림차순.
+        schema:
+          type: array
+          maxItems: 50
+          uniqueItems: true
+          items:
+            type: integer
+            minimum: 1
       description: typeCode/questionnaireVersion은 둘 다 주거나 둘 다 생략. 닉네임만 문자 그대로 검색. 현재 본인 공개 프로필/동의 필요.
   /profiles:
     get:
@@ -66,7 +102,7 @@ paths:
   /discovery/recommendations:
     get:
       summary: 관심사·성향·교류·미방문·다른 반 가산점으로 최대 12명
-      description: weighted-v2 정책의 합산 점수순. 점수와 익명 교류 근거는 응답에 포함하지 않음. seed는 동점 순서만 변경하며 같은 데이터와 seed에서는 같은 결과.
+      description: weighted-v3 정책의 합산 점수순. 점수와 익명 교류 근거는 응답에 포함하지 않음. seed는 동점 순서만 변경하며 같은 데이터와 seed에서는 같은 결과.
       parameters:
       - name: seed
         in: query
@@ -88,6 +124,62 @@ paths:
                 items:
                   $ref: '#/components/schemas/Person'
                 maxItems: 12
+        default:
+          $ref: '#/components/responses/Error'
+  /discovery/recommendations/batch:
+    get:
+      summary: 추천 12명과 노출 확인용 임시 묶음
+      security:
+      - session: []
+      parameters:
+      - name: seed
+        in: query
+        schema:
+          type: string
+          pattern: ^[A-Za-z0-9_-]{1,64}$
+      responses:
+        '200':
+          description: 계정·credential version·선정 ID에 결합된 15분 묶음. 점수/익명 근거 없음.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RecommendationBatch'
+        default:
+          $ref: '#/components/responses/Error'
+  /discovery/recommendations/exposures:
+    post:
+      summary: 실제 화면에 보인 추천 카드 확인. 프로필 방문은 생성하지 않음.
+      security:
+      - session: []
+      parameters:
+      - name: X-XSRF-TOKEN
+        in: header
+        required: true
+        schema:
+          type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              properties:
+                batchId:
+                  type: string
+                  format: uuid
+                profileIds:
+                  type: array
+                  minItems: 1
+                  maxItems: 12
+                  uniqueItems: true
+                  items:
+                    type: integer
+                    minimum: 1
+              required: [batchId, profileIds]
+      responses:
+        '204':
+          description: 최초 접수 또는 같은 묶음/카드 재접수. 중복 시 시각 유지. 최근 24시간 미열람 노출당 -5점, 최대 -20점.
         default:
           $ref: '#/components/responses/Error'
   /discovery/profiles/{id}/open:
@@ -146,6 +238,12 @@ paths:
         default:
           $ref: '#/components/responses/Error'
       parameters:
+      - name: relationship
+        in: query
+        schema:
+          type: string
+          enum: [all, visited, visitors, mutual]
+          default: all
       - name: limit
         in: query
         schema:
@@ -201,9 +299,26 @@ components:
           format: int64
         name:
           type: string
+        category:
+          type: string
+          enum: [INDUSTRY, DEVELOPMENT, TECH_STACK]
       required:
       - id
       - name
+      - category
+    RecommendationBatch:
+      type: object
+      additionalProperties: false
+      properties:
+        batchId:
+          type: string
+          format: uuid
+        items:
+          type: array
+          maxItems: 12
+          items:
+            $ref: '#/components/schemas/Person'
+      required: [batchId, items]
     Type:
       type: object
       additionalProperties: false
@@ -227,6 +342,9 @@ components:
           format: int64
         nickname:
           type: string
+        bio:
+          type: string
+          maxLength: 200
         interests:
           type: array
           items:
@@ -247,6 +365,7 @@ components:
       required:
       - id
       - nickname
+      - bio
       - interests
       - type
       - sharedInterests

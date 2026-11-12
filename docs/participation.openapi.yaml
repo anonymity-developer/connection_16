@@ -2,7 +2,7 @@ openapi: 3.1.0
 info:
   title: TAG ME 페이즈 3 참여 API
   version: 0.5.5
-  description: Mattermost 가져온 identity와 닉네임 필수 프로필. 선택 관심사/소개/링크, 참여·상세 공개 안내 확인. 비공개/철회 API 없음.
+  description: Mattermost 가져온 identity와 닉네임·한 줄 소개·분류별 관심사 필수 프로필. 링크는 선택, 참여·상세 공개 안내 확인. 비공개/철회 API 없음.
 servers:
 - url: /api/v1
 paths:
@@ -351,12 +351,16 @@ components:
         category:
           type: string
           enum:
-          - DOMAIN
+          - INDUSTRY
+          - DEVELOPMENT
           - TECH_STACK
+        groupName:
+          type: [string, 'null']
       required:
       - id
       - name
       - category
+      - groupName
     Profile:
       type: object
       additionalProperties: false
@@ -425,15 +429,15 @@ components:
     ProfileRequest:
       type: object
       additionalProperties: false
+      description: 산업 1~3개·개발 분야 1~3개·기술 스택 1~10개. 중복·비활성 항목·공백 소개 거절.
       properties:
         nickname:
           type: string
           minLength: 1
           maxLength: 30
         bio:
-          type:
-          - string
-          - 'null'
+          type: string
+          minLength: 1
           maxLength: 200
         githubUrl:
           type:
@@ -453,8 +457,8 @@ components:
           items:
             type: integer
             minimum: 1
-          minItems: 0
-          maxItems: 10
+          minItems: 3
+          maxItems: 16
           uniqueItems: true
         acceptPolicies:
           type: array
@@ -463,6 +467,7 @@ components:
           maxItems: 2
       required:
       - nickname
+      - bio
       - expectedVersion
       - interestIds
       - acceptPolicies

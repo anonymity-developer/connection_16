@@ -1,3 +1,4 @@
+import { interestsComplete } from '../participation/catalog';
 import type { MissionRuntime } from './MissionRuntime';
 import type { ContentKind, OwnSlot, PublicContent, Revision } from '../content/api';
 import type { LikeState, OwnComment } from '../content/reactions-api';
@@ -51,7 +52,7 @@ export function createSandbox(definition: PreviewDefinition, interests: Interest
         if (!input.nickname.trim() || input.nickname.trim().length > 30 || input.interestIds.length > 10) throw new ApiError(400, 'INVALID_PROFILE', '닉네임과 관심사를 확인해 주세요.');
         if (input.expectedVersion !== (profile.profile?.version ?? 0)) throw new ApiError(409, 'PROFILE_CHANGED', '미리보기 프로필을 다시 불러와 주세요.');
         if (profile.consents.policies.some(policy => !policy.agreed && !input.acceptPolicies.some(value => value.type === policy.type && value.version === policy.version))) throw new ApiError(409, 'CONSENT_REQUIRED', '미리보기 참여 안내를 확인해 주세요.');
-        if ((input.bio?.length ?? 0) > 200 || new Set(input.interestIds).size !== input.interestIds.length || input.interestIds.some(id => !interests.some(item => item.id === id))) throw new ApiError(400, 'INVALID_PROFILE', '소개와 관심사를 확인해 주세요.');
+        if (!input.bio?.trim() || !interestsComplete(input.interestIds,interests) || (input.bio?.length ?? 0) > 200 || new Set(input.interestIds).size !== input.interestIds.length || input.interestIds.some(id => !interests.some(item => item.id === id))) throw new ApiError(400, 'INVALID_PROFILE', '소개와 관심사를 확인해 주세요.');
         for (const [url, github] of [[input.githubUrl, true], [input.blogUrl, false]] as const) if (url) {
           let valid = false; try { const parsed = new URL(url); valid = parsed.protocol === 'https:' && !parsed.username && !parsed.password && !parsed.hash && (!parsed.port || parsed.port === '443') && ![...url].some(character => character.charCodeAt(0) <= 32 || character.charCodeAt(0) === 127) && (!github || parsed.hostname === 'github.com'); } catch { /* field error below */ }
           if (!valid) throw new ApiError(400, 'INVALID_URL', 'HTTPS 링크를 입력해 주세요. GitHub는 github.com 주소를 사용해 주세요.');

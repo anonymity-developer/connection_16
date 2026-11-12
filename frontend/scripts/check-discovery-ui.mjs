@@ -1,3 +1,4 @@
+import { catalog } from './fixtures/interests.mjs';
 /* global document, window, getComputedStyle, requestAnimationFrame */
 import assert from 'node:assert/strict';
 import { mkdir, writeFile } from 'node:fs/promises';
@@ -12,8 +13,8 @@ try {
   const codes = ['SHOW_ME', 'SYNC_ME', 'MAKE_A_WISH', 'FAST_TAP', 'SAY_SOMETHING'];
   const blank = { id: null, version: 0, visibility: null, approvedRevision: null, pendingRevision: null, latestRevision: null, missionCompleted: false, luckScore: null, landingZone: null };
   let signedIn = false, required = false, empty = false, hidden = false, unsafe = false, failOpen = false, discoveryReads = 0, opens = 0, holdCursor = false, releaseCursor = null;
-  const visited = new Set(), inbound = new Set([3]), recommendationSeeds = [];
-  const rawPeople = [2, 3, 4].map(id => ({ id, nickname: id === 2 ? '테스트_%!' : id === 3 ? '테스트 달' : '테스트' + '가'.repeat(27), interests: [{ id: 1, name: '백엔드' }, { id: 2, name: '데이터' }], type: id === 2 ? { code: 'I', title: '테스트 취향', version: 'test-v1' } : null, sharedInterests: id === 2 ? ['백엔드'] : [], sameType: id === 2 }));
+  const visited = new Set(), inbound = new Set([3]), recommendationSeeds = [], exposures = []; let batchSequence=0, manyRecommendations=false; const issuedBatches=new Map();
+  const rawPeople = [2, 3, 4].map(id => ({ id, bio: '목록에서 확인하는 한 줄 소개', nickname: id === 2 ? '테스트_%!' : id === 3 ? '테스트 달' : '테스트' + '가'.repeat(27), interests: [{ id: 1, name: '백엔드' }, { id: 2, name: '데이터' }], type: id === 2 ? { code: 'I', title: '테스트 취향', version: 'test-v1' } : null, sharedInterests: id === 2 ? ['백엔드'] : [], sameType: id === 2 }));
   const person = id => ({ ...rawPeople.find(p => p.id === id), visited: visited.has(id), visitedMe: inbound.has(id), mutual: visited.has(id) && inbound.has(id) });
   const stats = () => empty ? { visitedCount: 0, visitorCount: 0, mutualCount: 0 } : { visitedCount: visited.size, visitorCount: inbound.size, mutualCount: [...visited].filter(id => inbound.has(id)).length };
   await page.route('**/api/v1/**', async route => {
@@ -27,21 +28,22 @@ try {
       if (method === 'GET' && path === '/csrf') return reply(200, { headerName: 'X-XSRF-TOKEN', token: 'discovery-test-csrf' });
       if (method === 'GET' && path === '/event') return reply(200, { status: 'OPEN', opensAt: null, submitClosesAt: null, profilePreparationEnabled: false });
       if (method === 'GET' && path === '/missions/collection') return reply(200, { missions: codes.map((code, index) => ({ id: index + 1, code, state: ['MAKE_A_WISH', 'SAY_SOMETHING'].includes(code) ? 'UNLOCKED' : 'LOCKED', active: true })), completedCount: 0, completion: { complete: false, completionOrder: null, completedAt: null, awardConfirmed: false } });
-      if (method === 'GET' && path === '/interests') return reply(200, [{ id: 1, name: '백엔드' }, { id: 2, name: '데이터' }]);
+      if (method === 'GET' && path === '/interests') return reply(200, catalog);
       if (path.startsWith('/discovery/')) {
         discoveryReads++; assert.equal(signedIn, true);
         if (required) return reply(409, { code: 'PROFILE_REQUIRED', message: '내 프로필과 현재 공개 동의를 먼저 확인해 주세요.' });
         if (method === 'GET' && path === '/discovery/stats') return reply(200, stats());
-        if (method === 'GET' && path === '/discovery/recommendations') { recommendationSeeds.push(url.searchParams.get('seed')); return reply(200, empty ? [] : [person(4), person(3), person(2)]); }
+        if (method === 'GET' && path === '/discovery/recommendations/batch') { recommendationSeeds.push(url.searchParams.get('seed')); const batchId=`fixture-batch-${++batchSequence}`, items=empty ? [] : manyRecommendations ? Array.from({length:12},(_,i)=>({...person(4),id:100+i,nickname:`노출 검사 ${i}`})) : [person(4),person(3),person(2)]; issuedBatches.set(batchId,new Set(items.map(p=>p.id))); return reply(200,{batchId,items}); }
+        if (method === 'POST' && path === '/discovery/recommendations/exposures') { assert.equal(req.headers()['x-xsrf-token'],'discovery-test-csrf'); const body=JSON.parse(req.postData()); assert.ok(body.profileIds.length>0 && body.profileIds.length<=12); assert.ok(body.profileIds.every(id=>issuedBatches.get(body.batchId)?.has(id))); exposures.push(body); return route.fulfill({status:204}); }
         if (method === 'GET' && path === '/discovery/people') {
           if (empty) return reply(200, { items: [], nextCursor: null });
           const cursor = url.searchParams.get('cursor'), q = url.searchParams.get('q');
           if (cursor && holdCursor) { holdCursor = false; await new Promise(r => { releaseCursor = r; }); return reply(200, { items: [person(2)], nextCursor: null }); }
-          if (q === '테스트_%!') { assert.equal(url.searchParams.get('interestId'), '1'); return reply(200, { items: [person(2)], nextCursor: null }); }
+          if (q === '테스트_%!') { assert.equal(url.searchParams.get('developmentIds'), '11'); return reply(200, { items: [person(2)], nextCursor: null }); }
           if (q === '테스트') return reply(200, cursor ? { items: [person(3)], nextCursor: null } : { items: [person(4)], nextCursor: 4 });
           return reply(200, cursor ? { items: [person(2)], nextCursor: null } : { items: [person(4), person(3)], nextCursor: 3 });
         }
-        if (method === 'GET' && path === '/discovery/graph') { assert.equal(url.searchParams.get('limit'), '30'); const nodes = empty ? [] : rawPeople.filter(p => visited.has(p.id) || inbound.has(p.id)).map(p => person(p.id)); return reply(200, { self: { id: 1, nickname: '테스트 나' }, nodes, edges: nodes.flatMap(p => [...(p.visited ? [{ from: 1, to: p.id, weight: p.mutual ? 6 : 1 }] : []), ...(p.visitedMe ? [{ from: p.id, to: 1, weight: p.mutual ? 6 : 1 }] : [])]), truncated: false }); }
+        if (method === 'GET' && path === '/discovery/graph') { assert.equal(url.searchParams.get('limit'), '30'); const relation=url.searchParams.get('relationship')||'all'; const nodes = (empty ? [] : rawPeople.filter(p => visited.has(p.id) || inbound.has(p.id)).map(p => person(p.id))).filter(p=>relation==='all'||relation==='visited'&&p.visited||relation==='visitors'&&p.visitedMe||relation==='mutual'&&p.mutual); return reply(200, { self: { id: 1, nickname: '테스트 나' }, nodes, edges: nodes.flatMap(p => [...(p.visited ? [{ from: 1, to: p.id, weight: p.mutual ? 6 : 1 }] : []), ...(p.visitedMe ? [{ from: p.id, to: 1, weight: p.mutual ? 6 : 1 }] : [])]), truncated: false }); }
         if (method === 'GET' && path === '/discovery/profiles/2/photo') { assert.equal(visited.has(2), true); return route.fulfill({ status: 200, contentType: 'image/png', body: Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aENcAAAAASUVORK5CYII=', 'base64') }); }
         const match = path.match(/^\/discovery\/profiles\/(\d+)\/open$/);
         if (match && method === 'POST') {
@@ -79,18 +81,18 @@ try {
   await page.setViewportSize({ width: 390, height: 900 }); record('recommendations show only public nicknames, real reasons and server counts at five widths');
   await visit('/discovery?seed=batch-a'); await page.locator('.person-row').first().waitFor();
   assert.equal(recommendationSeeds.at(-1), 'batch-a');
-  assert.equal(await page.getByText('관심사·취향 유형·교류와 새로운 만남을 함께 고려해 추천해요.', {exact:true}).count(), 1);
+  assert.equal(await page.getByText('관심사와 취향, 활동을 바탕으로 동료를 추천해요.', {exact:true}).count(), 1);
   await page.reload(); await page.locator('.person-row').first().waitFor(); assert.equal(recommendationSeeds.at(-1), 'batch-a');
-  await page.getByRole('button', {name:'다른 동료 추천받기',exact:true}).click(); await page.locator('.person-row').first().waitFor();
+  await page.getByRole('button', {name:'다른 동료 추천받기',exact:true}).click(); await page.waitForURL(url=>url.searchParams.get('seed')!=='batch-a'); await page.locator('.person-row').first().waitFor();
   const nextSeed=new URL(page.url()).searchParams.get('seed'); assert.match(nextSeed,/^[0-9a-f-]{36}$/); assert.equal(recommendationSeeds.at(-1),nextSeed);
   await page.goBack(); await page.locator('.person-row').first().waitFor(); assert.equal(recommendationSeeds.at(-1),'batch-a'); assert.equal(opens,0);
   record('recommendation batches keep their seed on reload/back and explicit refresh changes only the seed without recording visits');
-  await page.getByRole('link', { name: '전체 동료', exact: true }).click(); await page.getByLabel('닉네임 검색', { exact: true }).fill('테스트_%!'); await page.getByLabel('관심사', { exact: true }).selectOption('1'); await page.getByRole('button', { name: '동료 검색하기', exact: true }).click(); await page.getByRole('link', { name: '테스트_%! 프로필 보기', exact: true }).waitFor(); assert.equal(await page.locator('.person-row').count(), 1);
+  await page.getByRole('link', { name: '전체 동료', exact: true }).click(); await page.getByLabel('닉네임 검색', { exact: true }).fill('테스트_%!'); await page.getByText('관심 개발 분야',{exact:true}).first().click(); await page.getByRole('checkbox',{name:'백엔드',exact:true}).check(); await page.getByRole('button', { name: '동료 검색하기', exact: true }).click(); await page.getByRole('link', { name: '테스트_%! 프로필 보기', exact: true }).waitFor(); assert.equal(await page.locator('.person-row').count(), 1);
   await page.goBack(); await page.getByRole('button', { name: '동료 더 보기', exact: true }).waitFor(); assert.equal(await page.getByLabel('닉네임 검색', { exact: true }).inputValue(), '');
   holdCursor = true; await page.getByRole('button', { name: '동료 더 보기', exact: true }).click(); await page.getByLabel('닉네임 검색', { exact: true }).fill('테스트'); await page.getByRole('button', { name: '동료 검색하기', exact: true }).click(); await page.getByRole('button', { name: '동료 더 보기', exact: true }).waitFor(); assert.equal(await page.getByRole('button', { name: '동료 더 보기', exact: true }).isDisabled(), false); assert.ok(releaseCursor); releaseCursor();
   await page.getByRole('button', { name: '동료 더 보기', exact: true }).click(); await page.getByRole('link', { name: '테스트 달 프로필 보기', exact: true }).waitFor(); assert.equal(await page.getByRole('link', { name: '테스트_%! 프로필 보기', exact: true }).count(), 0); assert.equal(opens, 0);
   record('nickname and interest filters survive back navigation; stale pagination never overwrites a new search');
-  await visit('/discovery'); await page.getByRole('link', { name: '테스트_%! 프로필 보기', exact: true }).click(); await page.getByText('테스트 실명2', { exact: true }).waitFor(); assert.equal(opens, 1); assert.equal(await page.getByText('처음 열어본 프로필이에요', { exact: true }).count(), 1); assert.equal(visited.size, 1); assert.equal(await page.evaluate(() => window.profileInjected), undefined); assert.equal(await page.getByRole('link', { name: 'GitHub 열기 (새 탭)', exact: true }).getAttribute('rel'), 'noopener noreferrer'); assert.equal((await page.title()).includes('실명'), false);
+  await visit('/discovery'); await page.getByRole('link', { name: '테스트_%! 프로필 보기', exact: true }).click(); await page.getByText('테스트 실명2', { exact: true }).waitFor(); assert.equal(opens, 1); assert.equal(await page.getByText('처음 열어본 프로필이에요', { exact: true }).count(), 1); assert.equal(visited.size, 1); assert.equal(await page.evaluate(() => window.profileInjected), undefined); assert.equal(await page.getByRole('link', { name: 'GitHub 열기 (새 탭)', exact: true }).getAttribute('rel'), 'noopener noreferrer'); assert.equal((await page.title()).includes('실명'), false); await page.locator('.public-profile img').waitFor(); assert.ok(await page.locator('.public-profile img').evaluate(img=>img.complete&&img.naturalWidth>0)); assert.equal(await page.getByText('서울 · 3반',{exact:true}).count(),1); assert.equal(await page.getByRole('link',{name:'블로그 열기 (새 탭)',exact:true}).getAttribute('href'),'https://example.com/test');
   for (const width of [360, 390, 430, 768, 1440]) { await page.setViewportSize({ width, height: 900 }); assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth), false); await page.screenshot({ path: resolve(output, `public-profile-${width}.png`), fullPage: true }); }
   await page.reload(); await page.getByText('이전에 열어본 프로필이에요', { exact: true }).waitFor(); assert.equal(visited.size, 1); await page.setViewportSize({ width: 390, height: 900 });
   record('explicit profile navigation uses CSRF POST, renders detail safely and preserves one natural visit on refresh');
@@ -99,11 +101,13 @@ try {
   record('uncertain detail retries are idempotent; private profiles clear old fields and unsafe external links stay hidden');
   inbound.add(2); await visit('/discovery/graph'); await page.locator('.discovery-graph').waitFor(); assert.equal(await page.locator('.discovery-graph line').count(), 2); assert.equal(await page.getByText('서로 열어봤어요', { exact: true }).count(), 1);
   for (const width of [360, 390, 430, 768, 1440]) { await page.setViewportSize({ width, height: 900 }); assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth), false); await page.screenshot({ path: resolve(output, `discovery-graph-${width}.png`), fullPage: true }); }
+  await page.getByRole('button',{name:'내가 봄',exact:true}).click(); await page.locator('.people-list li').first().waitFor(); assert.equal(await page.locator('.people-list li').count(),1); await page.getByRole('button',{name:'나를 봄',exact:true}).click(); await page.locator('.people-list li').nth(1).waitFor(); await page.getByRole('button',{name:'전체',exact:true}).click(); await page.locator('.people-list li').nth(1).waitFor();
   empty = true; await page.reload(); await page.getByText('아직 공개된 열람 관계가 없어요.', { exact: true }).waitFor(); assert.equal(await page.locator('.visit-stats dd').first().textContent(), '0명'); empty = false;
   empty = false; await visit('/discovery/graph'); await page.locator('.network-node').first().waitFor();
-  assert.equal(await page.locator('.network-strong line').count(), 1);
-  assert.equal(await page.locator('.network-strong line').first().evaluate(el => getComputedStyle(el).strokeWidth), '4px');
+  assert.equal(await page.locator('.discovery-graph line[style*="3"]').count(),1);
+  await page.setViewportSize({width:390,height:900});
   const opensBeforeNode = opens; await page.locator('.network-node').first().click();
+  await page.getByRole('dialog').waitFor(); assert.equal(opens,opensBeforeNode); await page.keyboard.press('Escape'); assert.equal(await page.getByRole('dialog').count(),0); assert.ok(await page.locator('.network-node').first().evaluate(el=>el===document.activeElement)); await page.locator('.network-node').first().click(); await page.getByRole('dialog').waitFor(); assert.equal(await page.getByRole('dialog').getByText('목록에서 확인하는 한 줄 소개',{exact:true}).count(),1); await page.getByRole('dialog').getByRole('link',{name:'프로필 보기',exact:true}).click();
   await page.locator('.public-profile').waitFor(); assert.equal(opens, opensBeforeNode + 1);
   const readsBeforeHome = discoveryReads; await visit('/'); await page.locator('.mission-section').waitFor();
   assert.equal(await page.locator('.discovery-graph, .home-network').count(), 0); assert.equal(discoveryReads, readsBeforeHome);
@@ -134,6 +138,15 @@ try {
   await page.locator('.people-list li').nth(30).waitFor();
   assert.equal(await page.getByRole('button', { name: '연결된 동료 더 보기' }).count(), 0);
   record('30 long nicknames fit separated graph targets at five widths; the list loads the 31st relationship');
+  manyRecommendations=true; await page.setViewportSize({width:390,height:650}); await visit('/discovery?seed=visibility');
+  await page.locator('.person-row').nth(11).waitFor();
+  await Promise.all([page.waitForResponse(response=>response.url().includes('/recommendations/exposures')&&response.request().method()==='POST'),page.locator('.person-row').first().scrollIntoViewIfNeeded()]);
+  const visibleBatch=`fixture-batch-${batchSequence}`, recorded=exposures.filter(item=>item.batchId===visibleBatch).flatMap(item=>item.profileIds);
+  assert.ok(recorded.length>0&&recorded.length<12,'only cards actually in the viewport are acknowledged');
+  assert.equal(new Set(recorded).size,recorded.length,'one acknowledgement per card in a batch');
+  assert.ok(!recorded.includes(111),'offscreen last card is never acknowledged');
+  manyRecommendations=false;
+  record('only recommendations at least half visible are acknowledged with CSRF; offscreen cards and graph previews never create visits');
   required = true; await visit('/discovery'); await page.getByRole('link', { name: '내 프로필과 참여 안내 확인하기', exact: true }).waitFor(); assert.equal(await page.locator('.person-row').count(), 0); assert.equal(await page.locator('.visit-stats').count(), 0); required = false;
   await visit('/missions/say-something'); await page.getByRole('link', { name: '테스트 공개의 프로필 보기', exact: true }).waitFor(); assert.equal(await page.locator('.content-feed-list a[href="/discovery/profiles/999"]').count(), 0); assert.equal(await page.locator('.content-feed-list a[href="/discovery/profiles/2"]').count(), 1);
   await visit('/missions/make-a-wish'); await page.getByRole('button', { name: '소원 1 열기', exact: true }).click(); await page.getByRole('button', { name: '댓글 보기', exact: true }).click(); await page.getByRole('link', { name: '테스트 공개의 프로필 보기', exact: true }).waitFor(); assert.equal(await page.locator('.comment-list a[href="/discovery/profiles/999"]').count(), 0); await page.getByRole('link', { name: '테스트 공개의 프로필 보기', exact: true }).click(); await page.getByText('테스트 실명2', { exact: true }).waitFor();

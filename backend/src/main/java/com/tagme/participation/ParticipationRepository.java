@@ -96,7 +96,10 @@ public class ParticipationRepository {
         var versions = db.queryForList("SELECT policy_version FROM user_consents WHERE user_id=? AND policy_type=? AND withdrawn_at IS NULL",String.class,userId,type.name());
         versions.forEach(version -> withdraw(userId,type,version));
     }
-    public List<CatalogInterest> interests() { return db.query("SELECT id,name,category FROM interests ORDER BY category,id", (row,n) -> new CatalogInterest(row.getLong("id"), row.getString("name"),row.getString("category"))); }
+    public List<CatalogInterest> interests() { return db.query("SELECT id,name,category,group_name FROM interests WHERE active=TRUE ORDER BY FIELD(category,'INDUSTRY','DEVELOPMENT','TECH_STACK'),display_order,id", (row,n) -> new CatalogInterest(row.getLong("id"), row.getString("name"),row.getString("category"),row.getString("group_name"))); }
+    public boolean discoveryReady(long id) {
+        return db.queryForObject("SELECT COUNT(*) FROM profiles p WHERE p.user_id=? AND TRIM(COALESCE(p.bio,''))<>'' AND "+InterestCatalog.readySql("p.user_id"),Integer.class,id)==1;
+    }
     public OwnProfile profile(long id) {
         return db.query("""
                 SELECT p.*,u.real_name,u.region,u.class_no,u.mattermost_profile_synced_at FROM profiles p JOIN users u ON u.id=p.user_id WHERE p.user_id=?
@@ -123,7 +126,7 @@ public class ParticipationRepository {
     var profile = profile(userId);
 
     return present(profile.bio())
-            && !profile.interestIds().isEmpty();
+            && !profile.interestIds().isEmpty() && discoveryReady(userId);
     }
     public boolean showMeRegrantBlocked(long userId) { return db.queryForObject("SELECT COUNT(*) FROM show_me_regrant_blocks WHERE user_id=?",Integer.class,userId)>0; }
     public void allowShowMeRegrant(long userId) { db.update("DELETE FROM show_me_regrant_blocks WHERE user_id=?",userId); }

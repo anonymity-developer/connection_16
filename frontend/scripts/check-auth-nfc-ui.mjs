@@ -1,3 +1,4 @@
+import { catalog } from './fixtures/interests.mjs';
 import assert from 'node:assert/strict';
 import { chromium } from 'playwright';
 import { preview } from 'vite';
@@ -34,7 +35,7 @@ try {
         if (path === '/csrf') return reply(200, { headerName: 'X-XSRF-TOKEN', token: 'test-csrf' });
         if (path === '/event') return reply(200, { status: 'OPEN', opensAt: null, submitClosesAt: null, profilePreparationEnabled: false });
         if (path === '/users/me/profile') return reply(200, profile());
-        if (path === '/interests') return reply(200, []);
+        if (path === '/interests') return reply(200, catalog);
         if (path === '/missions/collection') return reply(200, { missions: missions.map((code, i) => ({ id: i + 1, code, active: true, state: 'LOCKED' })), completedCount: 0, completion: { complete: false } });
         if (path === '/discovery/graph') return reply(200, { self: { id: 1, nickname: '테스트' }, nodes: [], edges: [], truncated: false });
         // The destination mission's content is outside this STEP 1 contract.
@@ -89,7 +90,7 @@ try {
         await page.getByRole('button', { name: '가입하기', exact: true }).click();
         await page.waitForURL('**/me/profile');
         await page.reload();
-        await page.getByLabel('닉네임', { exact: true }).fill('테스트');
+        await page.getByLabel('닉네임', { exact: true }).fill('테스트'); await page.getByLabel('한 줄 소개 (필수)',{exact:true}).fill('테스트 소개'); for (const name of ['금융·핀테크','백엔드','Java']) await page.getByRole('checkbox',{name,exact:true}).check();
         for (const box of await page.locator('input[name="policy"]').all()) await box.check();
         await page.getByRole('button', { name: '프로필 저장하기', exact: true }).click();
       }

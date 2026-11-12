@@ -1,6 +1,6 @@
 import type { Graph } from './api';
 
-// Reserve a 64px label box and 44px touch target at every point on the ring.
+// Reserve an 80px label box and 44px touch target at every point on the ring.
 export function networkLayout(graph: Graph, width: number) {
   if (!Number.isFinite(width) || width < 128) return [];
   const neighbors = new Map<number, { outgoing: boolean; incoming: boolean; weight: number }>();
@@ -26,7 +26,7 @@ export function networkLayout(graph: Graph, width: number) {
   }).sort((a, b) => b.weight - a.weight || b.person.id - a.person.id);
   const radius = Math.min(124, 160 - 34 * 320 / width);
   // A chord longer than the touch box diagonal separates adjacent labels.
-  const capacity = Math.max(1, Math.floor(Math.PI / Math.asin(Math.min(1, 42 / (radius * width / 320)))));
+  const capacity = Math.max(1, Math.floor(Math.PI / Math.asin(Math.min(1, 50 / (radius * width / 320)))));
   const drawn = peers.slice(0, capacity);
   return drawn.map((peer, i) => {
     const angle = -Math.PI / 2 + i * 2 * Math.PI / drawn.length;

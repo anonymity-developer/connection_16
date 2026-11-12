@@ -1,3 +1,4 @@
+import { catalog } from './fixtures/interests.mjs';
 /* global document, window */
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
@@ -47,7 +48,7 @@ try {
     if (path.startsWith('/admin/members/')) return reply(200, { member: members.find(m => m.id === Number(path.split('/').at(-1))), bio: '화면 검증용 합성 프로필입니다.', interests: ['백엔드', 'Java'], githubUrl: null, blogUrl: null, missions: codes.map(code => ({ code, title: code.replaceAll('_', ' '), state: 'COMPLETED', unlockedAt: now, completedAt: now, participated: true, resultStatus: code === 'FAST_TAP' ? 'VALID' : null, tapCount: code === 'FAST_TAP' ? 25 : null, syncType: null, moderationStatus: null })), connections: [{ startedAt: now, lastSeenAt: now, expiresAt: now, endedAt: now, status: 'LOGOUT', seconds: 3600 }] });
     if (path.startsWith('/admin/rankings/')) return reply(200, { mission: path.split('/').at(-1), basis: '브라우저 검증용 합성 순위', ...slice(members.map((m, i) => ({ rank: i + 1, userId: m.id, nickname: m.nickname, realName: m.realName, region: m.region, classNo: m.classNo, metric: 30 - i * 5, completedAt: now })), url.searchParams) });
     if (path === '/admin/preview/sync') { previewReads++; return reply(200, definition); }
-    if (path === '/interests') return reply(200, [{ id: 1, name: '백엔드', category: 'DOMAIN' }, { id: 2, name: 'Java', category: 'TECH_STACK' }]);
+    if (path === '/interests') return reply(200, catalog);
     return reply(500, { message: `Unexpected GET ${path}` });
   });
   const visit = path => page.goto('http://127.0.0.1:4573' + path);
@@ -113,9 +114,9 @@ try {
   await wish.getByRole('button', { name: '댓글 보기', exact: true }).click(); await wish.getByLabel('동료의 소원에 댓글 남기기', { exact: true }).fill('메모리 댓글 승인 확인');
   await wish.getByRole('button', { name: '댓글 남기기', exact: true }).click(); await wish.getByText('공개됨', { exact: true }).waitFor(); await wish.locator('.comment-list').first().getByText('메모리 댓글 승인 확인', { exact: true }).waitFor();
   record('shared fountain, comments and heart controls run entirely in preview memory');
-  await page.getByLabel('미리 볼 미션', { exact: true }).selectOption('SHOW_ME'); await page.getByLabel('닉네임', { exact: true }).fill('미리보기 첫인사'); await page.getByRole('checkbox', { name: '참여 안내와 상세 정보 공개 범위를 확인했어요.', exact: true }).check(); await page.getByRole('button', { name: '프로필 저장하기', exact: true }).click(); await page.getByText('미리보기 프로필을 저장했어요.', { exact: false }).waitFor();
+  await page.getByLabel('미리 볼 미션', { exact: true }).selectOption('SHOW_ME'); await page.getByLabel('닉네임', { exact: true }).fill('미리보기 첫인사'); await page.getByRole('checkbox', { name: '참여 안내와 상세 정보 공개 범위를 확인했어요.', exact: true }).check(); await page.getByRole('button', { name: '프로필 저장하기', exact: true }).click(); assert.equal(await page.getByText('미리보기 프로필을 저장했어요.', { exact: false }).count(),0);
   await page.getByRole('heading', { name: '첫 번째 S 준비하기', exact: true }).waitFor();
-  await page.getByLabel('한 줄 소개 (선택)', { exact: true }).fill('관리자 화면 확인용 예시 소개'); await page.getByRole('checkbox', { name: '백엔드', exact: true }).check(); await page.getByRole('button', { name: '프로필 저장하기', exact: true }).click(); await page.getByRole('heading', { name: '첫 번째 S를 모았어요', exact: true }).waitFor();
+  await page.getByLabel('한 줄 소개 (필수)', { exact: true }).fill('관리자 화면 확인용 예시 소개'); await page.getByRole('checkbox', { name: '백엔드', exact: true }).check(); await page.getByRole('checkbox', { name: '금융·핀테크', exact: true }).check(); await page.getByRole('checkbox', { name: 'Java', exact: true }).check(); await page.getByRole('button', { name: '프로필 저장하기', exact: true }).click(); await page.getByRole('heading', { name: '첫 번째 S를 모았어요', exact: true }).waitFor();
   assert.deepEqual(mutations, ['/auth/login']); record('all five previews preserve participant profile, session identity and official records; only login used POST');
   await page.screenshot({ path: resolve(output, 'admin-preview-390.png'), fullPage: true });
   allowed = false; const before = previewReads; await page.reload(); await page.getByRole('alert').filter({ hasText: '관리자 권한이 필요해요.' }).waitFor(); assert.equal(previewReads, before); assert.equal(await page.locator('.admin-preview-stage').count(), 0); record('revoked administrator access never loads preview data or mounts a preview');
