@@ -82,7 +82,7 @@ public class OperationsService {
         return tx.execute(s->{admin(actor);var ids=repository.contentIds(before,size+1,k,v);var rows=ids.stream().limit(size).map(id->snapshot(content.item(id,false))).toList();return new Page<>(rows,ids.size()>size?ids.get(size-1):null);});
     }
     public Page<Audit> audits(AuthPrincipal actor,Long cursor,Integer limit,String action) {
-        access(actor);int size=size(limit);long before=cursor(cursor,Long.MAX_VALUE);String a=filter(action,List.of("MODERATION_DECISION","MODERATION_RETRY","CONTENT_VISIBILITY","GAME_PARTICIPATION_RESET"));
+        access(actor);int size=size(limit);long before=cursor(cursor,Long.MAX_VALUE);String a=filter(action,List.of("MODERATION_DECISION","MODERATION_RETRY","CONTENT_VISIBILITY","GAME_PARTICIPATION_RESET","MEMBER_DEACTIVATED","MISSION_ADJUSTED"));
         return tx.execute(s->{admin(actor);var rows=audit.list(before,size+1,a);return new Page<>(rows.stream().limit(size).toList(),rows.size()>size?rows.get(size-1).id():null);});
     }
     private long[] owners(AuthPrincipal actor,Item item) {

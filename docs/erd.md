@@ -1,5 +1,7 @@
 # 전체 도메인 ERD와 관계 규칙
 
+V15의 추가 관계는 users 1:N error_reports(서버 신고자), users 1:0..1 account_deactivations(원래 외부 연결 보관), users 1:0..1 show_me_regrant_blocks(첫 S 재지급 차단)다. account_deactivations.change_id는 game_participation_resets.id를 참조하고, 조정 원장에 operation/mission_code가 추가된다. 비활성화한 user ID는 보존하며 재가입은 별도 ID라 이전 참여 FK와 합쳐지지 않는다. [현재 운영 지원 계약](support-and-member-controls.md).
+
 V12는 `users 1 — N game_participation_resets`(user_id/actor_id FK), 콘텐츠/탭 archived_at과 현재 슬롯 UNIQUE를 추가한다. 초기화 전 결과는 보관하고 현재 참여와 순위에서 제외한다. [현재 공개·초기화 계약](direct-publication-and-reset.md).
 
 V10에서 `users 1 — 0..1 local_admin_accounts`, `users 1 — N connection_sessions`가 추가됐다. local_admin_accounts는 user_id PK/FK·login_id UNIQUE, connection_sessions는 UUID PK·user_id FK·credential_version·started_at/last_seen_at/expires_at/ended_at·end_reason을 가진다. 상세 계약은 [관리자 콘솔](admin-console.md)이다.

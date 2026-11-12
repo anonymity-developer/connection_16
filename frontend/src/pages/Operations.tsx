@@ -11,7 +11,7 @@ import type { Audit, Content, Page, Task } from '../features/operations/api';
 
 const states: Record<string, string> = { PENDING: '미처리 전체', QUEUED: '자동 검수 대기', PROCESSING: '자동 검수 중', REVIEW_REQUIRED: '관리자 확인 필요', APPROVED: '승인', REJECTED: '거절', SUPERSEDED: '다음 수정본으로 교체', ALL: '모든 검수', VISIBLE: '공개 허용', HIDDEN: '운영자 숨김' };
 const kinds: Record<string, string> = { WISH: '소원', CHEER: '응원', COMMENT: '소원 댓글' };
-const actions: Record<string, string> = { MODERATION_DECISION: '검수 판정', MODERATION_RETRY: '검수 재처리', CONTENT_VISIBILITY: '공개 상태 변경', GAME_PARTICIPATION_RESET: '게임 참여 초기화' };
+const actions: Record<string, string> = { MODERATION_DECISION: '검수 판정', MODERATION_RETRY: '검수 재처리', CONTENT_VISIBILITY: '공개 상태 변경', GAME_PARTICIPATION_RESET: '게임 참여 초기화', MEMBER_DEACTIVATED:'계정 비활성화', MISSION_ADJUSTED:'글자 조정' };
 const label = (state: string) => states[state] || state;
 const time = (value: string) => new Intl.DateTimeFormat('ko-KR', { dateStyle: 'short', timeStyle: 'short', timeZone: 'Asia/Seoul' }).format(new Date(value));
 function Body({ title, revision }: { title: string; revision: Revision | null }) {

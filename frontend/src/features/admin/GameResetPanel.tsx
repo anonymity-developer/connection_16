@@ -10,7 +10,7 @@ export function GameResetPanel({ detail, onReset, onDenied }: { detail: MemberDe
   const [uncertain, setUncertain] = useState(false), [blocked, setBlocked] = useState(false);
   const pending = useRef<{ key: string; body: { expectedGeneration: number; reason: string; confirmation: string } } | null>(null);
   const reasonInput = useRef<HTMLTextAreaElement>(null), confirmationInput = useRef<HTMLInputElement>(null), submitting = useRef(false);
-  const participated = detail.missions.some(m => m.code !== 'SHOW_ME' && (m.participated || m.state === 'COMPLETED' || m.state === 'IN_PROGRESS'));
+  const participated = detail.member.status === 'ACTIVE' && detail.missions.some(m => m.code !== 'SHOW_ME' && (m.participated || m.state === 'COMPLETED' || m.state === 'IN_PROGRESS'));
   async function submit(event: FormEvent) {
     event.preventDefault();
     if (submitting.current || blocked) return;
@@ -39,7 +39,7 @@ export function GameResetPanel({ detail, onReset, onDenied }: { detail: MemberDe
     <p className="admin-muted">계정·프로필·첫 S·태그 해금·접속 이력·동료 관계는 유지합니다. 이전 글과 결과는 보관하며 초기화 이력을 남깁니다.</p>
     {!participated && <p className="admin-muted">현재 초기화할 게임 참여 기록이 없어요.</p>}
     {notice && <p role="status">{notice}</p>}
-    {!!detail.resets?.length && <details><summary>초기화 이력 · 최근 {detail.resets.length}건</summary><ol className="admin-reset-history">{detail.resets.map(row => <li key={row.id}><strong>{row.generation}번째 초기화</strong><span>{new Intl.DateTimeFormat('ko-KR', { dateStyle: 'short', timeStyle: 'short', timeZone: 'Asia/Seoul' }).format(new Date(row.createdAt))} · 운영자 #{row.actorId}</span><p>{row.reason}</p></li>)}</ol></details>}
+    {!!detail.resets?.length && <details><summary>계정·참여 조정 이력 · 최근 {detail.resets.length}건</summary><ol className="admin-reset-history">{detail.resets.map(row => <li key={row.id}><strong>{row.generation}번째 조정 · {row.missionCode ? `${row.missionCode} · ` : ''}{({RESET_GAMES:'네 게임 초기화',UNLOCK:'해금',LOCK:'다시 잠금',GRANT:'획득 부여',REVOKE:'획득 취소',DEACTIVATE:'계정 비활성화'} as Record<string,string>)[row.operation||'RESET_GAMES']}</strong><span>{new Intl.DateTimeFormat('ko-KR', { dateStyle: 'short', timeStyle: 'short', timeZone: 'Asia/Seoul' }).format(new Date(row.createdAt))} · 운영자 #{row.actorId}</span><p>{row.reason}</p></li>)}</ol></details>}
     <Dialog open={open} title="게임 참여 초기화" onClose={() => { if (!busy) setOpen(false); }}>
       <form className="admin-reset-form" onSubmit={submit} noValidate aria-busy={busy}>
         <p><strong>{detail.member.nickname || detail.member.realName || detail.member.username}</strong> · {detail.member.username}</p>

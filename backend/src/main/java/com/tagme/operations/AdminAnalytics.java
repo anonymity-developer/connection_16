@@ -29,14 +29,14 @@ public class AdminAnalytics {
     private static final String PARTICIPANT="NOT EXISTS(SELECT 1 FROM local_admin_accounts la WHERE la.user_id=u.id)";
     private static final String DURATION="GREATEST(0,TIMESTAMPDIFF(SECOND,s.started_at,COALESCE(s.ended_at,LEAST(UTC_TIMESTAMP(6),s.expires_at))))";
     private static final String MEMBERS="""
-        SELECT u.id,ROW_NUMBER() OVER(ORDER BY u.created_at,u.id) AS signup_order,u.mattermost_username,p.nickname,u.real_name,u.region,u.class_no,u.status,u.created_at,u.last_login_at,
+        SELECT u.id,ROW_NUMBER() OVER(ORDER BY u.created_at,u.id) AS signup_order,COALESCE(u.mattermost_username,ad.original_username) AS mattermost_username,p.nickname,u.real_name,u.region,u.class_no,u.status,u.created_at,u.last_login_at,
           (SELECT COUNT(*) FROM mission_progress mp WHERE mp.user_id=u.id) AS unlocked_count,
           (SELECT COUNT(*) FROM mission_progress mp WHERE mp.user_id=u.id AND mp.status='COMPLETED') AS completed_count,
           ec.completion_order,ec.completed_at,
           (SELECT SUM(DURATION_VALUE) FROM connection_sessions s WHERE s.user_id=u.id) AS connection_seconds,
           (SELECT MAX(s.last_seen_at) FROM connection_sessions s WHERE s.user_id=u.id) AS last_seen_at,
           (SELECT COUNT(*) FROM connection_sessions s WHERE s.user_id=u.id AND s.ended_at IS NULL AND s.expires_at>UTC_TIMESTAMP(6) AND u.status='ACTIVE' AND s.credential_version=credentials.credential_version) AS active_sessions
-        FROM users u JOIN user_credentials credentials ON credentials.user_id=u.id LEFT JOIN profiles p ON p.user_id=u.id
+        FROM users u LEFT JOIN account_deactivations ad ON ad.user_id=u.id JOIN user_credentials credentials ON credentials.user_id=u.id LEFT JOIN profiles p ON p.user_id=u.id
         LEFT JOIN event_completions ec ON ec.user_id=u.id WHERE
         """.replace("DURATION_VALUE",DURATION)+PARTICIPANT;
     private Member member(ResultSet r,int n)throws SQLException {return new Member(r.getLong("id"),r.getLong("signup_order"),r.getString("mattermost_username"),r.getString("nickname"),r.getString("real_name"),r.getString("region"),r.getObject("class_no",Integer.class),r.getString("status"),time(r,"created_at"),time(r,"last_login_at"),r.getInt("unlocked_count"),r.getInt("completed_count"),r.getObject("completion_order",Long.class),time(r,"completed_at"),r.getObject("connection_seconds",Long.class),time(r,"last_seen_at"),r.getLong("active_sessions"));}
@@ -44,7 +44,7 @@ public class AdminAnalytics {
     @Transactional
     public Page<Member> members(AuthPrincipal actor,int offset,int limit,String q,boolean completed){
         operations.access(actor);paging(offset,limit);if(q!=null&&q.length()>64)throw new AuthException(400,"INVALID_SEARCH","검색어는 64자 이내로 입력해 주세요.");
-        List<Object> args=new ArrayList<>();String filter=completed?" WHERE completion_order IS NOT NULL":" WHERE TRUE";
+        List<Object> args=new ArrayList<>();String filter=completed?" WHERE completion_order IS NOT NULL AND status='ACTIVE'":" WHERE TRUE";
         if(q!=null&&!q.isBlank()){String value="%"+q.strip().replace("!","!!").replace("%","!%").replace("_","!_")+"%";filter+=" AND (nickname LIKE ? ESCAPE '!' OR real_name LIKE ? ESCAPE '!' OR mattermost_username LIKE ? ESCAPE '!')";args.addAll(List.of(value,value,value));}
         String source=" FROM ("+MEMBERS+") members"+filter;long total=db.queryForObject("SELECT COUNT(*)"+source,Long.class,args.toArray());
         args.add(limit);args.add(offset);var rows=db.query("SELECT *"+source+(completed?" ORDER BY completion_order,id":" ORDER BY signup_order")+" LIMIT ? OFFSET ?",this::member,args.toArray());
@@ -60,12 +60,12 @@ public class AdminAnalytics {
     @Transactional
     public Overview overview(AuthPrincipal actor){
         operations.access(actor);
-        long count=db.queryForObject("SELECT COUNT(*) FROM users u JOIN user_credentials c ON c.user_id=u.id WHERE "+PARTICIPANT,Long.class);
+        long count=db.queryForObject("SELECT COUNT(*) FROM users u JOIN user_credentials c ON c.user_id=u.id WHERE "+PARTICIPANT+" AND u.status='ACTIVE'",Long.class);
         long active=db.queryForObject("SELECT COUNT(*) FROM users u JOIN user_credentials c ON c.user_id=u.id WHERE "+PARTICIPANT+" AND u.status='ACTIVE'",Long.class);
         long complete=db.queryForObject("SELECT COUNT(*) FROM event_completions e JOIN users u ON u.id=e.user_id JOIN user_credentials c ON c.user_id=u.id WHERE "+PARTICIPANT,Long.class);
         record ConnectionAggregate(long active,long people,Long seconds,Instant since) { }
-        var connection=db.query("SELECT COUNT(CASE WHEN s.ended_at IS NULL AND s.expires_at>UTC_TIMESTAMP(6) AND u.status='ACTIVE' AND s.credential_version=c.credential_version THEN 1 END) AS active,COUNT(DISTINCT s.user_id) AS people,SUM("+DURATION+") AS seconds,MIN(s.started_at) AS since FROM connection_sessions s JOIN users u ON u.id=s.user_id JOIN user_credentials c ON c.user_id=u.id WHERE "+PARTICIPANT,(r,n)->{long seconds=r.getLong("seconds");Long totalSeconds=r.wasNull()?null:seconds;return new ConnectionAggregate(r.getLong("active"),r.getLong("people"),totalSeconds,time(r,"since"));}).getFirst();
-        var missions=db.query("SELECT m.code,m.title,COUNT(mp.user_id) AS unlocked,COALESCE(SUM("+PARTICIPATED+"),0) AS participated,COALESCE(SUM(mp.status='COMPLETED'),0) AS completed FROM missions m LEFT JOIN mission_progress mp ON mp.mission_id=m.id AND EXISTS(SELECT 1 FROM user_credentials c WHERE c.user_id=mp.user_id) AND NOT EXISTS(SELECT 1 FROM local_admin_accounts la WHERE la.user_id=mp.user_id) LEFT JOIN users u ON u.id=mp.user_id GROUP BY m.id,m.code,m.title,m.sort_order ORDER BY m.sort_order",(r,n)->new MissionStat(r.getString("code"),r.getString("title"),r.getLong("unlocked"),r.getLong("participated"),r.getLong("completed")));
+        var connection=db.query("SELECT COUNT(CASE WHEN s.ended_at IS NULL AND s.expires_at>UTC_TIMESTAMP(6) AND u.status='ACTIVE' AND s.credential_version=c.credential_version THEN 1 END) AS active,COUNT(DISTINCT s.user_id) AS people,SUM("+DURATION+") AS seconds,MIN(s.started_at) AS since FROM connection_sessions s JOIN users u ON u.id=s.user_id JOIN user_credentials c ON c.user_id=u.id WHERE "+PARTICIPANT+" AND u.status='ACTIVE'",(r,n)->{long seconds=r.getLong("seconds");Long totalSeconds=r.wasNull()?null:seconds;return new ConnectionAggregate(r.getLong("active"),r.getLong("people"),totalSeconds,time(r,"since"));}).getFirst();
+        var missions=db.query("SELECT m.code,m.title,COUNT(mp.user_id) AS unlocked,COALESCE(SUM("+PARTICIPATED+"),0) AS participated,COALESCE(SUM(mp.status='COMPLETED'),0) AS completed FROM missions m LEFT JOIN mission_progress mp ON mp.mission_id=m.id AND EXISTS(SELECT 1 FROM user_credentials c WHERE c.user_id=mp.user_id AND EXISTS(SELECT 1 FROM users active WHERE active.id=mp.user_id AND active.status='ACTIVE')) AND NOT EXISTS(SELECT 1 FROM local_admin_accounts la WHERE la.user_id=mp.user_id) LEFT JOIN users u ON u.id=mp.user_id GROUP BY m.id,m.code,m.title,m.sort_order ORDER BY m.sort_order",(r,n)->new MissionStat(r.getString("code"),r.getString("title"),r.getLong("unlocked"),r.getLong("participated"),r.getLong("completed")));
         return new Overview(count,active,complete,connection.active(),connection.people(),connection.seconds(),connection.since(),missions,Instant.now());
     }
     @Transactional

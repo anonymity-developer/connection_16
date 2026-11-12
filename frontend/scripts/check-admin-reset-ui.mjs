@@ -82,7 +82,7 @@ try {
   await page.getByRole('button',{name:'같은 초기화 다시 요청',exact:true}).click();await page.getByText('게임 참여를 초기화했어요.',{exact:false}).waitFor();
   await page.getByRole('button',{name:'게임 참여 초기화',exact:true}).waitFor({state:'visible'});
   await page.waitForFunction(()=>document.querySelector('.admin-reset-panel button')?.disabled);
-  await page.getByText('초기화 이력 · 최근 1건',{exact:true}).click();await page.getByText('1번째 초기화',{exact:true}).waitFor();
+  await page.getByText('계정·참여 조정 이력 · 최근 1건',{exact:true}).click();await page.getByText('1번째 조정 · 네 게임 초기화',{exact:true}).waitFor();
   assert.equal(writes.filter(p=>p.endsWith('/reset-games')).length,2);record('confirmation, duplicate click and a lost response retry produce one reset and show retained history');
   participated=true;lastReset=null;resetMode='stale';await visit('/admin/members/10');await page.getByRole('button',{name:'게임 참여 초기화',exact:true}).click();await page.getByLabel('확인란에 ‘초기화’를 입력해 주세요',{exact:true}).fill('초기화');await page.getByRole('button',{name:'게임 참여 초기화 실행',exact:true}).click();await page.getByRole('button',{name:'참여 상태 다시 불러오기',exact:true}).click();assert.equal(resetOperations,1);record('a stale reset is blocked and must reload current participation');
   await visit('/admin/moderation');await page.getByRole('heading',{name:'등록된 콘텐츠',exact:true}).waitFor();assert.equal(await page.getByRole('link',{name:'검수 대기',exact:true}).count(),0);assert.equal(moderationReads,0);record('default admin content management never loads a moderation queue');

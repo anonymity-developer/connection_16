@@ -44,6 +44,8 @@ jobs:
         run: npm run test:ui
       - name: Check authentication browser contracts
         run: npm run test:auth-ui
+      - name: Check error reports and administrator member controls
+        run: npm run test:support-ui
       - name: Check NFC authentication and legacy SHOW ME return paths
         run: npm run test:auth-nfc-ui
       - name: Check participation browser contracts

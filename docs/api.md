@@ -1,5 +1,7 @@
 # API 계약 계획
 
+로그인 참가자의 `POST /error-reports`, 관리자 신고 목록과 계정 비활성화·글자별 조정 API는 [운영 지원 계약](support-and-member-controls.md)을 따른다. 신고자는 세션에서 결정하며 관리자 변경에는 CSRF·Idempotency-Key·예상 세대·사유·명시적 확인이 필요하다.
+
 `POST /tags/inspect`는 로그인 전에도 CSRF와 IP 제한으로 활성 NFC 태그의 미션 코드·글자·이름만 읽는다. `{token}` 또는 같은 세션의 임시 태그를 위한 `{}`를 받는다. 임시 의도를 소비하거나 해금/완료/접수 기록을 만들지 않으며, 실제 해금은 기존 인증된 resolve/resume만 수행한다. [참여 API](participation.openapi.yaml).
 
 `POST /admin/members/{id}/reset-games`는 ADMIN·CSRF·Idempotency-Key가 필요하다. 수집판의 `resetGeneration`을 게임·댓글·하트 변경 요청의 `X-Participation-Generation` 헤더로 보내며, 초기화 전 요청은 409다. [현재 공개·초기화 계약](direct-publication-and-reset.md).
