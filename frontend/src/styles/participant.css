@@ -116,7 +116,6 @@
 .participant-shell .account-panel dd { margin: 6px 0 0; overflow-wrap: anywhere; font-size: 15px; }
 .participant-shell .account-actions { display: flex; flex-direction: column; gap: 12px; align-items: stretch; }
 .participant-shell .account-actions > .button { margin: 0; }
-.participant-shell .account-actions > .button--quiet:last-child { align-self: flex-start; margin-top: 4px; }
 .participant-shell .account-record > p { margin-top: 12px; color: var(--muted); font-size: 14px; }
 .participant-shell .account-record .account-collection-count { margin: 24px 0; font-variant-numeric: tabular-nums; }
 .participant-shell .account-collection-count strong { font-size: 32px; color: var(--accent-ink); }

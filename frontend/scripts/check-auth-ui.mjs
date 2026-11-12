@@ -1,4 +1,4 @@
-/* global document, window */
+/* global document, window, getComputedStyle */
 import assert from 'node:assert/strict';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
@@ -106,10 +106,20 @@ try {
   for (const width of [360,390,430,500,640,641,768,900,901,1440]) {
     await page.setViewportSize({ width, height: 900 });
     const accountBox = await page.locator('.account-panel').boundingBox();
+    const cardStyle=await page.locator('.account-panel').evaluate(el=>{const s=getComputedStyle(el);return [s.paddingTop,s.paddingRight,s.paddingBottom,s.paddingLeft,s.borderRadius];});
+    const logout=await page.getByRole('button',{name:'로그아웃',exact:true}).boundingBox();
+    assert.ok(Math.abs(logout.x+logout.width/2-accountBox.x-accountBox.width/2)<1,`logout is centered at ${width}px`);
+    assert.ok(logout.height>=48);
+    assert.equal(await page.locator('.account-actions').getByRole('button',{name:'로그아웃',exact:true}).count(),0);
+    await page.screenshot({path:resolve(output,`account-layout-${width}.png`),fullPage:true});
     for (const [path,mode,title] of [['/auth','login','로그인'],['/auth/signup','signup','회원가입'],['/auth/password-reset','reset','비밀번호 재설정'],['/me/password','change','비밀번호 변경']]) {
       await visit(path);await page.getByRole('heading', { name:title, exact:true }).waitFor();
       const authBox=await page.locator('.auth-form-panel').boundingBox();
       assert.ok(Math.abs(accountBox.x-authBox.x)<1 && Math.abs(accountBox.width-authBox.width)<1, `${mode} keeps My Page card width at ${width}px`);
+      assert.deepEqual(await page.locator('.auth-form-panel').evaluate(el=>{const s=getComputedStyle(el);return [s.paddingTop,s.paddingRight,s.paddingBottom,s.paddingLeft,s.borderRadius];}),cardStyle,`${mode} shares card padding and radius at ${width}px`);
+      const footer=await page.locator('.account-card-footer').boundingBox();
+      assert.ok(Math.abs(footer.x+footer.width/2-authBox.x-authBox.width/2)<1);
+      assert.equal(await page.locator('.account-card-footer').evaluate(el=>getComputedStyle(el).marginTop),'20px');
       assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth));
       assert.equal(await page.locator('.session-flash').count(), 0);
       await page.screenshot({ path: resolve(output, `auth-layout-${mode}-${width}.png`), fullPage:true });
@@ -145,6 +155,7 @@ try {
   await page.getByRole('heading', { name: '계정 연결을 마쳤어요', exact: true }).waitFor();
   await page.getByRole('button', { name: '로그아웃', exact: true }).click();
   await page.getByRole('heading', { name: '로그인', exact: true }).waitFor();
+  await page.getByRole('status').filter({hasText:'로그아웃했어요.'}).waitFor();
   await record('ordinary login has no OTP and refresh restores server session; logout clears it');
 
   await page.getByRole('link', { name: '비밀번호를 잊으셨나요?', exact: true }).click();

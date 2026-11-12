@@ -76,7 +76,7 @@
 .participant-shell .earned-letter { border: 3px solid var(--surface); border-radius: 22px; transform: rotate(-5deg); box-shadow: var(--event-shadow); }
 .participant-shell .mission-message > svg { color: var(--accent); }
 .participant-shell .wish-lake { border-radius: 24px; background: var(--accent-soft); }
-.participant-shell .auth-page .auth-form-panel { border-radius: 28px; border-color: var(--border); box-shadow: var(--event-shadow); }
+.participant-shell .account-page .account-panel, .participant-shell .auth-page .auth-form-panel { padding: 28px; border-radius: 24px; border-color: var(--border); box-shadow: var(--event-shadow); }
 .participant-shell .account-theme .auth-guide { padding: 24px; border-radius: 28px; background: var(--accent-soft); }
 .participant-shell .auth-stickers { width: 190px; margin: 0 auto 16px; }
 .participant-shell .account-theme .auth-guide h2 { font-size: 24px; color: var(--accent-ink); }
@@ -133,7 +133,7 @@
   .participant-shell .mission-row-state { padding-left: 68px; }
   .participant-shell .mission-row-copy p { font-size: 14px; }
   .participant-shell .mission-detail, .participant-shell .mission-guide { padding: 22px 20px; }
-  .participant-shell .auth-page .auth-form-panel { padding: 24px 20px; }
+  .participant-shell .account-page .account-panel, .participant-shell .auth-page .auth-form-panel { padding: 24px 20px; }
   .participant-shell .account-theme .auth-guide { padding: 24px; }
   .participant-shell .auth-stickers { width: 150px; }
   .participant-shell .quest-heading { gap: 16px; }
@@ -147,3 +147,7 @@
 @media (prefers-reduced-motion: reduce) {
   .participant-shell *, .participant-shell *::before, .participant-shell *::after { scroll-behavior: auto !important; transition: none !important; animation: none !important; }
 }
+
+/* Shared secondary actions for account and authentication cards. */
+.participant-shell .account-card-footer { display: flex; justify-content: center; align-items: center; flex-wrap: wrap; gap: 4px; margin-top: 20px; color: var(--muted); font-size: 14px; text-align: center; }
+.participant-shell .account-card-footer > :is(a, .button) { display: inline-flex; align-items: center; justify-content: center; min-height: 48px; margin: 0; color: var(--accent-ink); font-size: 14px; font-weight: 500; }
