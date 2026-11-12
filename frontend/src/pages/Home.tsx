@@ -3,6 +3,7 @@ import { LetterSticker } from '../components/LetterSticker';
 import { WinterDecor } from '../components/WinterDecor';
 import { useParticipation } from '../features/participation/context';
 import type { CollectionCelebrations } from '../features/participation/collection-celebrations';
+import type { Completion } from '../features/participation/api';
 import { useAuth } from '../features/auth/context';
 import { Link } from '../app/navigation';
 import { Icon } from '../components/Icon';
@@ -25,12 +26,16 @@ export function collectionVisual(code: MissionCode, state: MissionState, known =
   return code === 'SHOW_ME' ? 'undiscovered' : 'discovered';
 }
 
-export function Collection({ data, celebrations }: { data: ScreenData; celebrations?: CollectionCelebrations | null }) {
+export function Collection({ data, celebrations, completion }: { data: ScreenData; celebrations?: CollectionCelebrations | null; completion?: Completion | null }) {
   const known = !!(data.preview || data.serverLoaded);
   const completed = known ? missions.filter((mission) => data.progress[mission.code] === 'COMPLETED').length : 0;
   const complete = completed === missions.length;
   const [earned, setEarned] = useState<MissionCode[]>([]);
-  const [completionOpen, setCompletionOpen] = useState(false);
+  const order = !data.preview && data.serverLoaded && complete && completion?.complete
+    && Number.isSafeInteger(completion.completionOrder) && (completion.completionOrder ?? 0) > 0
+    ? completion.completionOrder : null;
+  const completionKey = data.preview ? 'preview' : order;
+  const [openCompletion, setOpenCompletion] = useState<number | 'preview' | null>(null);
 
   useEffect(() => {
     if (!known || !celebrations) return;
@@ -46,12 +51,12 @@ export function Collection({ data, celebrations }: { data: ScreenData; celebrati
   }, [earned]);
 
   useEffect(() => {
-    if (!complete || !celebrations) return;
+    if (!complete || !celebrations || completionKey === null) return;
     const timer = window.setTimeout(() => {
-      if (celebrations.takeCompletion()) setCompletionOpen(true);
+      if (celebrations.takeCompletion()) setOpenCompletion(completionKey);
     }, 620);
     return () => window.clearTimeout(timer);
-  }, [celebrations, complete]);
+  }, [celebrations, complete, completionKey]);
 
   const newLetters = missions.filter(mission => earned.includes(mission.code)).map(mission => mission.letter);
   const notice = !newLetters.length ? '' : newLetters.length === 1 ? `${newLetters[0]}를 획득했어요!` : `${newLetters.join(' · ')} 글자를 획득했어요!`;
@@ -68,9 +73,10 @@ export function Collection({ data, celebrations }: { data: ScreenData; celebrati
     {(data.preview || data.serverLoaded) && <div className="collection-progress" role="progressbar" aria-label={data.preview ? '미리보기 글자 수집' : '나의 글자 수집'} aria-valuenow={completed} aria-valuemin={0} aria-valuemax={5}><span style={{ width: `${completed * 20}%` }} /></div>}
     <p className="collection-caption"><strong className="collection-earned" role="status">{notice}</strong>{!notice && (complete ? 'SSAFY 글자를 모두 모았어요.' : '획득한 글자는 여기에 모여요.')}</p>
     {complete && <Link className="text-link collection-complete-link" href="/complete">완성 기록 보기<Icon name="arrow" size={16} /></Link>}
-    {/* taste-skill-ignore Keep the user's approved full-collection congratulation message verbatim. */}{celebrations && <Dialog open={completionOpen} title="SSAFY 글자를 모두 수집했어요! 축하드려요 🎉" onClose={() => setCompletionOpen(false)}>
-      <p>완성 기록은 수집판에서 다시 볼 수 있어요.</p>
-      <Button type="button" onClick={() => setCompletionOpen(false)}>확인했어요</Button>
+    {celebrations && <Dialog open={complete && completionKey !== null && openCompletion === completionKey} title="SSAFY 글자를 모두 수집했어요!" hideTitle onClose={() => setOpenCompletion(null)}>
+      <p className="collection-completion-message">SSAFY 글자를 모두 수집했어요!</p>
+      {order !== null && <p className="collection-completion-order"><strong>{order.toLocaleString('ko-KR')}</strong>번째로 수집을 완료했어요.</p>}
+      <Button type="button" onClick={() => setOpenCompletion(null)}>확인했어요</Button>
     </Dialog>}
   </section>;
 }
@@ -81,7 +87,7 @@ export function Home({ data }: { data: ScreenData }) {
   return <div className="page home-page participant-page">
     <div className="page-heading"><p className="context-label">TAG ME 미션</p><h1>미션 모으기</h1><p>곳곳의 NFC 태그를 찾아 미션을 완료하고, 새로운 동료를 만나보세요.</p></div>
     {!data.preview && auth.user && participation.error && <div className="collection-error" role="alert"><p>{participation.error}</p><button className="text-button" onClick={() => void participation.refresh()}>기록 다시 불러오기</button></div>}
-    <div className="home-overview" aria-busy={participation.loading}><Collection key={data.preview ? 'preview' : auth.user?.id ?? 'guest'} data={data} celebrations={data.preview ? null : participation.celebrations} />
+    <div className="home-overview" aria-busy={participation.loading}><Collection key={data.preview ? 'preview' : auth.user?.id ?? 'guest'} data={data} celebrations={data.preview ? null : participation.celebrations} completion={data.preview ? null : participation.collection?.completion} />
 
     </div>
     <EventEncouragement />

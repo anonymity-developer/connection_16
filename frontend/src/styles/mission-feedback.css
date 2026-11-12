@@ -22,6 +22,9 @@
 .event-encouragement { min-height: 3.2em; line-height: 1.6; }
 .event-encouragement p { margin: 0; }
 .event-encouragement:focus-visible { outline: 2px solid var(--accent); outline-offset: 4px; }
+.dialog--titleless .dialog-inner { padding-top: 56px; }
+.dialog .collection-completion-message { color: var(--ink); font-size: 16px; margin-bottom: 12px; }
+.dialog .collection-completion-order strong { color: var(--accent-ink); font-size: 24px; font-variant-numeric: tabular-nums; }
 .show-me-record h2 { margin-bottom: 20px; }
 .show-me-record-name { font-size: 22px; font-weight: 600; margin-bottom: 12px; }
 .show-me-record-bio { white-space: pre-wrap; }

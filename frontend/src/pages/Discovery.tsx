@@ -7,7 +7,7 @@ import { participationApi } from '../features/participation/api';
 import type { Interest } from '../features/participation/api';
 import { discoveryApi } from '../features/discovery/api';
 import type { People, Stats } from '../features/discovery/api';
-import { DiscoveryNav, PersonRow, VisitStats } from '../features/discovery/components';
+import { DiscoveryHeading, DiscoveryNav, PersonRow, VisitStats } from '../features/discovery/components';
 export function DiscoveryPage() {
   const location = useLocation(); const query = new URLSearchParams(location.split('?')[1]); const all = query.get('view') === 'people';
   const [search, setSearch] = useState(query.get('q') || ''); const [interest, setInterest] = useState(query.get('interestId') || '');
@@ -26,7 +26,7 @@ export function DiscoveryPage() {
     catch (failure) { if (version === generation.current) setError(failure instanceof Error ? failure.message : '다음 동료를 확인하지 못했어요.'); }
     finally { if (version === generation.current) setMore(false); }
   }
-  return <div className="page discovery-page participant-page" aria-busy={loading}><div className="page-heading"><p className="context-label">TAG ME 네트워크</p><h1>동료 찾기</h1><p>같은 관심사에서 대화를 시작해요.</p></div><DiscoveryNav selected={all ? 'people' : 'recommended'} />
+  return <div className="page discovery-page participant-page" aria-busy={loading}><DiscoveryHeading /><DiscoveryNav selected={all ? 'people' : 'recommended'} />
     {stats && <VisitStats stats={stats} />}
     {all && <form className="people-filters" onSubmit={event => { event.preventDefault(); const params = new URLSearchParams({ view: 'people' }); if (search.trim()) params.set('q', search.trim()); if (interest) params.set('interestId', interest); navigate(`/discovery?${params}`); }}><div><label htmlFor="people-search">닉네임 검색</label><input id="people-search" maxLength={30} value={search} onChange={e => setSearch(e.target.value)} placeholder="닉네임을 입력해 주세요" /></div><div><label htmlFor="people-interest">관심사</label><select id="people-interest" value={interest} onChange={e => setInterest(e.target.value)}><option value="">전체 관심사</option>{options.map(i => <option key={i.id} value={i.id}>{i.name}</option>)}</select></div><Button type="submit" disabled={loading}>동료 검색하기</Button></form>}
     {loading && <div className="discovery-message is-loading" role="status"><Icon name="clock" size={20} /><p>공개된 동료와 내 열람 현황을 확인하고 있어요.</p></div>}

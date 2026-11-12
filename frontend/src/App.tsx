@@ -2,6 +2,7 @@ import { MissionOverview } from './pages/MissionOverview';
 import { LetterSticker } from './components/LetterSticker';
 import { AdminConsole } from './pages/AdminConsole';
 import { DiscoveryPage } from './pages/Discovery';
+import { DiscoveryHeading } from './features/discovery/components';
 import { DiscoveryGraphPage } from './pages/DiscoveryGraph';
 import { PublicProfilePage } from './pages/PublicProfile';
 import { TagPage } from './pages/Tag';
@@ -59,7 +60,7 @@ export default function App() {
   else if (mission) page = <MissionPage key={`${mission.code}:${data.preview ? 'preview' : 'server'}`} mission={mission} data={data} />;
   else if (path === '/discovery' || path === '/discovery/graph' || /^\/discovery\/profiles\/\d+$/.test(path)) {
     const id = Number(path.split('/').at(-1));
-    page = !auth.ready ? <div className="page"><p role="status">로그인 상태를 확인하고 있어요.</p></div> : !auth.user ? <div className="page secondary-page auth-empty-page"><div className="page-heading"><h1>동료 찾기</h1></div><EmptyState icon="people" title="함께할 동료를 만나봐요" action={<Link href="/auth" className="button button--primary">로그인하기</Link>}>로그인하면 공개된 프로필과 나의 연결을 볼 수 있어요.</EmptyState></div> : path === '/discovery' ? <DiscoveryPage key={auth.user.id} /> : path === '/discovery/graph' ? <DiscoveryGraphPage key={auth.user.id} /> : Number.isSafeInteger(id) && id > 0 ? <PublicProfilePage key={`${auth.user.id}:${id}`} id={id} /> : <div className="page"><h1>프로필을 찾을 수 없어요</h1></div>;
+    page = !auth.ready ? <div className="page"><p role="status">로그인 상태를 확인하고 있어요.</p></div> : !auth.user ? <div className="page discovery-page participant-page"><DiscoveryHeading /><EmptyState icon="people" title="함께할 동료를 만나봐요" action={<Link href="/auth" className="button button--primary">로그인하기</Link>}>로그인하면 공개된 프로필과 나의 연결을 볼 수 있어요.</EmptyState></div> : path === '/discovery' ? <DiscoveryPage key={auth.user.id} /> : path === '/discovery/graph' ? <DiscoveryGraphPage key={auth.user.id} /> : Number.isSafeInteger(id) && id > 0 ? <PublicProfilePage key={`${auth.user.id}:${id}`} id={id} /> : <div className="page"><h1>프로필을 찾을 수 없어요</h1></div>;
   }
   else if (path === '/admin' || path.startsWith('/admin/')) page = auth.user ? <AdminConsole key={auth.user.id} /> : !auth.ready ? <div className="page"><p role="status">로그인 상태를 확인하고 있어요.</p></div> : <div className="page secondary-page auth-empty-page ops-login"><p className="context-label">TAG ME 운영</p><EmptyState icon="person" title="운영자 로그인" action={<Link href="/auth" className="button button--primary">로그인하기<Icon name="arrow" size={17} /></Link>}>로그인한 계정의 운영 권한을 확인해요. 권한이 있는 계정만 운영 화면을 이용할 수 있어요.</EmptyState></div>;
   else if (path === '/me' || path === '/me/password') page = <Account preview={screen.preview} />;

@@ -2,6 +2,9 @@ import { useId } from 'react';
 import { Link } from '../../app/navigation';
 import { Icon } from '../../components/Icon';
 import type { Person, Stats } from './api';
+export function DiscoveryHeading() {
+  return <div className="page-heading"><p className="context-label">TAG ME 네트워크</p><h1>동료 찾기</h1><p>같은 관심사에서 대화를 시작해요.</p></div>;
+}
 export function DiscoveryNav({ selected }: { selected: 'recommended' | 'people' | 'graph' }) {
   return <nav className="discovery-tabs" aria-label="동료 탐색 메뉴"><Link href="/discovery" aria-current={selected === 'recommended' ? 'page' : undefined}>추천 동료</Link><Link href="/discovery?view=people" aria-current={selected === 'people' ? 'page' : undefined}>전체 동료</Link><Link href="/discovery/graph" aria-current={selected === 'graph' ? 'page' : undefined}>나의 발견 관계</Link></nav>;
 }

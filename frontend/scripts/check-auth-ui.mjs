@@ -114,6 +114,7 @@ try {
     await page.screenshot({path:resolve(output,`account-layout-${width}.png`),fullPage:true});
     for (const [path,mode,title] of [['/auth','login','로그인'],['/auth/signup','signup','회원가입'],['/auth/password-reset','reset','비밀번호 재설정'],['/me/password','change','비밀번호 변경']]) {
       await visit(path);await page.getByRole('heading', { name:title, exact:true }).waitFor();
+      assert.equal(await page.locator('.auth-page > .back-link').count(),0,'auth screens omit the redundant top breadcrumb');
       const authBox=await page.locator('.auth-form-panel').boundingBox();
       assert.ok(Math.abs(accountBox.x-authBox.x)<1 && Math.abs(accountBox.width-authBox.width)<1, `${mode} keeps My Page card width at ${width}px`);
       assert.deepEqual(await page.locator('.auth-form-panel').evaluate(el=>{const s=getComputedStyle(el);return [s.paddingTop,s.paddingRight,s.paddingBottom,s.paddingLeft,s.borderRadius];}),cardStyle,`${mode} shares card padding and radius at ${width}px`);
