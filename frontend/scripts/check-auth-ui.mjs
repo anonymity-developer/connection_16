@@ -100,6 +100,25 @@ try {
   await record('signup contract, busy submission, resend replacement, numeric code and password policy');
 
   await page.getByRole('banner').getByRole('link', { name: '내 계정', exact: true }).click();
+  await page.getByRole('heading', { name: '계정 연결을 마쳤어요', exact: true }).waitFor();
+  assert.equal(await page.getByRole('button', { name: '읽어 둔 태그 이어가기', exact: true }).count(), 0);
+  assert.equal(await page.locator('.account-tip').count(), 0);
+  for (const width of [360,390,430,500,640,641,768,900,901,1440]) {
+    await page.setViewportSize({ width, height: 900 });
+    const accountBox = await page.locator('.account-panel').boundingBox();
+    for (const [path,mode,title] of [['/auth','login','로그인'],['/auth/signup','signup','회원가입'],['/auth/password-reset','reset','비밀번호 재설정'],['/me/password','change','비밀번호 변경']]) {
+      await visit(path);await page.getByRole('heading', { name:title, exact:true }).waitFor();
+      const authBox=await page.locator('.auth-form-panel').boundingBox();
+      assert.ok(Math.abs(accountBox.x-authBox.x)<1 && Math.abs(accountBox.width-authBox.width)<1, `${mode} keeps My Page card width at ${width}px`);
+      assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth));
+      assert.equal(await page.locator('.session-flash').count(), 0);
+      await page.screenshot({ path: resolve(output, `auth-layout-${mode}-${width}.png`), fullPage:true });
+      await page.getByRole('banner').getByRole('link', { name:'내 계정', exact:true }).click();
+      await page.getByRole('heading', { name:'계정 연결을 마쳤어요', exact:true }).waitFor();
+    }
+  }
+  await page.setViewportSize({ width:390, height:900 });
+  await record('account removes manual tag continuation and all four auth screens match My Page card width at ten widths');
   await page.getByRole('link', { name: '비밀번호 변경', exact: true }).click();
   await page.getByRole('heading', { name: '비밀번호 변경', exact: true }).waitFor();
   assert.equal(await page.locator('input[name="username"]').count(), 0);

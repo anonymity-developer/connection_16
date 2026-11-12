@@ -134,6 +134,21 @@ try {
   await page.waitForURL(`**${pathFor(current)}`);
   console.log('PASS expired session 401 recovers through login and original NFC');
 
+  const flash=page.locator('.session-flash');await flash.waitFor();
+  const tagNotice=await flash.evaluate(el=>el.firstChild.textContent);
+  await page.getByRole('banner').getByRole('link',{name:'내 계정',exact:true}).click();
+  await page.getByRole('heading',{name:'계정 연결을 마쳤어요',exact:true}).waitFor();
+  assert.equal(await page.getByRole('button',{name:'읽어 둔 태그 이어가기',exact:true}).count(),0);
+  await page.getByRole('link',{name:'비밀번호 변경',exact:true}).click();
+  await page.getByRole('heading',{name:'비밀번호 변경',exact:true}).waitFor();
+  assert.equal(await flash.count(),0);
+  assert.equal(await page.locator('form .form-notice').innerText(),'');
+  assert.equal(await page.getByText(tagNotice,{exact:true}).count(),0);
+  await page.getByRole('link',{name:'변경을 취소하고 돌아가기',exact:true}).click();
+  await page.getByRole('heading',{name:'계정 연결을 마쳤어요',exact:true}).waitFor();
+  assert.equal(await flash.count(),0);
+  console.log('PASS password settings discard unrelated NFC notices without removing automatic NFC return');
+
   pending = null; await visit('/t/resume');
   await page.getByRole('alert').filter({ hasText: '태그 연결이 만료' }).waitFor();
   console.log('PASS expired pending intent asks for a new scan');
