@@ -12,4 +12,3 @@ export function interestsComplete(ids: number[], catalog: Interest[]) {
     return count >= 1 && count <= category.max;
   });
 }
-
