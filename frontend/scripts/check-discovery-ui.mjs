@@ -118,7 +118,7 @@ try {
   record('nickname and interest filters survive back navigation; stale pagination never overwrites a new search');
   await visit('/discovery'); await page.getByRole('link', { name: '테스트_%! 프로필 보기', exact: true }).click(); await page.getByText('테스트 실명2', { exact: true }).waitFor(); assert.equal(opens, 1); assert.equal(await page.getByText('처음 열어본 프로필이에요', { exact: true }).count(), 1); assert.equal(visited.size, 1); assert.equal(await page.evaluate(() => window.profileInjected), undefined); assert.equal(await page.getByRole('link', { name: 'GitHub 열기 (새 탭)', exact: true }).getAttribute('rel'), 'noopener noreferrer'); assert.equal((await page.title()).includes('실명'), false); await page.locator('.public-profile img').waitFor(); assert.ok(await page.locator('.public-profile img').evaluate(img=>img.complete&&img.naturalWidth>0)); assert.equal(await page.getByText('서울 · 3반',{exact:true}).count(),1); assert.equal(await page.getByRole('link',{name:'블로그 열기 (새 탭)',exact:true}).getAttribute('href'),'https://example.com/test');
   for (const width of [360, 390, 430, 768, 1440]) { await page.setViewportSize({ width, height: 900 }); assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth), false); await page.screenshot({ path: resolve(output, `public-profile-${width}.png`), fullPage: true }); }
-  await page.reload(); await page.getByText('이전에 열어본 프로필이에요', { exact: true }).waitFor(); assert.equal(visited.size, 1); await page.setViewportSize({ width: 390, height: 900 });
+  await page.reload(); await page.getByText('내가 열어봤어요', { exact: true }).waitFor(); assert.equal(visited.size, 1); await page.setViewportSize({ width: 390, height: 900 });
   record('explicit profile navigation uses CSRF POST, renders detail safely and preserves one natural visit on refresh');
   failOpen = true; await page.reload(); await page.getByRole('button', { name: '프로필 다시 열기', exact: true }).waitFor(); assert.equal(await page.locator('.public-profile').count(), 0); await page.getByRole('button', { name: '프로필 다시 열기', exact: true }).click(); await page.getByText('테스트 실명2', { exact: true }).waitFor(); assert.equal(visited.size, 1);
   hidden = true; await page.reload(); await page.getByText('공개된 프로필을 찾을 수 없어요.', { exact: true }).waitFor(); assert.equal(await page.getByText('테스트 실명2', { exact: true }).count(), 0); assert.equal(await page.locator('.public-profile').count(), 0); hidden = false; unsafe = true; await page.reload(); await page.getByText('테스트 실명2', { exact: true }).waitFor(); assert.equal(await page.locator('.public-profile-links a').count(), 0); unsafe = false;
@@ -171,6 +171,24 @@ try {
   assert.ok(!recorded.includes(111),'offscreen last card is never acknowledged');
   manyRecommendations=false;
   record('only recommendations at least half visible are acknowledged with CSRF; offscreen cards and graph previews never create visits');
+  visited.add(4);
+  for(const mutual of [false,true]) {
+    if(mutual) inbound.add(4);
+    await visit('/discovery');
+    const visitedCard=page.getByRole('link',{name:`${person(4).nickname} 프로필 보기`,exact:true});
+    await visitedCard.waitFor();
+    assert.equal(await visitedCard.getByText(mutual?'서로 열어봤어요':'내가 열어봤어요',{exact:true}).count(),1);
+    assert.equal(await visitedCard.locator('.person-reason').count(),0);
+    assert.equal(await visitedCard.getAttribute('aria-describedby'),null);
+    assert.equal(await page.getByText('이전에 열어본 프로필이에요',{exact:true}).count(),0);
+    for(const width of [360,390,430,768,1440]) {
+      await page.setViewportSize({width,height:900});
+      assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>window.innerWidth),false);
+      await visitedCard.screenshot({path:resolve(output,`discovery-relation-${mutual?'mutual':'visited'}-${width}.png`)});
+    }
+  }
+  visited.delete(4);inbound.delete(4);
+  record('visited and mutual recommendations show one relationship without duplicate copy, empty reasons or dangling descriptions at five widths');
   required = true; await visit('/discovery'); await page.getByRole('link', { name: '내 프로필과 참여 안내 확인하기', exact: true }).waitFor(); assert.equal(await page.locator('.person-row').count(), 0); assert.equal(await page.locator('.visit-stats').count(), 0); required = false;
   await visit('/missions/say-something'); await page.getByRole('link', { name: '테스트 공개의 프로필 보기', exact: true }).waitFor(); assert.equal(await page.locator('.content-feed-list a[href="/discovery/profiles/999"]').count(), 0); assert.equal(await page.locator('.content-feed-list a[href="/discovery/profiles/2"]').count(), 1);
   await visit('/missions/make-a-wish'); await page.getByRole('button', { name: '소원 1 열기', exact: true }).click(); await page.getByRole('button', { name: '댓글 보기', exact: true }).click(); await page.getByRole('link', { name: '테스트 공개의 프로필 보기', exact: true }).waitFor(); assert.equal(await page.locator('.comment-list a[href="/discovery/profiles/999"]').count(), 0); await page.getByRole('link', { name: '테스트 공개의 프로필 보기', exact: true }).click(); await page.getByText('테스트 실명2', { exact: true }).waitFor();
