@@ -5,9 +5,9 @@ import { EmptyState } from './ui';
 import '../styles/participant-layout.css';
 
 const headings = {
-  missions: { context: 'TAG ME 미션', title: '미션 모으기', description: '곳곳의 NFC 태그를 찾아 미션을 완료하고, 새로운 동료를 만나보세요.' },
-  discovery: { context: 'TAG ME 네트워크', title: '동료 찾기', description: '같은 관심사에서 대화를 시작해요.' },
-  account: { context: 'TAG ME 계정', title: '마이페이지', description: '나의 계정과 참여 준비 상태를 확인해요.' },
+  missions: { context: 'TAG ME 미션', title: '미션 모으기', description: 'NFC 태그로 글자를 해금하고, 미션을 완료해서 글자를 획득해보세요' },
+  discovery: { context: 'TAG ME 네트워킹', title: '동료 찾기', description: 'SSAFY 16기 서울 캠퍼스 동료들의 프로필을 구경해요' },
+  account: { context: 'TAG ME 계정', title: '마이페이지', description: '나의 계정과 미션 상태를 확인해요.' },
 } as const;
 type PageKind = keyof typeof headings;
 
