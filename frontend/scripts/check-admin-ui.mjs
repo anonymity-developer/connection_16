@@ -107,8 +107,8 @@ try {
   }
   record('real wish and cheer components publish submitted wishes and cheers immediately in memory with no live content writes');
   const cheer = page.locator('article').filter({ hasText: '관리자 미리보기 예시 응원입니다.' });
-  await cheer.getByRole('button', { name: '하트 남기기', exact: true }).click(); await cheer.getByText('하트 1개', { exact: true }).waitFor();
-  await cheer.getByRole('button', { name: '하트 취소하기', exact: true }).click(); await cheer.getByText('하트 0개', { exact: true }).waitFor();
+  await cheer.getByRole('button', { name: '하트 남기기', exact: true }).click(); await cheer.locator('.heart-count').filter({hasText:/^1$/}).waitFor();
+  await cheer.getByRole('button', { name: '하트 취소하기', exact: true }).click(); await cheer.locator('.heart-count').filter({hasText:/^0$/}).waitFor();
   await page.getByLabel('미리 볼 미션', { exact: true }).selectOption('MAKE_A_WISH');
   await page.getByRole('button', { name: '소원 1 열기', exact: true }).click(); await page.getByRole('heading', { name: '발견한 소원', exact: true }).waitFor();
   const wish = page.locator('.wish-lake-detail article').filter({ hasText: '관리자 미리보기 예시 소원입니다.' });

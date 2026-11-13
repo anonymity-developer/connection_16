@@ -68,16 +68,17 @@ try {
   await page.locator('.mission-progress-summary').getByText('글자 획득 완료', { exact: true }).waitFor(); await page.reload(); await page.locator('.content-review-state').getByText('내가 남긴 글', { exact: true }).waitFor(); assert.equal(await page.locator('.wish-toss').count(),0); await page.screenshot({ path: resolve(output, 'wish-pending-390.png'), fullPage: true });
   record('202 grants A while the pending revision stays private across reloads');
   await visit('/missions/say-something'); await page.getByLabel('어떤 응원을 전하고 싶나요?', { exact: true }).fill('테스트 전용 응원');
-  await page.getByRole('radio', { name: '작은 편지', exact: true }).check();
+  assert.equal(await page.getByRole('radio', { name: '작은 편지', exact: true }).count(),0);
+  assert.equal(await page.locator('.cheer-colour-options input').count(),10);
   const cheerPreview = page.getByLabel('응원 카드 미리보기', { exact: true });
   assert.equal(await cheerPreview.evaluate(el => getComputedStyle(el).backgroundColor), 'rgb(255, 240, 244)');
-  assert.match(await cheerPreview.evaluate(el => getComputedStyle(el, '::after').backgroundImage), /data:image\/svg/);
+  assert.equal(await cheerPreview.evaluate(el => getComputedStyle(el, '::after').backgroundImage),'none');
   await page.getByRole('radio', { name: '하늘', exact: true }).check();
   assert.equal(await cheerPreview.evaluate(el => getComputedStyle(el).backgroundColor), 'rgb(232, 247, 255)');
   await page.getByRole('checkbox', { name: '익명으로 남기기', exact: true }).uncheck();
   for (const width of [360, 375, 390, 412, 430, 768, 1440]) { await page.setViewportSize({ width, height: 900 }); assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth), false); for (const h of await page.locator('h1,h2').all()) assert.ok(await h.evaluate(el => el.getBoundingClientRect().height / Number.parseFloat(getComputedStyle(el).lineHeight) <= 2.1)); await page.screenshot({ path: resolve(output, `cheer-write-${width}.png`), fullPage: true }); }
   await page.setViewportSize({ width: 390, height: 900 }); unknown = true;
-  await page.getByRole('button', { name: '응원 보내기', exact: true }).click(); await page.getByRole('button', { name: '같은 글 다시 전송하기', exact: true }).waitFor(); assert.equal(await page.locator('#content-text').isDisabled(), true); await page.getByRole('button', { name: '같은 글 다시 전송하기', exact: true }).click(); await page.getByRole('button', { name: '같은 글 수정하기', exact: true }).waitFor(); assert.equal(posts, 3); assert.equal(slots.cheers.latestRevision.number, 1); assert.equal(slots.cheers.latestRevision.anonymous, false); assert.equal(slots.cheers.latestRevision.templateId, 'NOTE'); assert.equal(slots.cheers.latestRevision.style, 'INK'); await page.locator('.mission-progress-summary').getByText('글자 획득 완료', { exact: true }).waitFor();
+  await page.getByRole('button', { name: '응원 보내기', exact: true }).click(); await page.getByRole('button', { name: '같은 글 다시 전송하기', exact: true }).waitFor(); assert.equal(await page.locator('#content-text').isDisabled(), true); await page.getByRole('button', { name: '같은 글 다시 전송하기', exact: true }).click(); await page.getByRole('button', { name: '같은 글 수정하기', exact: true }).waitFor(); assert.equal(posts, 3); assert.equal(slots.cheers.latestRevision.number, 1); assert.equal(slots.cheers.latestRevision.anonymous, false); assert.equal(slots.cheers.latestRevision.templateId, 'PLAIN'); assert.equal(slots.cheers.latestRevision.style, 'INK'); await page.locator('.mission-progress-summary').getByText('글자 획득 완료', { exact: true }).waitFor();
   record('cheer presentation and anonymity match the preview; uncertain submission retries identical payload and key');
   const approved = { ...slots.cheers.latestRevision, status: 'APPROVED' }; slots.cheers = { ...slots.cheers, version: 2, approvedRevision: approved, pendingRevision: null, latestRevision: approved, missionCompleted: true };
   feeds.cheers.items = [{ id: 10, content: approved.content, templateId: approved.templateId, style: approved.style, anonymous: false, nickname: '테스트 닉네임', luckScore: null, landingZone: null }];

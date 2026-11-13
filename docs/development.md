@@ -228,3 +228,7 @@ V8을 V7 뒤에 적용한다. 기존 migration은 변경하지 않으며 운영 
 - `cd backend && ./gradlew test integrationTest bootJar`: 실제 MySQL/Redis의 OperationsIntegrationTest에서 역할/인가/CSRF, 현재 버전·fence, 동시 변경, 재처리 제한/원접수, 숨김/worker·댓글, 감사 롤백/실제 판정을 검사한다.
 
 현재 로컬에는 javac/Docker와 Playwright 브라우저 바이너리가 없어 해당 실행을 CI에서 확인한다. 로컬 lint/단위/빌드 성공을 실제 DB/브라우저 성공으로 기록하지 않는다. CI는 기존 검사/폰트를 유지하고 운영 브라우저 검사만 추가한다.
+
+### 선택적 응원 더미
+
+fixture 전용 `.env.fixtures`에 `TAGME_FIXTURES_CHEERS=true`를 설정하면 10색·익명/닉네임·0~7개 하트·긴 본문이 섞인 합성 응원 28개와 추가 합성 동료 8명을 준비한다. 기본값은 false라 기존 21계정 fixture 구성은 유지된다. 전용 프로젝트/DB 가드는 동일하며, API 시작 시 더미 응원 하트를 재구성한다. 테스트를 시작한 뒤 요청 없이 API를 재시작하지 않는다. 실제 행사 DB에서는 이 빌드/프로필을 사용하지 않는다.

@@ -40,7 +40,7 @@ class DirectPublicationResetIntegrationTest {
     @Autowired ParticipationRepository participation;@Autowired MissionCompletionService completion;@Autowired ParticipationResetService resets;@Autowired AdminAnalytics analytics;
     @Autowired PendingSubmissionSettlement settlement;@Autowired TestRestTemplate http;@Autowired ObjectMapper json;@Autowired org.springframework.data.redis.core.StringRedisTemplate redis;
     @Autowired OperationsRepository awardRows;@Autowired PostEventRepository reportRows;@Autowired OperationsService operations;
-    @Autowired TapRankingService rankings;@Autowired com.tagme.discovery.DiscoveryService discovery;
+    @Autowired CheerFeedService cheerFeed;@Autowired TapRankingService rankings;@Autowired com.tagme.discovery.DiscoveryService discovery;
     @MockitoSpyBean ResultsRepository resultRows;@MockitoBean MattermostClient mattermost;@MockitoBean ModerationProvider provider;
     @MockitoSpyBean AdminAuditRepository audit;
     @Autowired MemberControlService controls;@Autowired ErrorReportService reports;@Autowired ParticipationService participationService;@Autowired OtpStore otpStore;@Autowired AuthService authService;
@@ -78,6 +78,54 @@ class DirectPublicationResetIntegrationTest {
     ResultsController.TapAttempt score(AuthPrincipal actor,int count) {
         var attempt=results.start(actor,UUID.randomUUID().toString());time=attempt.endsAt().plusMillis(100);
         return results.finish(actor,new ResultsController.FinishRequest(attempt.attemptId(),java.util.stream.IntStream.range(0,count).boxed().toList(),List.of()));
+    }
+    @Test void cheerPaletteSupportsTenColoursWithoutChangingTheOneCardSlot() {
+        var colours=List.of("ROSE","INK","PEACH","LEMON","MINT","SAGE","LAVENDER","LILAC","SAND","CLOUD");
+        Long version=null;Long card=null;
+        for(int i=0;i<colours.size();i++) {
+            var saved=content.submit(alice,CHEER,"palette-check-key-"+i,new ContentController.Submit("팔레트 검사 "+i,"PLAIN",colours.get(i),i%2==0,version),version!=null);
+            if(card!=null)assertThat(saved.id()).isEqualTo(card);card=saved.id();version=saved.version();
+            assertThat(saved.approvedRevision().style()).isEqualTo(colours.get(i));
+        }
+        assertThat(db.queryForObject("SELECT COUNT(*) FROM content_items WHERE author_id=? AND kind='CHEER'",Integer.class,alice.userId())).isEqualTo(1);
+        final long v=version;
+        assertThatThrownBy(()->content.submit(alice,CHEER,"invalid-note-new-key",new ContentController.Submit("새 편지","NOTE","ROSE",true,v),true)).isInstanceOf(AuthException.class);
+        assertThatThrownBy(()->content.submit(bob,WISH,"invalid-wish-colour",new ContentController.Submit("소원","PLAIN","MINT",true,null),false)).isInstanceOf(AuthException.class);
+        db.update("UPDATE content_revisions SET template_id='NOTE' WHERE item_id=?",card);
+        assertThat(cheerFeed.feed(CheerFeedService.Sort.LATEST,CheerFeedService.Direction.DESC,null).items().getFirst().templateId()).isEqualTo("PLAIN");
+        assertThat(content.own(alice.userId(),CHEER).latestRevision().templateId()).isEqualTo("NOTE");
+    }
+    @Test void cheerPagesHaveFourDeterministicSortsAndKeepAnonymousIdentityPrivate() {
+        var likers=List.of(participant("cheer-like-one"),participant("cheer-like-two"),participant("cheer-like-three"));
+        var ids=new ArrayList<Long>();
+        for(int i=0;i<25;i++) {
+            var actor=participant("cheer-page-"+i);var card=content.submit(actor,CHEER,"cheer-page-key-"+i,new ContentController.Submit("페이지 "+i,"PLAIN","MINT",i%2==0,null),false);
+            ids.add(card.id());for(int j=0;j<i%4;j++)reactions.like(likers.get(j),card.id(),true);
+        }
+        for(var sort:CheerFeedService.Sort.values())for(var direction:CheerFeedService.Direction.values()) {
+            var first=cheerFeed.feed(sort,direction,null);assertThat(first.items()).hasSize(20);assertThat(first.nextCursor()).isNotNull();
+            var second=cheerFeed.feed(sort,direction,first.nextCursor());assertThat(second.items()).hasSize(5);assertThat(second.nextCursor()).isNull();
+            var actual=new ArrayList<>(first.items());actual.addAll(second.items());
+            var expected=new ArrayList<>(ids);expected.sort((a,b)-> {int difference=sort==CheerFeedService.Sort.HEARTS?Integer.compare(ids.indexOf(a)%4,ids.indexOf(b)%4):0;return (direction==CheerFeedService.Direction.ASC?1:-1)*(difference!=0?difference:Long.compare(a,b));});
+            assertThat(actual).extracting(ContentModels.PublicContent::id).containsExactlyElementsOf(expected);
+            for(var row:actual)if(row.anonymous()){assertThat(row.nickname()).isNull();assertThat(row.profileId()).isNull();}else {assertThat(row.nickname()).isNotBlank();assertThat(row.profileId()).isNotNull();}
+        }
+        var newest=cheerFeed.feed(CheerFeedService.Sort.LATEST,CheerFeedService.Direction.DESC,null);
+        var peer=participant("cheer-later-new");content.submit(peer,CHEER,"cheer-later-new-key",new ContentController.Submit("나중 글","PLAIN","INK",true,null),false);
+        assertThat(cheerFeed.feed(CheerFeedService.Sort.LATEST,CheerFeedService.Direction.DESC,newest.nextCursor()).items()).extracting(ContentModels.PublicContent::id).doesNotContain(newest.items().getFirst().id());
+        assertThat(db.queryForObject("SELECT COUNT(*) FROM information_schema.statistics WHERE table_schema=DATABASE() AND table_name='content_items' AND index_name='ix_content_public_feed'",Integer.class)).isEqualTo(4);
+    }
+    @Test void cheerHeartSortRecountsEligibilityAndImmediatelyExcludesHiddenAndArchivedCards() {
+        var a=content.submit(alice,CHEER,"cheer-visible-a-key",text("가",null),false);
+        var b=content.submit(bob,CHEER,"cheer-visible-b-key",text("나",null),false);
+        var liker=participant("cheer-eligible-liker");reactions.like(liker,a.id(),true);
+        assertThat(cheerFeed.feed(CheerFeedService.Sort.HEARTS,CheerFeedService.Direction.DESC,null).items().getFirst().id()).isEqualTo(a.id());
+        db.update("UPDATE users SET status='SUSPENDED' WHERE id=?",liker.userId());
+        assertThat(cheerFeed.feed(CheerFeedService.Sort.HEARTS,CheerFeedService.Direction.DESC,null).items().getFirst().id()).isEqualTo(b.id());
+        db.update("UPDATE content_items SET visibility_status='HIDDEN' WHERE id=?",b.id());
+        assertThat(cheerFeed.feed(CheerFeedService.Sort.LATEST,CheerFeedService.Direction.DESC,null).items()).hasSize(1);
+        resets.reset(admin,alice.userId(),"cheer-sort-reset-key",resetBody(0));
+        assertThat(cheerFeed.feed(CheerFeedService.Sort.HEARTS,CheerFeedService.Direction.DESC,null).items()).isEmpty();
     }
     @Test void fourHundredCharacterWishesAndCheersRespectEachRevisionPrivacyAndKeepCommentLimit() {
         assertThat(participation.mission(alice.userId(),FAST_TAP).hint()).isEqualTo("19층과 20층 사이 계단에서 F를 찾아 NFC 태그를 읽어주세요.");

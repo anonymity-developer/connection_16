@@ -96,10 +96,12 @@ export function createSandbox(definition: PreviewDefinition, interests: Interest
       },
     },
     content: {
-      own: async kind => copy(slots[kind]), feed: async kind => {
+      own: async kind => copy(slots[kind]), feed: async (kind, _cursor, sort = 'LATEST', direction = 'DESC') => {
         const slot = slots[kind], approved = slot.approvedRevision;
         const own: PublicContent[] = approved ? [{ id: slot.id!, content: approved.content, templateId: approved.templateId, style: approved.style, anonymous: approved.anonymous, nickname: approved.anonymous ? null : '관리자 미리보기', profileId: null, luckScore: null, landingZone: null }] : [];
-        return { items: copy([...own, examples[kind]]), nextCursor: null };
+        const items = [...own, examples[kind]];
+        items.sort((a,b) => { const difference = kind === 'cheers' && sort === 'HEARTS' ? (hearts.get(a.id)?.count ?? 0) - (hearts.get(b.id)?.count ?? 0) : 0; return (direction === 'ASC' ? 1 : -1) * (difference || a.id-b.id); });
+        return { items: copy(items), nextCursor: null };
       },
       submit: async (kind, editing, key, input) => {
         const requestKey = `${kind}:${key}`, fingerprint = JSON.stringify([editing, input]), saved = submissions.get(requestKey);
