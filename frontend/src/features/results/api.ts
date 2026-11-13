@@ -4,7 +4,7 @@ export interface SyncResult { questionnaireVersion: string; type: { code: string
 export interface TapAttempt { attemptId: number; generation: number; status: 'COUNTDOWN' | 'PLAYING' | 'AWAITING_SUBMISSION' | 'CANCELLED' | 'INTERRUPTED' | 'VALID' | 'INVALID' | 'REVIEW_REQUIRED' | 'EXPIRED'; serverNow: string; startsAt: string; endsAt: string; submitDeadline: string; tapCount: number | null; reviewReason: string | null; provisional: boolean }
 export interface TapState { officialAvailable: boolean; attempt: TapAttempt | null }
 export interface TapPayload { attemptId: number; taps: number[]; interruptions: { type: 'HIDDEN' | 'PAGE_HIDE'; atMs: number }[] }
-export interface TapRankEntry { rank: number; nickname: string; tapCount: number; submittedAt: string; message: string | null }
+export interface TapRankEntry { rank: number; profileId: number | null; nickname: string; tapCount: number; submittedAt: string; message: string | null }
 export interface OwnTapRank { attemptId: number; rank: number | null; tapCount: number; recordBreaker: boolean; canWriteMessage: boolean; message: string | null }
 export interface TapBoard { top: TapRankEntry[]; own: OwnTapRank | null }
 export const tapRankingApi = {

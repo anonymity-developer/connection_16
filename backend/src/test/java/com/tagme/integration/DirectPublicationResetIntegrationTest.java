@@ -120,12 +120,12 @@ class DirectPublicationResetIntegrationTest {
         assertThatThrownBy(()->rankings.message(alice,first.attemptId(),"수정",key,0)).isInstanceOf(AuthException.class);
         assertThatThrownBy(()->rankings.message(alice,first.attemptId(),"수정","different-record-key-01",0)).isInstanceOf(AuthException.class);
         assertThatThrownBy(()->rankings.message(bob,first.attemptId(),"다른 사람 기록","other-record-key-001",0)).isInstanceOf(AuthException.class);
-        assertThatThrownBy(()->rankings.message(bob,rankings.board(bob).own().attemptId(),"가".repeat(101),"long-record-key-0001",0)).isInstanceOf(AuthException.class);
+        assertThatThrownBy(()->rankings.message(bob,rankings.board(bob).own().attemptId(),"가".repeat(51),"long-record-key-0001",0)).isInstanceOf(AuthException.class);
         var peer=participant("tied-peer");score(peer,20);
         assertThat(rankings.board(peer).own().recordBreaker()).isFalse();
         assertThat(rankings.board(peer).own().rank()).isEqualTo(2);
         assertThat(rankings.board(peer).top()).extracting(TapRankingService.Entry::nickname).containsExactly("reset-bob","tied-peer","reset-alice");
-        assertThatThrownBy(()->rankings.message(peer,rankings.board(peer).own().attemptId(),"동점",UUID.randomUUID().toString(),0)).isInstanceOf(AuthException.class);
+        assertThat(rankings.message(peer,rankings.board(peer).own().attemptId(),"동점",UUID.randomUUID().toString(),0).own().message()).isEqualTo("동점");
         db.update("UPDATE event_settings SET submit_closes_at=UTC_TIMESTAMP(6)-INTERVAL 1 SECOND WHERE id=1");
         assertThat(rankings.board(bob).own().canWriteMessage()).isFalse();
         assertThat(rankings.message(alice,first.attemptId(),"<script>plain text</script>",key,0).own().message()).isNotNull();
@@ -142,6 +142,53 @@ class DirectPublicationResetIntegrationTest {
         assertThatThrownBy(()->rankings.board(locked)).isInstanceOf(AuthException.class);
         db.update("UPDATE users SET status='SUSPENDED' WHERE mattermost_username='rank-peer-10'");
         assertThat(rankings.board(alice).top().getFirst().tapCount()).isEqualTo(29);
+    }
+    @Test void topTenNonBreakerHasOneFiftyCharacterMessageAndPublicProfileLink() {
+        score(alice,90);var second=score(bob,80);
+        var board=rankings.board(bob);assertThat(board.own().recordBreaker()).isFalse();
+        assertThat(board.own().canWriteMessage()).isTrue();
+        assertThat(board.top().get(1).profileId()).isEqualTo(bob.userId());
+        assertThatThrownBy(()->rankings.message(bob,second.attemptId(),"가".repeat(51),"too-long-top-ten-key",0)).isInstanceOf(AuthException.class);
+        var saved=rankings.message(bob,second.attemptId(),"가".repeat(50),"fifty-char-top-ten-key",0);
+        assertThat(saved.own().message()).hasSize(50);assertThat(saved.own().canWriteMessage()).isFalse();
+        assertThat(rankings.message(bob,second.attemptId(),"가".repeat(50),"fifty-char-top-ten-key",0).own().message()).hasSize(50);
+    }
+    @Test void rankElevenGainsPermissionOnReadAfterResetAndKeepsItAfterBeingOvertaken() {
+        var leaders=new ArrayList<AuthPrincipal>();for(int i=0;i<10;i++){var peer=participant("threshold-"+i);leaders.add(peer);score(peer,100+i);}
+        var attempt=score(bob,50);assertThat(rankings.board(bob).own().rank()).isEqualTo(11);
+        assertThat(rankings.board(bob).own().canWriteMessage()).isFalse();
+        assertThatThrownBy(()->rankings.message(bob,attempt.attemptId(),"not yet","not-top-ten-test-key",0)).isInstanceOf(AuthException.class);
+        resets.reset(admin,leaders.getFirst().userId(),"threshold-reset-key",resetBody(0));
+        assertThat(rankings.board(bob).own().rank()).isEqualTo(10);assertThat(rankings.board(bob).own().canWriteMessage()).isTrue();
+        score(participant("new-threshold-leader"),200);
+        assertThat(rankings.board(bob).own().rank()).isEqualTo(11);assertThat(rankings.board(bob).own().canWriteMessage()).isTrue();
+        assertThat(rankings.message(bob,attempt.attemptId(),"권한 유지","retained-ten-test-key",0).own().message()).isEqualTo("권한 유지");
+    }
+    @Test void simultaneousFinishesKeepCurrentRanksAndPreviouslyEarnedPermissions() throws Exception {
+        for(int i=0;i<9;i++)score(participant("concurrent-top-"+i),100+i);
+        var a=results.start(alice,UUID.randomUUID().toString());var b=results.start(bob,UUID.randomUUID().toString());time=a.endsAt().plusSeconds(1);
+        var taps=java.util.stream.IntStream.range(0,50).boxed().toList();
+        try(var pool=Executors.newFixedThreadPool(2)) {
+            var gate=new CountDownLatch(1);
+            var left=pool.submit(()->{gate.await();return results.finish(alice,new ResultsController.FinishRequest(a.attemptId(),taps,List.of()));});
+            var right=pool.submit(()->{gate.await();return results.finish(bob,new ResultsController.FinishRequest(b.attemptId(),taps,List.of()));});gate.countDown();
+            assertThat(left.get(15,TimeUnit.SECONDS).status()).isEqualTo("VALID");assertThat(right.get(15,TimeUnit.SECONDS).status()).isEqualTo("VALID");
+        }
+        assertThat(db.queryForObject("SELECT COUNT(*) FROM tap_message_permissions WHERE user_id IN (?,?)",Integer.class,alice.userId(),bob.userId())).isBetween(1,2);
+        // The first finisher may briefly enter tenth before the earlier-ID tied attempt overtakes it.
+        for(var actor:List.of(alice,bob))if(rankings.board(actor).own().rank()==10)assertThat(rankings.board(actor).own().canWriteMessage()).isTrue();
+        assertThat(List.of(rankings.board(alice).own().rank(),rankings.board(bob).own().rank())).containsExactlyInAnyOrder(10,11);
+    }
+    @Test void migrationPreservesLegacyLongMessagesAndArchivedEntitlements() throws Exception {
+        var attempt=score(alice,10);
+        db.update("UPDATE tap_record_achievements SET message_text=?,message_key='legacy-message-key',message_at=UTC_TIMESTAMP(6) WHERE attempt_id=?","가".repeat(100),attempt.attemptId());
+        db.update("DELETE FROM tap_message_permissions WHERE attempt_id=?",attempt.attemptId());
+        var sql=java.nio.file.Files.readString(java.nio.file.Path.of("src/main/resources/db/migration/V20__tap_top_ten_messages.sql"));
+        db.update(sql.substring(sql.indexOf("INSERT INTO tap_message_permissions")));
+        assertThat(rankings.board(alice).own().message()).hasSize(100);assertThat(rankings.board(alice).own().canWriteMessage()).isFalse();
+        resets.reset(admin,alice.userId(),"legacy-top-ten-reset",resetBody(0));
+        assertThat(rankings.board(alice).own()).isNull();
+        assertThat(db.queryForObject("SELECT message_text FROM tap_message_permissions WHERE attempt_id=?",String.class,attempt.attemptId())).hasSize(100);
     }
     @Test void equalConcurrentFinishesGrantExactlyOneRecordEntitlementAndNeverCreateItOnReplay() throws Exception {
         var a=results.start(alice,UUID.randomUUID().toString());var b=results.start(bob,UUID.randomUUID().toString());time=a.endsAt().plusSeconds(1);
@@ -167,7 +214,7 @@ class DirectPublicationResetIntegrationTest {
             reset.get(15,TimeUnit.SECONDS);assertThat(finish.get(15,TimeUnit.SECONDS).status()).isEqualTo("VALID");
         }
         assertThat(rankings.board(alice).top()).hasSize(1);assertThat(rankings.board(alice).own().recordBreaker()).isTrue();assertThat(rankings.board(bob).own()).isNull();
-        assertThat(db.queryForObject("SELECT message_text FROM tap_record_achievements WHERE attempt_id=?",String.class,old.attemptId())).isEqualTo("이전 회차 소감");
+        assertThat(db.queryForObject("SELECT message_text FROM tap_message_permissions WHERE attempt_id=?",String.class,old.attemptId())).isEqualTo("이전 회차 소감");
         assertThatThrownBy(()->rankings.message(bob,old.attemptId(),"오래된 요청","old-message-test-key",0)).isInstanceOfSatisfying(AuthException.class,e->assertThat(e.code()).isEqualTo("PARTICIPATION_RESET"));
         var retry=results.start(bob,UUID.randomUUID().toString(),1);time=retry.endsAt().plusMillis(100);
         results.finish(bob,new ResultsController.FinishRequest(retry.attemptId(),java.util.stream.IntStream.range(0,60).boxed().toList(),List.of()),1);

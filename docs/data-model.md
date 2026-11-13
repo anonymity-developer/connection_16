@@ -1,5 +1,7 @@
 # 데이터 모델과 마이그레이션 계획
 
+2026-11-13 V20: `tap_attempts (id,user_id) 1 — 0..1 tap_message_permissions (attempt_id,user_id)`로 상위 10위 한마디 권한/작성시각/멱등 키를 보관한다. 기존 `tap_record_achievements`의 갱신 이력과 분리하고 이전 소감을 복사한다. 저장소는 레거시 100자를 보존하고 신규 API 쓰기는 50자로 제한한다. 현재 슬롯·보관 여부로 공개/작성 대상을 제한하며 [미션 규칙](mission-rules.md)을 따른다.
+
 2026-11-12 현재 계약: 한 줄 소개는 필수(200자 이내)이며 관심 산업 1~3개·개발 분야 1~3개를 선택한다. V16은 이름이 같은 기존 관심사 ID/선택을 유지하고 나머지를 LEGACY/비활성으로 보관한다. V17은 기술 스택 50개를 비활성화하고 기존 선택 행은 보존한다. 활성 선택지는 산업 10개·개발 분야 12개다. 목록·추천·그래프에 한 줄 소개와 분류 정보를 공개하고 이름·반·사진·외부 링크는 프로필 상세에서만 공개한다. 기존 사용자는 프로필을 보완한 후 동료 찾기를 이용하며 기존 글자·참여 기록은 삭제하지 않는다. [현재 추천·노출·공개 경계](recommendation-design.md). 아래 이전 필수/선택 규칙과 충돌하면 이 현재 계약을 따른다.
 
 V16의 recommendation_exposures는 (viewer_id,batch_id,peer_id) PK, 양쪽 users FK와 shown_at을 가진다. (viewer,peer,shown_at) 조회 인덱스와 (viewer,shown_at) 정리 인덱스를 둔다. interests에는 active/group_name/display_order가 추가되고 INDUSTRY/DEVELOPMENT/TECH_STACK/LEGACY 분류를 사용한다.
