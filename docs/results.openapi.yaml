@@ -167,7 +167,7 @@ paths:
       - session: []
       responses:
         '200':
-          description: 현재 공개 순위와 본인 권한
+          description: 현재 공개 순위와 본인 권한. 본인이 상위 10위에 있으면 권한을 멱등 저장한다.
           content:
             application/json:
               schema:
@@ -176,7 +176,7 @@ paths:
           $ref: '#/components/responses/Error'
   /tap/record-message:
     post:
-      summary: 기록 갱신 당시 부여한 권한으로 소감 1회 저장
+      summary: 상위 10위 진입 권한으로 50자 한마디 1회 저장
       description: OPEN·본인 현재 시도·해금·현재 프로필/동의 확인. 추월당해도 권한 유지. 같은 키/내용 재시도만 허용하며 수정 불가. 마감 후 동일 재시도 가능.
       security:
       - session: []
@@ -204,7 +204,7 @@ paths:
               required: [attemptId, content]
               properties:
                 attemptId: {type: integer, minimum: 1}
-                content: {type: string, minLength: 1, maxLength: 100}
+                content: {type: string, minLength: 1, maxLength: 50}
       responses:
         '200':
           description: 저장 후 현재 순위와 본인 권한
@@ -225,16 +225,17 @@ components:
           maxItems: 10
           items:
             type: object
-            required: [rank, nickname, tapCount, submittedAt, message]
+            required: [rank, profileId, nickname, tapCount, submittedAt, message]
             properties:
               rank: {type: integer, minimum: 1, maximum: 10}
+              profileId: {type: integer, minimum: 1}
               nickname: {type: string}
               tapCount: {type: integer, minimum: 0}
               submittedAt: {type: string, format: date-time}
               message: {type: [string, 'null'], maxLength: 100}
         own:
           type: [object, 'null']
-          description: 타인의 사용자/시도 ID는 제공하지 않으며 본인 시도만 식별한다.
+          description: 공개 순위는 상세 프로필 이동을 위한 profileId만 제공하고 타인 시도 ID·실명은 제공하지 않는다.
           required: [attemptId, rank, tapCount, recordBreaker, canWriteMessage, message]
           properties:
             attemptId: {type: integer, minimum: 1}

@@ -19,7 +19,7 @@ try {
     slots[kind]={...blank(),id,version:1,visibility:'VISIBLE',approvedRevision:revision,latestRevision:revision,missionCompleted:true};
   }
   let editing=false,locked=false,rankingReads=0,saveMode='lost',savedRequest=null;
-  const top=Array.from({length:10},(_,i)=>({rank:i+1,nickname:i===0?'<img src=x onerror=alert(1)>':`검사 동료 ${i+1}`,tapCount:200-i,submittedAt:now,message:i===0?'서버에서 받은 소감':null}));
+  const top=Array.from({length:10},(_,i)=>({rank:i+1,profileId:i+81,nickname:i===0?'<img src=x onerror=alert(1)>':`검사 동료 ${i+1}`,tapCount:200-i,submittedAt:now,message:i===0?'서버에서 받은 소감':null}));
   let board={top,own:{attemptId:73,rank:12,tapCount:100,recordBreaker:true,canWriteMessage:true,message:null}};
   page.on('pageerror',e=>errors.push(e.message));
   await page.addLocatorHandler(page.locator('.mission-earned-actions'),()=>page.getByRole('button',{name:'계속 참여하기',exact:true}).click());
@@ -115,10 +115,10 @@ try {
   }
   console.log('PASS 400-character wish/cheer edits preserve a single slot and explicitly toggle public profile links');
   await visit('fast-tap');await page.locator('.tap-ranking-list li').last().waitFor();
-  assert.equal(await page.locator('.tap-ranking-list li').count(),10);await page.getByText('12위',{exact:true}).waitFor();
+  assert.equal(await page.locator('.tap-ranking-list li').count(),10);assert.equal(await page.locator('.tap-ranking-list a').first().getAttribute('href'),'/discovery/profiles/81');await page.getByText('12위',{exact:true}).waitFor();
   assert.equal(await page.locator('.tap-ranking-list img,.tap-ranking-list script').count(),0);
-  const message=page.getByLabel('최고 기록 갱신 소감',{exact:true});assert.equal(await message.getAttribute('maxlength'),'100');
-  await message.fill('내 소감'.repeat(20));await page.getByRole('button',{name:'소감 남기기',exact:true}).click();await page.getByRole('button',{name:'같은 소감 다시 보내기',exact:true}).waitFor();assert.equal(await message.isDisabled(),true);
+  const message=page.getByLabel('순위권 한마디',{exact:true});assert.equal(await message.getAttribute('maxlength'),'50');
+  await message.fill('내 소감'.repeat(10));await page.getByRole('button',{name:'소감 남기기',exact:true}).click();await page.getByRole('button',{name:'같은 소감 다시 보내기',exact:true}).waitFor();assert.equal(await message.isDisabled(),true);
   await page.getByRole('button',{name:'같은 소감 다시 보내기',exact:true}).click();await page.locator('.tap-own-message').waitFor();assert.equal(writes.length,2);assert.equal(await message.count(),0);
   await page.reload();await page.locator('.tap-own-message').waitFor();assert.equal(await message.count(),0);
   console.log('PASS server top ten/own rank, escaped nicknames, retained record entitlement and identical one-time message retry');

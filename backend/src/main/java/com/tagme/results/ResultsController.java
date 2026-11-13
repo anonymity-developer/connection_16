@@ -25,7 +25,7 @@ public class ResultsController {
     public record SyncState(SyncResult result) { }
     public record TapAttempt(long attemptId,int generation,String status,Instant serverNow,Instant startsAt,Instant endsAt,Instant submitDeadline,Integer tapCount,String reviewReason,boolean provisional) { }
     public record TapState(boolean officialAvailable,TapAttempt attempt) { }
-    public record RecordMessage(@Positive long attemptId,@NotBlank @Size(max=100) String content) { }
+    public record RecordMessage(@Positive long attemptId,@NotBlank @Size(max=50) String content) { }
     private final ResultsService service;
     private final TapRankingService rankings;
     public ResultsController(ResultsService service,TapRankingService rankings){this.service=service;this.rankings=rankings;}

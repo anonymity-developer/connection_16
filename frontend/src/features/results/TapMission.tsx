@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import './tap.css';
 import { Button } from '../../components/ui';
 import { Icon } from '../../components/Icon';
 import { useParticipation } from '../participation/context';
@@ -20,6 +21,21 @@ export function TapMissionView({ api, refresh, preview = false, rankingApi }: { 
   const [running, setRunning] = useState(false); const [tick, setTick] = useState(0); const [count, setCount] = useState(0); const [practiceScore, setPracticeScore] = useState<number | null>(null); const [notice, setNotice] = useState('');
   const run = useRef<Run | null>(null); const pending = useRef<TapPayload | null>(null); const startKey = useRef<string | null>(null); const active = useRef(true); const abort = useRef<() => void>(() => {}); const finishing = useRef(false);
   const startOnce = useRef(createTapStartGate());
+  const arena = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!running || !arena.current) return;
+    const root = document.documentElement, body = document.body, previousScroll = window.scrollY;
+    const previous = { overflow: root.style.overflow, position: body.style.position, top: body.style.top, width: body.style.width };
+    arena.current.scrollIntoView({ block: 'start', behavior: 'instant' });
+    const gameScroll = window.scrollY;
+    // Fixed-body locking also prevents Safari from moving the page during repeated touches.
+    root.style.overflow = 'hidden'; body.style.position = 'fixed'; body.style.top = `-${gameScroll}px`; body.style.width = '100%';
+    arena.current.querySelector<HTMLButtonElement>('.tap-area')?.focus({ preventScroll: true });
+    return () => {
+      root.style.overflow = previous.overflow; body.style.position = previous.position; body.style.top = previous.top; body.style.width = previous.width;
+      window.scrollTo({ top: previousScroll, behavior: 'instant' });
+    };
+  }, [running]);
   const phase = run.current ? localPhase(tick, run.current.starts, run.current.ends) : null;
   const remaining = run.current ? Math.max(0, (phase === 'COUNTDOWN' ? run.current.starts : run.current.ends) - tick) / 1000 : 0;
   useEffect(() => {
@@ -81,17 +97,42 @@ export function TapMissionView({ api, refresh, preview = false, rankingApi }: { 
     finally { finishing.current = false; if (active.current) setBusy(false); }
   }
   if (loading) return <p role="status">공식 도전 기록을 불러오고 있어요.</p>;
+  if (!state) return <div className="tap-panel"><p role="alert">{error}</p><Button variant="secondary" onClick={load}>기록 불러오기 다시 시도</Button></div>;
   const attempt: TapAttempt | null = state?.attempt ?? null;
   const recovered = !running && attempt && ['COUNTDOWN', 'PLAYING', 'AWAITING_SUBMISSION'].includes(attempt.status) && !pending.current;
-  return <section className="tap-panel" aria-labelledby="tap-heading"><h2 id="tap-heading">{attempt && !recovered && !running ? '나의 기록' : preview ? '10초 미리보기 도전' : '10초의 공식 도전'}</h2>{!attempt && <p className="result-footnote">{preview ? '미리보기에서는 도전 후 초기화해 반복할 수 있어요. 5초 준비 뒤 10초 동안 탭해 보세요.' : '공식 도전은 1회예요. 5초 준비 중에는 취소할 수 있어요. 시작 후 화면 이탈이나 중단은 기회를 사용한 것으로 기록돼요.'}</p>}
-    {running ? <div className="tap-play"><p className="tap-mode">{run.current?.mode === 'practice' ? '연습 · 공식 기록 없음' : preview ? '관리자 미리보기' : '공식 도전'}</p><div className="tap-metrics"><p><span>{phase === 'COUNTDOWN' ? '준비 시간' : '남은 시간'}</span><strong>{remaining.toFixed(1)}<small>초</small></strong></p><p><span>현재 탭</span><strong>{count}<small>회</small></strong></p></div><button type="button" className="tap-area" aria-label="탭 영역" onClick={event => { if (event.detail === 0) tap(); }} onPointerDown={event => { event.preventDefault(); tap(); }} onKeyDown={event => { if ([' ', 'Enter'].includes(event.key)) { event.preventDefault(); if (!event.repeat) tap(); } }}>{phase === 'COUNTDOWN' ? '곧 시작해요' : '탭!'}<span>{phase === 'COUNTDOWN' ? '준비 시간이 끝나면 눌러주세요' : '손끝으로 빠르게 눌러주세요'}</span></button><Button variant="quiet" onClick={cancel}>{phase === 'COUNTDOWN' ? '준비 중 취소하기' : '도전 중단하기'}</Button></div>
-      : <><div className="tap-official-state" role="status"><h3>{busy && pending.current ? '공식 기록을 전송하고 있어요' : recovered ? '진행 중인 공식 도전이 있어요' : attempt ? displayLabels[attempt.status] ?? '도전 상태를 확인해 주세요' : '공식 도전을 시작할 수 있어요'}</h3>{attempt?.tapCount !== null && attempt?.tapCount !== undefined && <p className="tap-score">{attempt.tapCount}<small>회</small></p>}<p>{recovered ? '화면을 새로 열어 이전 입력을 복원할 수 없어요. 중단 상태를 확인해 주세요.' : attempt?.status === 'VALID' ? preview ? '미리보기 안에서 계산한 결과예요. 실제 글자·순위·서버 기록에는 반영하지 않아요.' : '입력을 확인하고 공식 기록을 저장했어요.' : attempt?.status === 'INVALID' ? '입력 규칙에 맞지 않아 서버가 자동으로 무효 처리했어요. 1ms 미만의 중복 입력은 인정하지 않으며 F는 지급되지 않아요.' : attempt?.status === 'REVIEW_REQUIRED' ? '저장된 입력을 서버가 현재 규칙으로 자동 확인하고 있어요. 잠시 뒤 기록을 새로고침해 주세요.' : attempt ? '공식 도전은 새로 시작되지 않아요. 필요한 경우 운영자에게 문의해 주세요.' : '준비 시간을 포함해 안정적으로 참여할 수 있을 때 시작해 주세요.'}</p></div>
+  const ended = !!attempt && ['VALID', 'INVALID', 'INTERRUPTED', 'EXPIRED', 'REVIEW_REQUIRED'].includes(attempt.status);
+  return <section className={`tap-panel${running ? ' is-running' : ''}`} aria-labelledby="tap-heading">
+    {running ? <div className={`tap-play${phase === 'PLAYING' ? ' is-playing' : ''}${phase === 'PLAYING' && remaining <= 3 ? ' is-final' : ''}`} ref={arena}>
+      <div className="tap-round-heading"><h2 id="tap-heading">{phase === 'COUNTDOWN' ? '준비하세요' : '지금 탭하세요!'}</h2><span className="tap-mode">{run.current?.mode === 'practice' ? '연습' : preview ? '미리보기' : '공식 도전'}</span></div>
+      <div className="tap-metrics"><p><span>{phase === 'COUNTDOWN' ? '준비 시간' : '남은 시간'}</span><strong>{remaining.toFixed(1)}<small>초</small></strong></p><p><span>현재 탭</span><strong>{count}<small>회</small></strong></p></div>
+      <progress className="tap-time-track" max={phase === 'COUNTDOWN' ? 5 : 10} value={remaining} aria-label={phase === 'COUNTDOWN' ? '준비 시간' : '남은 시간'} />
+      <p className="tap-phase-cue" role="status">{phase === 'COUNTDOWN' ? '준비 시간이 끝나면 눌러주세요' : remaining <= 3 ? '마지막까지 빠르게!' : '손끝으로 빠르게 눌러주세요'}</p>
+      <button type="button" className="tap-area" data-beat={count % 2} aria-label="탭 영역" aria-disabled={phase !== 'PLAYING'}
+        onContextMenu={event => event.preventDefault()}
+        onClick={event => { if (event.detail === 0) tap(); }}
+        onPointerDown={event => { if (event.button !== 0) return; event.preventDefault(); tap(); }}
+        onKeyDown={event => { if ([' ', 'Enter'].includes(event.key)) { event.preventDefault(); if (!event.repeat) tap(); } }}>
+        <img src="/images/letters/fast-tap.webp" alt="" draggable={false} />
+        <strong>{phase === 'COUNTDOWN' ? Math.max(1, Math.ceil(remaining)) : 'TAP!'}</strong>
+        <span>{phase === 'COUNTDOWN' ? '곧 시작해요' : '+1'}</span>
+      </button>
+      <Button variant="quiet" className="tap-stop" onClick={cancel}>{phase === 'COUNTDOWN' ? '준비 중 취소하기' : '도전 중단하기'}</Button>
+    </div> : <>
+      <h2 id="tap-heading">{ended ? '나의 기록' : preview ? '10초 미리보기 도전' : '10초의 공식 도전'}</h2>
+      {!attempt && <><p className="tap-rules-summary">5초 준비 · 10초 도전 · 공식 1회</p><p className="result-footnote">{preview ? '미리보기 결과는 실제 기록에 반영되지 않아요.' : '준비 중에는 취소할 수 있어요. 시작 후 화면 이탈·중단 시 기회가 사용돼요.'}</p></>}
+      <div className="tap-official-state" role="status"><h3>{busy && pending.current ? '공식 기록을 전송하고 있어요' : recovered ? '진행 중인 공식 도전이 있어요' : attempt ? displayLabels[attempt.status] ?? '도전 상태를 확인해 주세요' : '공식 도전을 시작할 수 있어요'}</h3>
+        {attempt?.tapCount !== null && attempt?.tapCount !== undefined && <p className="tap-score">{attempt.tapCount}<small>회</small></p>}
+        <p>{recovered ? '이전 입력은 복원할 수 없어요. 도전 중단 상태를 확인해 주세요.' : attempt?.status === 'VALID' ? preview ? '미리보기 결과예요. 실제 기록에 반영되지 않아요.' : '공식 기록을 저장했어요.' : attempt?.status === 'INVALID' ? '1ms 미만의 중복 입력 등 입력 규칙에 맞지 않아 무효 처리됐어요. F는 지급되지 않아요.' : attempt?.status === 'REVIEW_REQUIRED' ? '저장된 입력을 현재 규칙으로 확인하고 있어요.' : attempt ? '공식 도전은 다시 시작할 수 없어요.' : '편하게 탭할 수 있도록 휴대폰을 잡아주세요.'}</p>
+      </div>
       {state?.officialAvailable && <Button className="full-width" disabled={busy} onClick={start}>{busy ? '시작 확인 중…' : preview ? '미리보기 도전 시작하기' : '공식 도전 시작하기 (1회)'}<Icon name="arrow" size={18} /></Button>}
       {recovered && <Button variant="secondary" disabled={busy} onClick={cancel}>도전 중단 상태 확인하기</Button>}
       {pending.current && <Button disabled={busy} onClick={send}>같은 기록 다시 전송하기</Button>}
-      <Button variant="secondary" className="full-width tap-practice" disabled={busy || !!recovered || !!pending.current} onClick={practice}>기록 없이 연습하기</Button>{practiceScore !== null && <p className="result-footnote">연습 결과 {practiceScore}회 · 공식 기록에는 반영되지 않아요.</p>}
+      <Button variant="secondary" className="full-width tap-practice" disabled={busy || !!recovered || !!pending.current} onClick={practice}>기록 없이 연습하기</Button>
+      {practiceScore !== null && <p className="result-footnote">연습 결과 {practiceScore}회 · 공식 기록에는 반영되지 않아요.</p>}
     </>}
-    {notice && <p className="result-footnote" role="status">{notice}</p>}{error && <p className="form-notice is-error" role="alert">{error}</p>}{!running && <Button variant="quiet" disabled={busy} onClick={load}>{preview ? '미리보기 기록 다시 확인하기' : '서버 기록 다시 확인하기'}</Button>}
-    {!running && rankingApi && <TapLeaderboard api={rankingApi} revision={`${attempt?.attemptId ?? 0}:${attempt?.status ?? ''}`} preview={preview} />}
+    {!running && notice && <p className="result-footnote" role="status">{notice}</p>}
+    {error && <p className="form-notice is-error" role="alert">{error}</p>}
+    {!running && attempt?.status === 'REVIEW_REQUIRED' && <Button variant="quiet" disabled={busy} onClick={load}>기록 상태 다시 확인하기</Button>}
+    {!running && ended && !pending.current && rankingApi && <TapLeaderboard api={rankingApi} revision={`${attempt?.attemptId ?? 0}:${attempt?.status ?? ''}`} preview={preview} />}
   </section>;
 }

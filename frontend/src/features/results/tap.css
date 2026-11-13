@@ -1,0 +1,53 @@
+/* FAST TAP: one mobile column; the F character anchors the thumb-sized input surface.
+   Desktop keeps the existing mission shell instead of introducing a second navigation layout. */
+.participant-shell .tap-panel, .tap-panel { max-width: 640px; width: 100%; margin-inline: auto; }
+.tap-panel .tap-rules-summary { margin: 12px 0 8px; color: var(--accent-ink); font-size: 14px; font-weight: 600; }
+.tap-panel .tap-round-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.tap-panel .tap-mode { margin: 0; font-size: 12px; color: var(--muted); }
+.tap-panel .tap-play { scroll-margin-top: 12px; touch-action: none; overflow-anchor: none; }
+.tap-panel .tap-metrics { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin: 20px 0 12px; }
+.tap-panel .tap-metrics p:last-child { text-align: right; }
+.tap-panel .tap-metrics strong { font-size: clamp(32px, 8vw, 44px); line-height: 1.3; font-weight: 700; }
+.tap-panel .tap-time-track { display: block; width: 100%; height: 8px; border: 0; border-radius: 8px; appearance: none; overflow: hidden; background: var(--raised); accent-color: var(--accent); }
+.tap-time-track::-webkit-progress-bar { background: var(--raised); }
+.tap-time-track::-webkit-progress-value { background: var(--accent); border-radius: 8px; }
+.tap-time-track::-moz-progress-bar { background: var(--accent); border-radius: 8px; }
+.tap-panel .tap-phase-cue { min-height: 24px; text-align: center; margin: 16px 0 12px; color: var(--muted); font-size: 13px; }
+.participant-shell .tap-panel .tap-area, .tap-panel .tap-area {
+  position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center;
+  width: 100%; max-width: 440px; min-height: 200px; height: clamp(200px, 35svh, 320px); aspect-ratio: auto;
+  margin: 0 auto; border: 2px solid var(--accent-track); border-bottom-width: 7px; border-radius: 28px;
+  background: var(--accent-soft); color: var(--accent-ink); touch-action: none; user-select: none;
+  -webkit-user-select: none; -webkit-touch-callout: none; -webkit-tap-highlight-color: transparent; overflow: hidden;
+}
+.tap-panel .tap-area > img { width: clamp(64px, 12svh, 104px); height: clamp(64px, 12svh, 104px); object-fit: contain; pointer-events: none; }
+.tap-panel .tap-area > strong { font-size: 40px; line-height: 1.2; font-variant-numeric: tabular-nums; pointer-events: none; }
+.tap-panel .tap-area > span { margin: 8px 0 0; font-size: 13px; pointer-events: none; }
+.tap-panel .tap-area[aria-disabled=true] { border-style: dashed; border-bottom-style: solid; }
+.tap-panel .is-playing .tap-area { border-color: var(--accent); }
+.tap-panel .is-playing .tap-area:active { transform: translateY(3px); border-bottom-width: 4px; background: var(--accent-track); }
+.tap-panel .is-playing .tap-area[data-beat="1"] > img { transform: rotate(-6deg) scale(1.04); }
+.tap-panel .is-final .tap-phase-cue { color: var(--accent-ink); font-weight: 700; }
+.tap-panel .tap-stop { display: block; min-height: 44px; margin: 12px auto 0; }
+.tap-panel .tap-official-state { padding: 24px 0; }
+.tap-panel .tap-official-state .tap-score { font-size: 48px; font-weight: 700; }
+.tap-ranking-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.tap-ranking-heading > .button { min-height: 44px; font-size: 12px; padding-inline: 8px; }
+.tap-ranking-list li > div { min-width: 0; }
+.tap-ranking-list .tap-rank-profile { display: inline-flex; min-height: 44px; align-items: center; font-weight: 600; text-decoration: underline; text-underline-offset: 3px; overflow-wrap: anywhere; }
+.tap-ranking-list li p { white-space: pre-wrap; overflow-wrap: anywhere; }
+.tap-ranking-list .tap-rank-score { white-space: nowrap; font-variant-numeric: tabular-nums; }
+.tap-leaderboard textarea { font-size: 16px; }
+@media (max-width: 640px) {
+  .participant-shell [data-mission="FAST_TAP"] .mission-detail { padding: 16px; }
+  .participant-shell [data-mission="FAST_TAP"] .tap-panel { padding: 0; border: 0; border-radius: 0; box-shadow: none; }
+  .tap-panel .tap-leaderboard { margin-top: 24px; padding-top: 20px; }
+}
+@media (max-height: 600px) and (orientation: landscape) {
+  .tap-panel .tap-play { display: grid; grid-template-columns: 1fr 1.4fr; gap: 8px 20px; }
+  .tap-panel .tap-round-heading, .tap-panel .tap-metrics, .tap-panel .tap-time-track, .tap-panel .tap-phase-cue, .tap-panel .tap-stop { grid-column: 1; margin: 0; }
+  .tap-panel .tap-area { grid-column: 2; grid-row: 1 / 6; height: 220px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .tap-panel .is-playing .tap-area:active, .tap-panel .is-playing .tap-area[data-beat] > img { transform: none; }
+}
