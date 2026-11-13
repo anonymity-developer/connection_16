@@ -22,7 +22,7 @@ export function createSandbox(definition: PreviewDefinition, interests: Interest
   const tapBoard = () => {
     const attempt=tap.attempt;
     if(!attempt || attempt.status!=='VALID')return {top:[],own:null};
-    return {top:[{rank:1,nickname:'관리자 미리보기',tapCount:attempt.tapCount ?? 0,submittedAt:attempt.endsAt,message:tapMessage}],own:{attemptId:attempt.attemptId,rank:1,tapCount:attempt.tapCount ?? 0,recordBreaker:true,canWriteMessage:tapMessage===null,message:tapMessage}};
+    return {top:[{rank:1,profileId:null,nickname:'관리자 미리보기',tapCount:attempt.tapCount ?? 0,submittedAt:attempt.endsAt,message:tapMessage}],own:{attemptId:attempt.attemptId,rank:1,tapCount:attempt.tapCount ?? 0,recordBreaker:true,canWriteMessage:tapMessage===null,message:tapMessage}};
   };
   const slots: Record<ContentKind, OwnSlot> = { wishes: empty(), cheers: empty() };
   const comments = new Map<number, OwnComment[]>();
@@ -39,7 +39,7 @@ export function createSandbox(definition: PreviewDefinition, interests: Interest
     tapRanking: {
       board: async () => copy(tapBoard()),
       message: async (attemptId,content,key) => {
-        if(!tapBoard().own || tap.attempt?.attemptId!==attemptId || !content.trim() || content.length>100)throw new ApiError(400,'INVALID_RECORD_MESSAGE','미리보기 소감을 확인해 주세요.');
+        if(!tapBoard().own || tap.attempt?.attemptId!==attemptId || !content.trim() || content.length>50)throw new ApiError(400,'INVALID_RECORD_MESSAGE','미리보기 소감을 확인해 주세요.');
         if(tapMessage!==null && (tapMessageKey!==key || tapMessage!==content.trim()))throw new ApiError(409,'RECORD_MESSAGE_SAVED','이미 소감을 남겼어요.');
         tapMessage=content.trim();tapMessageKey=key;return copy(tapBoard());
       },

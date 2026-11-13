@@ -98,6 +98,6 @@ GMS/OpenAI 선택 설정과 실패 시 REVIEW_REQUIRED 처리, 실연동 미검�
 
 목록 본문·작성자·유효 하트 집계를 Redis/공용 캐시에 저장하지 않는다. 현재 화면의 페이지/하트 상태를 메모리에 유지하고 같은 다음 페이지의 동시 요청은 합친다. 작성·수정·명시적 새로고침·정렬 변경 시 목록을 재조회한다. 권한/비활성화/숨김/현재 동의와 하트 자격은 SQL에서 매번 확인하여 별도 집계 캐시의 무효화 경로를 만들지 않는다. 기존 cheer_likes 기본키 `(card_id,user_id)`와 새 `ix_content_public_feed(kind,visibility_status,archived_at,id)`를 사용한다. 최신순은 하트 집계를 생략하고 하트순은 유효 하트를 카드별로 묶어 집계한다. 하트 수는 런타임 집계이므로 해당 값의 정렬 자체가 B-tree 인덱스 정렬이라는 의미는 아니다.
 
-독립 PR의 미병합 FAST TAP V20과 버전 충돌/병합 순서 의존을 만들지 않도록 `R__cheer_palette_and_feed_index.sql` repeatable migration을 추가했다. 불변 revision을 UPDATE하지 않고 CHECK 허용 팔레트와 인덱스만 선언한다. 인덱스가 이미 있으면 다시 생성하지 않아 재실행할 수 있다.
+FAST TAP V20과 독립적으로 적용되며 버전 충돌/병합 순서 의존을 만들지 않도록 `R__cheer_palette_and_feed_index.sql` repeatable migration을 추가했다. 불변 revision을 UPDATE하지 않고 CHECK 허용 팔레트와 인덱스만 선언한다. 인덱스가 이미 있으면 다시 생성하지 않아 재실행할 수 있다.
 
 로컬 29개 합성 카드의 EXPLAIN ANALYZE에서 최신순은 PK 역방향 스캔과 LIMIT, 하트순은 유효 하트 집계 후 정렬을 확인했다. 작은 표에서는 옵티마이저가 새 복합 인덱스 대신 PK/표 스캔을 선택할 수 있으며 강제로 인덱스를 지정하지 않는다. 실제 행사 부하나 인덱스 전후 속도 향상을 측정했다는 의미는 아니다.

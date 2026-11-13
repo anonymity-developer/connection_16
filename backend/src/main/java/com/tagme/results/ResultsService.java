@@ -17,9 +17,9 @@ import static com.tagme.results.ResultsController.*;
 @Service
 public class ResultsService {
     private final ParticipationRepository participation;private final ResultsRepository repository;private final MissionCompletionService completion;
-    private final TransactionTemplate transactions;private final ObjectMapper json;private final AuthRateLimiter limits;
+    private final TransactionTemplate transactions,finishTransactions;private final ObjectMapper json;private final AuthRateLimiter limits;
     private final TapRankingService rankings;
-    public ResultsService(ParticipationRepository participation,ResultsRepository repository,MissionCompletionService completion,PlatformTransactionManager manager,ObjectMapper json,AuthRateLimiter limits,TapRankingService rankings){this.participation=participation;this.repository=repository;this.completion=completion;this.transactions=new TransactionTemplate(manager);this.json=json;this.limits=limits;this.rankings=rankings;}
+    public ResultsService(ParticipationRepository participation,ResultsRepository repository,MissionCompletionService completion,PlatformTransactionManager manager,ObjectMapper json,AuthRateLimiter limits,TapRankingService rankings){this.participation=participation;this.repository=repository;this.completion=completion;this.transactions=new TransactionTemplate(manager);this.finishTransactions=new TransactionTemplate(manager);this.finishTransactions.setIsolationLevel(org.springframework.transaction.TransactionDefinition.ISOLATION_READ_COMMITTED);this.json=json;this.limits=limits;this.rankings=rankings;}
     static AuthException error(int status,String code,String message){return new AuthException(status,code,message);}
     private void guard(AuthPrincipal actor,MissionCode code){
         participation.lockPrincipal(actor);participation.requireOpen(false);var mission=participation.mission(actor.userId(),code);participation.activeMission(mission.id());
@@ -119,7 +119,7 @@ public class ResultsService {
         final TapValidation.Verdict inspected;var interruptions=body.interruptions().stream().map(e->new TapValidation.Interruption(e.type(),e.atMs())).toList();
         try{inspected=TapValidation.inspect(body.taps(),interruptions,10000);}catch(IllegalArgumentException invalid){throw error(400,"INVALID_TAP_EVENTS","도전 이벤트 형식을 확인해 주세요.");}
         String hash=digest(encode(new TapPayload(body.taps(),interruptions)));
-        return transactions.execute(status->{
+        return finishTransactions.execute(status->{
             participation.lockPrincipal(actor);participation.requireGeneration(actor.userId(),generation);var attempt=owned(actor.userId(),body.attemptId());Instant now=repository.now();
             if(attempt.hash()!=null){if(!hash.equals(attempt.hash()))throw error(409,"TAP_PAYLOAD_CHANGED","처음 제출한 기록과 다른 요청이에요.");return view(attempt,now);}
             if(!"COUNTDOWN".equals(attempt.status()))throw error(409,"TAP_ALREADY_CLOSED","이미 종료한 도전이에요.");

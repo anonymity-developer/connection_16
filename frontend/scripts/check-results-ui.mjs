@@ -10,10 +10,10 @@ const output = resolve('../output/playwright'); await mkdir(output, { recursive:
 const approved = JSON.parse(await readFile(new URL('../src/dev/sync-questionnaire.proposal.json', import.meta.url), 'utf8'));
 const server = await preview({ preview: { host: '127.0.0.1', port: 4473, strictPort: true } }); let browser;
 try {
-  browser = await chromium.launch(); const page = await browser.newPage({ viewport: { width: 390, height: 900 } });
+  browser = await chromium.launch(); const page = await browser.newPage({ viewport: { width: 390, height: 740 }, hasTouch: true, isMobile: true });
   const pageErrors = [], routeErrors = [], checks = []; await page.addLocatorHandler(page.locator('.mission-earned-actions'), async () => { await page.getByRole('button', {name:'계속 참여하기',exact:true}).click(); });
   page.on('pageerror', error => pageErrors.push(error.message));
-  let sync = null, available = true, changed = false, state = { officialAvailable: true, attempt: null }, starts = 0, finishes = 0, cancels = 0, key = null, failStart = false, cancelledReplay = false, cancelRace = false, failFinish = false, submitted = null, locked = false, resultReads = 0;
+  let sync = null, available = true, changed = false, state = { officialAvailable: true, attempt: null }, starts = 0, finishes = 0, cancels = 0, key = null, failStart = false, cancelledReplay = false, cancelRace = false, failFinish = false, submitted = null, locked = false, resultReads = 0, rankingReads = 0;
   const codes = ['SHOW_ME', 'SYNC_ME', 'MAKE_A_WISH', 'FAST_TAP', 'SAY_SOMETHING'];
   const questions = { available: true, version: 'test-v1', title: approved.title, questions: approved.questions.map(question => ({ id: question.id, text: question.text, options: question.options.map(option => ({ id: option.id, label: option.label })) })) };
   const stored = { questionnaireVersion: 'test-v1', type: approved.types[0], axisScores: { social: -3, teamwork: -3, action: -3 }, submittedAt: '2026-01-01T00:00:00Z' };
@@ -35,7 +35,7 @@ try {
       if (method === 'GET' && path === '/sync/me') return reply(200, { result: sync });
       if (method === 'GET' && path === '/sync/questions') return reply(200, available ? questions : { available: false, version: null, title: null, questions: [] });
       if (method === 'GET' && path === '/tap/me') return reply(200, state);
-      if (method === 'GET' && path === '/tap/leaderboard') return reply(200, { top: [], own: null });
+      if (method === 'GET' && path === '/tap/leaderboard') { rankingReads++; return reply(200, { top: [], own: null }); }
       assert.equal(req.headers()['x-xsrf-token'], 'result-test-csrf');
       if (path === '/sync/submit') { const body = req.postDataJSON(); assert.deepEqual(Object.keys(body).sort(), ['answers', 'questionnaireVersion']); if (changed) return reply(409, { code: 'QUESTIONNAIRE_CHANGED', message: '질문 버전이 변경됐어요. 다시 불러와 주세요.' }); assert.equal(body.answers.length, approved.questions.length); sync = stored; return reply(200, stored); }
       if (path === '/tap/start') { const next = req.headers()['idempotency-key']; assert.match(next, /^[A-Za-z0-9_-]{16,64}$/); if (key) assert.equal(next, key); key = next; starts++; if (failStart) { failStart = false; return reply(503, { code: 'UNAVAILABLE', message: '시작 응답을 확인하지 못했어요.' }); } if (cancelledReplay) { cancelledReplay = false; const old = { ...newAttempt(await page.evaluate(() => Date.now())), status: 'CANCELLED' }; state = { officialAvailable: true, attempt: null }; return reply(200, old); } state = { officialAvailable: false, attempt: newAttempt(await page.evaluate(() => Date.now())) }; return reply(200, state.attempt); }
@@ -48,6 +48,7 @@ try {
   const visit = path => page.goto(`http://127.0.0.1:4473${path}`);
   const record = name => { checks.push(name); console.log(`PASS ${name}`); };
   await page.clock.install();
+  await page.clock.pauseAt(new Date(Date.now()+1000));
   await visit('/missions/sync-me'); await page.getByText(`질문 1 / ${approved.questions.length}`, { exact: true }).waitFor();
   assert.equal(await page.locator('.sync-question-list fieldset:visible').count(), 1);
   assert.equal(await page.getByRole('button', { name: '다음', exact: true }).isDisabled(), true);
@@ -90,6 +91,13 @@ try {
   record('changed or unconfigured questionnaires never produce a local result');
   await visit('/missions/fast-tap'); await page.getByRole('button', { name: '기록 없이 연습하기', exact: true }).click(); await page.clock.fastForward(5100); await page.getByRole('button', { name: '탭 영역', exact: true }).click(); await page.clock.fastForward(10000); await page.getByText('연습 결과 1회', { exact: false }).waitFor(); assert.equal(starts, 0); assert.equal(finishes, 0);
   record('practice uses no official start or finish request and never awards a letter');
+  assert.equal(rankingReads,0);assert.equal(await page.locator('.tap-leaderboard').count(),0);
+  assert.equal(await page.getByRole('button',{name:'서버 기록 다시 확인하기',exact:true}).count(),0);
+  for(const width of [360,390,430,768,1440]) {
+    await page.setViewportSize({width,height:740});assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>window.innerWidth),false);
+    await page.screenshot({path:resolve(output,`tap-ready-${width}.png`),fullPage:true});
+  }
+  await page.setViewportSize({width:390,height:740});
   failStart = true; await page.getByRole('button', { name: '공식 도전 시작하기 (1회)', exact: true }).click(); await page.getByRole('alert').waitFor(); const firstKey = key;
   await page.getByRole('button', { name: '공식 도전 시작하기 (1회)', exact: true }).click(); await page.getByRole('button', { name: '준비 중 취소하기', exact: true }).waitFor(); assert.equal(key, firstKey);
   await page.getByRole('button', { name: '준비 중 취소하기', exact: true }).click(); await page.getByRole('button', { name: '공식 도전 시작하기 (1회)', exact: true }).waitFor(); assert.equal(cancels, 1);
@@ -103,12 +111,19 @@ try {
   await page.getByRole('button', { name: '공식 도전 시작하기 (1회)', exact: true }).waitFor();
   assert.equal(key, cancelledKey); key = null;
   record('cancelled start replay reconciles the current slot rather than consuming a fake chance');
-  await page.getByRole('button', { name: '공식 도전 시작하기 (1회)', exact: true }).click(); await page.getByRole('button', { name: '준비 중 취소하기', exact: true }).waitFor(); await page.clock.fastForward(5100);
-  const area = page.getByRole('button', { name: '탭 영역', exact: true }); await area.waitFor(); await page.waitForFunction(() => document.querySelector('.tap-area')?.textContent?.startsWith('탭!'));
+  await page.getByRole('button', { name: '공식 도전 시작하기 (1회)', exact: true }).click(); await page.getByRole('button', { name: '준비 중 취소하기', exact: true }).waitFor();
+  const countdownPad=page.getByRole('button',{name:'탭 영역',exact:true});
+  assert.equal(await countdownPad.getAttribute('aria-disabled'),'true');await countdownPad.tap({force:true});
+  assert.equal(await page.locator('.tap-metrics p').last().innerText(),'현재 탭\n0회');
+  await page.screenshot({path:resolve(output,'tap-countdown-390.png'),fullPage:true});await page.clock.fastForward(5100);
+  const area = page.getByRole('button', { name: '탭 영역', exact: true }); await area.waitFor(); await page.waitForFunction(() => document.querySelector('.tap-area')?.textContent?.includes('TAP!'));
   assert.equal(await area.evaluate(el => getComputedStyle(el).touchAction), 'none');
-  await area.click(); await page.clock.fastForward(100); await area.click(); await page.clock.fastForward(100); await area.focus(); await page.keyboard.press('Space');
+  const bounds=await area.boundingBox();await page.screenshot({path:resolve(output,"tap-thumb-viewport-390.png")});assert.ok(bounds.width>=240&&bounds.height>=200&&bounds.y>=0&&bounds.y+bounds.height<=740,JSON.stringify(bounds));
+  const scrollBefore=await page.evaluate(()=>window.scrollY);
+  await area.tap(); await page.clock.fastForward(100); await area.tap(); await page.clock.fastForward(100); await area.focus(); await page.keyboard.press('Space');
+  assert.equal(await page.evaluate(()=>window.scrollY),scrollBefore);assert.equal(await page.evaluate(()=>window.visualViewport.scale),1);assert.equal(rankingReads,0);
   for (const width of [360, 375, 390, 412, 430, 768, 1440]) { await page.setViewportSize({ width, height: 900 }); assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth), false); await page.screenshot({ path: resolve(output, `tap-playing-${width}.png`), fullPage: true }); }
-  failFinish = true; await page.clock.fastForward(10000); await page.getByRole('button', { name: '같은 기록 다시 전송하기', exact: true }).waitFor(); await page.getByRole('button', { name: '같은 기록 다시 전송하기', exact: true }).click(); await page.getByRole('heading', { name: '도전을 마쳤어요', exact: true }).waitFor(); assert.equal(finishes, 2); assert.equal(submitted.taps.length, 3);
+  failFinish = true; await page.clock.fastForward(10000); await page.getByRole('button', { name: '같은 기록 다시 전송하기', exact: true }).waitFor(); await page.getByRole('button', { name: '같은 기록 다시 전송하기', exact: true }).click(); await page.getByRole('heading', { name: '도전을 마쳤어요', exact: true }).waitFor(); assert.equal(finishes, 2); assert.equal(submitted.taps.length, 3); await page.locator('.tap-leaderboard').waitFor();assert.equal(rankingReads,1);
   await page.locator('.mission-progress-summary').getByText('글자 획득 완료', { exact: true }).waitFor(); await page.setViewportSize({ width: 390, height: 900 }); await page.screenshot({ path: resolve(output, 'tap-valid-390.png'), fullPage: true }); await page.reload(); await page.getByRole('heading', { name: '도전을 마쳤어요', exact: true }).waitFor(); assert.equal(await page.getByRole('button', { name: '공식 도전 시작하기 (1회)', exact: true }).count(), 0);
   record('official pointer and keyboard events are submitted once, uncertain finish retries the same payload and saved score restores');
   state = { officialAvailable: true, attempt: null }; key = null; submitted = null; await visit('/missions/fast-tap'); await page.getByRole('button', { name: '공식 도전 시작하기 (1회)', exact: true }).click(); await page.getByRole('button', { name: '준비 중 취소하기', exact: true }).waitFor(); await page.clock.fastForward(5100);
@@ -124,13 +139,20 @@ try {
   state={officialAvailable:false,attempt:{...newAttempt(Date.now()-20000),status:'REVIEW_REQUIRED',tapCount:118,reviewReason:'UNUSUAL_RATE'}};
   await visit('/missions/fast-tap'); await page.getByRole('heading',{name:'이전 규칙의 기록을 정리하고 있어요',exact:true}).waitFor();
   assert.equal(await page.locator('.tap-score').innerText(),'118회');
-  await page.getByText('저장된 입력을 서버가 현재 규칙으로 자동 확인하고 있어요. 잠시 뒤 기록을 새로고침해 주세요.',{exact:true}).waitFor();
+  await page.getByText('저장된 입력을 현재 규칙으로 확인하고 있어요.',{exact:true}).waitFor();
   assert.equal(await page.getByText('F를 획득했어요!',{exact:true}).count(),0);
   await page.reload(); await page.getByRole('heading',{name:'이전 규칙의 기록을 정리하고 있어요',exact:true}).waitFor();
   assert.equal(await page.locator('.tap-score').innerText(),'118회');
   await page.setViewportSize({width:390,height:900});
   await page.screenshot({path:resolve(output,'tap-review-stored-390.png'),fullPage:true});
   record('review-required scores remain visible after reload and are explicitly stored without claiming F');
+  await page.emulateMedia({reducedMotion:'reduce'});
+  await page.getByRole('button',{name:'기록 없이 연습하기',exact:true}).click();await page.clock.fastForward(5100);
+  await page.getByRole('button',{name:'탭 영역',exact:true}).tap();assert.equal(await page.locator('.tap-area img').evaluate(el=>getComputedStyle(el).transform),'none');
+  await page.setViewportSize({width:740,height:360});assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>window.innerWidth),false);
+  await page.screenshot({path:resolve(output,'tap-landscape-reduced-motion.png')});
+  await page.getByRole('button',{name:'도전 중단하기',exact:true}).click();assert.equal(await page.evaluate(()=>document.body.style.position),'');
+  record('reduced motion removes tap transforms, landscape stays within width, and stopping restores page scrolling');
   locked=true;
   for(const width of [360,390,430,768,1440]) {
     await page.setViewportSize({width,height:900});
