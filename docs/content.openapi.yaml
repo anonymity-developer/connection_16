@@ -110,9 +110,15 @@ paths:
       - name: cursor
         in: query
         schema:
-          type: integer
-          format: int64
-          minimum: 1
+          type: string
+          maxLength: 120
+          description: 정렬과 방향에 바인딩된 응원 페이지 커서
+      - name: sort
+        in: query
+        schema: {type: string, enum: [LATEST, HEARTS], default: LATEST}
+      - name: direction
+        in: query
+        schema: {type: string, enum: [ASC, DESC], default: DESC}
     post:
       summary: 최초 응원 슬롯 작성
       security:
@@ -231,6 +237,7 @@ components:
           minLength: 1
           maxLength: 400
         templateId:
+          description: 신규 응원은 PLAIN만 허용하며 기존 NOTE revision/재전송은 보존한다. 소원은 PLAIN이다.
           type: string
           enum:
           - PLAIN
@@ -240,6 +247,14 @@ components:
           enum:
           - ROSE
           - INK
+          - PEACH
+          - LEMON
+          - MINT
+          - SAGE
+          - LAVENDER
+          - LILAC
+          - SAND
+          - CLOUD
         anonymous: &id005
           type: boolean
         expectedVersion:
@@ -269,6 +284,7 @@ components:
         content:
           type: string
         templateId:
+          description: 신규 응원은 PLAIN만 허용하며 기존 NOTE revision/재전송은 보존한다. 소원은 PLAIN이다.
           type: string
           enum:
           - PLAIN
@@ -278,6 +294,14 @@ components:
           enum:
           - ROSE
           - INK
+          - PEACH
+          - LEMON
+          - MINT
+          - SAGE
+          - LAVENDER
+          - LILAC
+          - SAND
+          - CLOUD
         anonymous: *id005
         submittedAt:
           type: string
@@ -368,6 +392,7 @@ components:
         content:
           type: string
         templateId:
+          description: 신규 응원은 PLAIN만 허용하며 기존 NOTE revision/재전송은 보존한다. 소원은 PLAIN이다.
           type: string
           enum:
           - PLAIN
@@ -377,6 +402,14 @@ components:
           enum:
           - ROSE
           - INK
+          - PEACH
+          - LEMON
+          - MINT
+          - SAGE
+          - LAVENDER
+          - LILAC
+          - SAND
+          - CLOUD
         anonymous: *id005
         nickname:
           type:
@@ -415,10 +448,11 @@ components:
           items:
             $ref: '#/components/schemas/PublicContent'
         nextCursor:
+          description: 소원은 숫자, 응원은 정렬 바인딩 문자열 커서를 사용한다.
           type:
           - integer
+          - string
           - 'null'
-          format: int64
       required:
       - items
       - nextCursor

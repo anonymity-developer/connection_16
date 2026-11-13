@@ -119,7 +119,7 @@ class ContentIntegrationTest {
     }
     @Test void profileLinksSwitchOnlyWhenTheAnonymityRevisionIsApproved() {
         submit(Kind.CHEER,"link-cheer-key-0001","테스트",null);moderation.processOne();assertThat(service.feed(Kind.CHEER,null).items().getFirst().profileId()).isNull();
-        var own=service.own(actor.userId(),Kind.CHEER);service.submit(actor,Kind.CHEER,"link-cheer-key-0002",new ContentController.Submit("공개 테스트","NOTE","INK",false,own.version()),true);
+        var own=service.own(actor.userId(),Kind.CHEER);service.submit(actor,Kind.CHEER,"link-cheer-key-0002",new ContentController.Submit("공개 테스트","PLAIN","INK",false,own.version()),true);
         assertThat(service.feed(Kind.CHEER,null).items().getFirst().profileId()).isNull();moderation.processOne();assertThat(service.feed(Kind.CHEER,null).items().getFirst().profileId()).isEqualTo(actor.userId());
         var updated=service.own(actor.userId(),Kind.CHEER);service.submit(actor,Kind.CHEER,"link-cheer-key-0003",new ContentController.Submit("익명 테스트","PLAIN","ROSE",true,updated.version()),true);moderation.processOne();assertThat(service.feed(Kind.CHEER,null).items().getFirst().profileId()).isNull();
     }

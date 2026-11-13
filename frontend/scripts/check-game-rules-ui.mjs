@@ -1,4 +1,4 @@
-/* global document, window */
+/* global document, window, getComputedStyle */
 import assert from 'node:assert/strict';
 import { mkdir } from 'node:fs/promises';
 import { resolve } from 'node:path';
@@ -12,6 +12,7 @@ try {
   browser=await chromium.launch();const page=await browser.newPage({viewport:{width:390,height:900}});
   const errors=[],writes=[],codes=['SHOW_ME','SYNC_ME','MAKE_A_WISH','FAST_TAP','SAY_SOMETHING'];
   const slugs=['show-me','sync-me','make-a-wish','fast-tap','say-something'];
+  const sharedMissionWidths=new Map();
   const now='2026-11-12T01:00:00Z',blank=()=>({id:null,version:0,visibility:null,approvedRevision:null,pendingRevision:null,latestRevision:null,missionCompleted:false,luckScore:null,landingZone:null});
   const slots={wishes:blank(),cheers:blank()};
   for(const [kind,id] of [['wishes',40],['cheers',41]]) {
@@ -79,7 +80,7 @@ try {
     assert.ok(progressBox&&hintBox&&hintBox.y>=progressBox.y+progressBox.height-1,'mission guide is below progress at every width');
     assert.ok(Math.abs(hintBox.x-progressBox.x)<1&&Math.abs(hintBox.width-progressBox.width)<1,'mission guide uses the full card width');
   }
-  for(const width of [360,390,430,640,641,768,1099,1100,1440]) {
+  for(const width of [320,360,390,430,640,641,768,1000,1001,1099,1100,1280,1440,1920]) {
     await page.setViewportSize({width,height:900});
     for(const slug of slugs) {
       await visit(slug);await page.locator('.mission-progress-summary').getByText('글자 획득 완료',{exact:true}).waitFor();
@@ -88,16 +89,27 @@ try {
         await page.locator('.tap-ranking-list li').last().waitFor();
       }
       await checkProgressRow();
+      const geometry=await page.locator('.mission-detail').evaluate(el=>{const r=el.getBoundingClientRect(),s=getComputedStyle(el);return {x:r.x,width:r.width,inner:r.width-parseFloat(s.paddingLeft)-parseFloat(s.paddingRight)-parseFloat(s.borderLeftWidth)-parseFloat(s.borderRightWidth)};});
+      const expected=sharedMissionWidths.get(width);
+      if(expected){assert.ok(Math.abs(geometry.x-expected.x)<1&&Math.abs(geometry.width-expected.width)<1,`all five mission canvases match at ${width}`);}else sharedMissionWidths.set(width,geometry);
+      const body=page.locator('.mission-detail > .content-mission, .mission-detail > .sync-result, .mission-detail > .sync-panel, .mission-detail > .tap-panel, .mission-detail > .show-me-record').first();
+      assert.ok(Math.abs((await body.boundingBox()).width-geometry.inner)<1,`${slug} uses the full common inner canvas at ${width}`);
+      if(slug==='say-something'){
+        const own=await page.locator('.content-own').boundingBox(),feed=await page.locator('.content-feed').boundingBox();
+        assert.ok(Math.abs(own.x-feed.x)<1&&Math.abs(own.width-feed.width)<1&&feed.y>=own.y+own.height+20,'own cheer and feed stack at the same full width');
+        for(const card of await page.locator('.content-feed-list .content-card').all())assert.ok(Math.abs((await card.boundingBox()).width-feed.width)<1,`cheer cards use a single full-width column at ${width}`);
+      }
+
       if(slug==='fast-tap')await page.getByText('19층과 20층 사이 계단에서 F를 찾아 NFC 태그를 읽어주세요.',{exact:true}).waitFor();
       assert.equal(await page.getByText('글자 획득 완료',{exact:true}).count(),1);
       assert.equal(await page.getByText('획득한 글자예요.',{exact:true}).count(),0);
       assert.equal(await page.locator('.mission-detail-heading .state-badge,.mission-complete-artwork').count(),0);
       assert.equal(await page.locator('.mission-detail-heading .detail-intro').count(),1);
       assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>window.innerWidth),false,`${slug} at ${width}`);
-      if(['show-me','fast-tap'].includes(slug))await page.screenshot({path:resolve(output,`rules-${slug}-${width}.png`),fullPage:true});
+      if(['show-me','fast-tap'].includes(slug)||width>=1100)await page.screenshot({path:resolve(output,`rules-${slug}-${width}.png`),fullPage:true});
     }
   }
-  console.log('PASS all five completed missions show one progress badge; SHOW ME restores profile; nine widths fit');
+  console.log('PASS all five completed missions show one progress badge; SHOW ME restores profile; fourteen widths share the same full game canvas; desktop cheer cards stay readable');
   editing=true;slots.wishes=blank();slots.cheers=blank();await page.setViewportSize({width:390,height:900});
   for(const [kind,slug] of [['wishes','make-a-wish'],['cheers','say-something']]) {
     await visit(slug);const input=page.locator('#content-text'),anonymous=page.getByRole('checkbox',{name:'익명으로 남기기',exact:true});
@@ -106,10 +118,10 @@ try {
     assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>window.innerWidth),false);
     await page.screenshot({path:resolve(output,`rules-${kind}-400-390.png`),fullPage:true});
     await page.getByRole('button',{name:kind==='wishes'?'동전 던지기':'응원 보내기',exact:true}).click();
-    await page.getByRole('button',{name:'같은 글 수정하기',exact:true}).waitFor();assert.equal(slots[kind].latestRevision.anonymous,false);
+    await page.getByRole('button',{name:'수정하기',exact:true}).waitFor();assert.equal(slots[kind].latestRevision.anonymous,false);
     if(kind==='wishes'){await page.getByRole('button',{name:'소원 1 열기',exact:true}).click();await page.getByRole('link',{name:'공개한 동료의 소원',exact:true}).waitFor();}
-    await page.getByRole('button',{name:'같은 글 수정하기',exact:true}).click();assert.equal(await input.inputValue(),'가'.repeat(400));assert.equal(await anonymous.isChecked(),false);
-    await anonymous.check();await page.getByRole('button',{name:'수정 내용 보내기',exact:true}).click();await page.getByRole('button',{name:'같은 글 수정하기',exact:true}).waitFor();
+    await page.getByRole('button',{name:'수정하기',exact:true}).click();assert.equal(await input.inputValue(),'가'.repeat(400));assert.equal(await anonymous.isChecked(),false);
+    await anonymous.check();await page.getByRole('button',{name:'수정 내용 보내기',exact:true}).click();await page.getByRole('button',{name:'수정하기',exact:true}).waitFor();
     assert.equal(slots[kind].latestRevision.anonymous,true);assert.equal(slots[kind].latestRevision.number,2);
     assert.equal(await page.locator('a[href="/discovery/profiles/81"]').count(),0);
   }
@@ -129,7 +141,7 @@ try {
     else {assert.equal(await page.locator('.tap-ranking-list li').count(),0);assert.equal(await message.count(),0);}
   }
   locked=true;const reads=rankingReads;
-  for(const width of [360,390,430,640,641,768,1099,1100,1440]) {
+  for(const width of [320,360,390,430,640,641,768,1000,1001,1099,1100,1280,1440,1920]) {
     await page.setViewportSize({width,height:900});
     for(const slug of slugs) {
       await visit(slug);await page.locator('.mission-reward .state-badge').waitFor();await checkProgressRow();

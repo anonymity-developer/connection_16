@@ -1,56 +1,47 @@
-.content-mission:not(.content-mission--wish) .content-card {
-  --letter-paper: #fff0f4;
-  --letter-ink: #653548;
-  --letter-edge: #e9b6c8;
-  --letter-line: #eac2d0;
-  --letter-stamp: #b95b80;
-  background: var(--letter-paper);
-  color: var(--letter-ink);
-  border-color: var(--letter-edge);
-  border-radius: 14px;
+/* Paper colours are shared by the swatch, preview and published card. */
+.content-mission:not(.content-mission--wish) :is(.content-card, .cheer-colour-chip) { --letter-paper:#fff0f4; --letter-ink:#653548; --letter-edge:#e9b6c8; }
+.content-mission:not(.content-mission--wish) .tone-ink { --letter-paper:#e8f7ff; --letter-ink:#24475d; --letter-edge:#b8d9eb; }
+.content-mission:not(.content-mission--wish) .tone-peach { --letter-paper:#fff0e5; --letter-ink:#66432c; --letter-edge:#ebc6a9; }
+.content-mission:not(.content-mission--wish) .tone-lemon { --letter-paper:#fff8cf; --letter-ink:#635118; --letter-edge:#e4d186; }
+.content-mission:not(.content-mission--wish) .tone-mint { --letter-paper:#e3f8ef; --letter-ink:#255849; --letter-edge:#a8d6c5; }
+.content-mission:not(.content-mission--wish) .tone-sage { --letter-paper:#eef3df; --letter-ink:#465832; --letter-edge:#c4d1a1; }
+.content-mission:not(.content-mission--wish) .tone-lavender { --letter-paper:#eeeaff; --letter-ink:#4d4272; --letter-edge:#c8bce7; }
+.content-mission:not(.content-mission--wish) .tone-lilac { --letter-paper:#faeafa; --letter-ink:#6b3e68; --letter-edge:#dfb9dc; }
+.content-mission:not(.content-mission--wish) .tone-sand { --letter-paper:#f6efdf; --letter-ink:#62523a; --letter-edge:#d9c9a9; }
+.content-mission:not(.content-mission--wish) .tone-cloud { --letter-paper:#f0f4f7; --letter-ink:#3d5261; --letter-edge:#bdcdd7; }
+.content-mission:not(.content-mission--wish) .content-card { background:var(--letter-paper); color:var(--letter-ink); border:1px solid var(--letter-edge); border-radius:20px; padding:24px; box-shadow:none; }
+.content-mission:not(.content-mission--wish) .content-card :is(.content-byline, .content-byline a, .heart-count, .button--quiet) { color:var(--letter-ink); }
+.content-mission:not(.content-mission--wish) .content-body { font-size:16px; line-height:1.8; white-space:pre-wrap; overflow-wrap:anywhere; }
+.content-mission:not(.content-mission--wish) .content-byline { display:block; margin-top:20px; font-size:13px; }
+.content-mission:not(.content-mission--wish) .content-byline a { display:inline-flex; align-items:center; min-height:44px; text-decoration:underline; text-underline-offset:3px; }
+.cheer-colour-field { min-width:0; max-width:100%; margin-top:24px; }
+.cheer-colour-options { display:grid; width:100%; grid-template-columns:repeat(auto-fit,minmax(44px,1fr)); justify-content:space-between; gap:12px 8px; max-width:280px; margin-top:12px; }
+.cheer-colour-chip { position:relative; width:44px; height:44px; display:grid; place-items:center; cursor:pointer; }
+.cheer-colour-chip input { position:absolute; width:1px; height:1px; opacity:0; }
+.cheer-colour-chip > span { display:grid; place-items:center; width:34px; height:34px; border:1px solid var(--letter-edge); border-radius:50%; background:var(--letter-paper); color:var(--letter-ink); }
+.cheer-colour-chip:has(:checked) > span { outline:2px solid var(--accent-ink); outline-offset:3px; }
+.cheer-colour-chip:has(:focus-visible) { outline:3px solid var(--accent); border-radius:50%; outline-offset:2px; }
+.cheer-colour-chip:has(:disabled) { opacity:.6; cursor:default; }
+.content-anonymous { display:flex; align-items:center; gap:10px; width:fit-content; min-height:44px; margin:16px 0; cursor:pointer; font-size:14px; }
+.content-anonymous input { position:static; opacity:1; width:18px; height:18px; margin:0; accent-color:var(--accent); }
+.cheer-sort { display:flex; gap:12px; flex-wrap:wrap; margin:16px 0 24px; }
+.cheer-sort-option { display:flex; align-items:center; border:1px solid var(--border); border-radius:14px; overflow:hidden; }
+.cheer-sort-option:has([aria-pressed=true]) { background:var(--accent-soft); border-color:var(--accent); }
+.cheer-sort-option .button { min-width:44px; min-height:44px; padding:8px 12px; margin:0; border-radius:0; }
+.cheer-sort-option [aria-pressed=true] { font-weight:700; }
+.heart-control .heart-toggle { display:inline-flex; align-items:center; justify-content:center; gap:8px; min-width:64px; min-height:44px; padding:8px; border-radius:12px; }
+.heart-control .heart-toggle[aria-pressed=true] svg { fill:currentColor; }
+.heart-toggle .heart-count { font-variant-numeric:tabular-nums; }
+.content-mission:not(.content-mission--wish) .content-feed-list { display:grid; grid-template-columns:minmax(0,1fr); gap:16px; }
+.content-mission:not(.content-mission--wish) .content-feed-list > li { min-width:0; }
+.content-mission:not(.content-mission--wish) .heart-control { margin-top:8px; border-top:0; padding-top:0; }
+@media(max-width:640px) {
+ .content-mission:not(.content-mission--wish) { gap:28px; }
+ .content-mission:not(.content-mission--wish) .content-own { padding:16px; }
+ .content-mission:not(.content-mission--wish) .content-card { padding:20px; }
 }
 
-.content-mission:not(.content-mission--wish) .content-card.tone-ink {
-  --letter-paper: #e8f7ff;
-  --letter-ink: #24475d;
-  --letter-edge: #b8d9eb;
-  --letter-line: #c7e2f0;
-  --letter-stamp: #5088ac;
-}
-
-.content-mission:not(.content-mission--wish) .content-card :is(.content-byline, .context-label, .content-byline a, .heart-count, .button--quiet) {
-  color: var(--letter-ink);
-}
-
-.content-mission:not(.content-mission--wish) .content-card.template-note {
-  position: relative;
-  padding-top: 58px;
-  border-inline-start: 1px solid var(--letter-edge);
-  box-shadow: 0 4px 12px rgb(58 51 66 / .08);
-}
-
-.content-mission:not(.content-mission--wish) .content-card.template-note::before {
-  content: '';
-  position: absolute;
-  inset: 0 0 auto;
-  height: 7px;
-  border-radius: 13px 13px 0 0;
-  background: repeating-linear-gradient(125deg, var(--letter-stamp) 0 10px, var(--letter-paper) 10px 20px, var(--letter-edge) 20px 30px, var(--letter-paper) 30px 40px); /* taste-skill-ignore Approved airmail stripe pattern for the small-letter template. */
-}
-
-.content-mission:not(.content-mission--wish) .content-card.template-note::after {
-  content: '';
-  position: absolute;
-  top: 17px;
-  inset-inline-end: 21px;
-  width: 38px;
-  height: 30px;
-  border: 2px dotted var(--letter-stamp);
-  border-radius: 3px;
-  background: var(--letter-paper) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 24' fill='none' stroke='%23915c72' stroke-width='1.5' stroke-linejoin='round'%3E%3Crect x='4' y='5' width='24' height='15' rx='2' fill='%23fffaf8'/%3E%3Cpath d='m5 6 11 8L27 6M5 19l8-7m14 7-8-7'/%3E%3C/svg%3E") center / 26px no-repeat;
-}
-
-.content-mission:not(.content-mission--wish) .content-card.template-note .content-body {
-  background: repeating-linear-gradient(to bottom, transparent 0 calc(1.8em - 1px), var(--letter-line) calc(1.8em - 1px) 1.8em); /* taste-skill-ignore Approved writing-paper rules aligned to the letter text. */
-  min-height: 3.6em;
-}
+/* Shared wish/cheer actions keep the same vertical rhythm in every layout. */
+.content-own .content-edit-actions, .content-own .content-recovery-actions { margin-top:24px; }
+.content-own .content-submit-actions { display:flex; flex-direction:column; gap:12px; margin-top:20px; }
+.content-own :is(.content-edit-actions, .content-submit-actions, .content-recovery-actions) > .button { width:100%; min-height:48px; margin:0; }

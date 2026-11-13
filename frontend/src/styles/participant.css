@@ -57,8 +57,12 @@
 .participant-shell .home-help p { font-size: 14px; }
 .participant-shell .mission-detail-heading { border: 0; padding: 0; margin-bottom: 24px; }
 .participant-shell .mission-detail-heading > div { flex: 1; min-width: 0; }
-.participant-shell .mission-detail-grid { grid-template-columns: minmax(0, 1.8fr) minmax(0, 1fr); gap: 24px; align-items: start; }
+.participant-shell .mission-detail-grid { grid-template-columns: minmax(0, 1fr) 300px; gap: 24px; align-items: start; }
 .participant-shell .mission-detail { padding: 28px; background: var(--surface); border: 1px solid var(--border); min-width: 0; }
+/* All five missions share the same game canvas. Only the game controls may size themselves. */
+.participant-shell .mission-detail > :is(.content-mission, .sync-panel, .sync-result, .tap-panel, .show-me-record) { width: 100%; max-width: none; min-width: 0; margin-inline: 0; }
+@media (max-width: 1099px) { .participant-shell .mission-detail-grid { grid-template-columns: minmax(0, 1fr); } }
+
 .participant-shell .detail-intro { margin-bottom: 24px; font-size: 16px; }
 .participant-shell .mission-message { padding: 20px 0; }
 .participant-shell .mission-message h2 { font-size: 22px; }
@@ -121,7 +125,6 @@
 .participant-shell .account-collection-count strong { font-size: 32px; color: var(--accent-ink); }
 .participant-shell .account-record > .button { margin-top: 16px; width: 100%; }
 @media (max-width: 1000px) {
-  .participant-shell .mission-detail-grid { grid-template-columns: minmax(0, 1fr); }
   .participant-shell .discovery-relationships .people-list { margin-top: 16px; }
 }
 @media (max-width: 900px) {

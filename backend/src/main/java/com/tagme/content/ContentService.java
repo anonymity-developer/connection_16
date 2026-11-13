@@ -48,7 +48,7 @@ public class ContentService {
     }
     public OwnSlot submit(AuthPrincipal actor,Kind kind,String key,ContentController.Submit body,boolean edit,long generation) {
         if(key==null||!key.matches("[A-Za-z0-9_-]{16,64}"))throw error(400,"INVALID_IDEMPOTENCY_KEY","요청 식별자를 확인해 주세요.");
-        if(body.content()==null||body.content().isBlank()||body.content().length()>400||!List.of("PLAIN","NOTE").contains(body.templateId())||!List.of("ROSE","INK").contains(body.style()))throw error(400,"INVALID_CONTENT","문구와 카드 스타일을 확인해 주세요.");
+        if(body.content()==null||body.content().isBlank()||body.content().length()>400||!List.of("PLAIN","NOTE").contains(body.templateId())||!List.of("ROSE","INK","PEACH","LEMON","MINT","SAGE","LAVENDER","LILAC","SAND","CLOUD").contains(body.style()))throw error(400,"INVALID_CONTENT","문구와 카드 스타일을 확인해 주세요.");
         if(kind==Kind.WISH&&(!"PLAIN".equals(body.templateId())||!"ROSE".equals(body.style())))throw error(400,"INVALID_WISH_STYLE","소원은 기본 형태로 저장돼요.");
         limits.check("content-user",Long.toString(actor.userId()),30,60);Instant received=repository.now();String hash=hash(body);
         return tx.execute(s->{
@@ -57,6 +57,7 @@ public class ContentService {
                 var replay=repository.byKey(item.id(),key);
                 if(replay!=null){if(!replay.hash().equals(hash))throw error(409,"IDEMPOTENCY_CONFLICT","같은 요청의 내용이 변경됐어요. 저장된 글을 먼저 확인해 주세요.");return snapshot(actor.userId(),kind);}
             }
+            if(kind==Kind.CHEER&&!"PLAIN".equals(body.templateId()))throw error(400,"INVALID_CHEER_TEMPLATE","응원은 기본 형태로 저장돼요.");
             guard(actor,kind);
             if(!repository.now().isBefore(participation.event(true).submitClosesAt())||received.isBefore(participation.event(true).opensAt()))throw error(403,"EVENT_CLOSED","지금은 제출 가능한 시간이 아니에요.");
             if(item==null) {

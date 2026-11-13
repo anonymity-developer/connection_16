@@ -11,6 +11,7 @@ services:
     environment:
       SPRING_PROFILES_ACTIVE: docker,dev-fixtures
       TAGME_FIXTURES_PROJECT: ${COMPOSE_PROJECT_NAME}
+      TAGME_FIXTURES_CHEERS: ${TAGME_FIXTURES_CHEERS:-false}
       DB_NAME: tagme_fixtures
       AUTH_ENABLED: "true"
       MATTERMOST_BASE_URL: http://127.0.0.1

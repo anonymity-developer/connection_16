@@ -15,7 +15,7 @@ MAKE A WISH와 SAY SOMETHING의 최초 작성, 내 슬롯, 수정, 승인된 공
 - `content_items`는 WISH/CHEER 각각 한 슬롯을 보장한다. V6의 직접 UNIQUE는 V7에서 동일한 의미의 `(author_id, slot_kind)` generated key UNIQUE로 확장해 COMMENT만 다중으로 허용한다. 수정은 같은 슬롯의 새 revision이다.
 - 쓰기마다 사용자 잠금 → 행사/활성 미션/해금/현재 공개 프로필 및 동의 → 슬롯/수정 조건을 검사한다. 최초 작성은 POST, 기존 슬롯 수정은 PUT이며 `expectedVersion`이 현재 슬롯 버전과 같아야 한다.
 - 소원·응원 본문은 공백 제외 1~400 UTF-16 code unit이다. 댓글은 200자를 유지한다. 앞뒤 공백만 제거하고 저장한다. 클라이언트 HTML/CSS, 사용자 ID, 점수, 판정 필드는 받지 않는다.
-- WISH는 `PLAIN / ROSE`를 사용한다. CHEER는 `PLAIN|NOTE`, `ROSE|INK`를 선택한다. 둘 다 익명 또는 닉네임 공개를 선택할 수 있다. 본문과 카드 형태/색상/익명 여부는 revision의 일부이며 공개본과 함께 전환된다.
+- WISH는 `PLAIN / ROSE`를 사용한다. CHEER 신규 작성/수정은 `PLAIN`으로 통일하고 `ROSE|INK|PEACH|LEMON|MINT|SAGE|LAVENDER|LILAC|SAND|CLOUD` 10색을 선택한다. 기존 NOTE revision은 보존하되 목록에서는 기본 카드로 표시한다. 이전 NOTE 요청의 같은 키 재전송도 유지한다. 둘 다 익명 또는 닉네임 공개를 선택할 수 있다. 본문과 카드 형태/색상/익명 여부는 revision의 일부이며 공개본과 함께 전환된다.
 - 같은 슬롯에서 최대 20개 revision을 저장한다. 사용자별 쓰기 30회/분 제한과 실제 DB 제약을 함께 사용한다.
 - `Idempotency-Key`는 16~64자의 영문/숫자/`_`/`-`다. `(item_id, key)`를 보관하고 동일 본문/카드 설정은 현재 슬롯 상태를 반환한다. 같은 키/다른 내용은 409다. 새 키의 POST로 두 번째 슬롯을 만들 수 없다.
 - `expectedVersion`은 내용 해시에서 제외한다. 이미 저장된 요청의 재전송을 상태 변화 뒤에도 확인할 수 있게 하기 위함이다. 저장된 본문/설정과 다르면 재전송으로 인정하지 않는다.
@@ -89,3 +89,15 @@ kind=COMMENT와 다중 댓글은 V7 generated slot key로 추가한다. 승인/�
 ## 외부 어댑터 추가 (feat/network-graph)
 
 GMS/OpenAI 선택 설정과 실패 시 REVIEW_REQUIRED 처리, 실연동 미검증 경계는 [작업 보고](network-moderation-handoff.md)를 따른다. 기본 NONE은 기존 수동 검수를 유지한다. OpenAI 단독 unflagged는 자동 승인이 아니며 추가 정책 검증이 필요하다.
+
+## 2026-11-13 응원 목록·캐시 계약
+
+`GET /cheers?sort=LATEST|HEARTS&direction=ASC|DESC&cursor=...`는 한 번에 최대 20개와 다음 커서를 반환한다. LATEST는 최초 작성 ID 순서이며 수정으로 순서가 바뀌지 않는다. HEARTS는 현재 유효한 하트 수, 동점은 작성 ID를 같은 방향으로 정렬한다. 커서는 정렬·방향·첫 조회 최대 ID·직전 ID/하트 수를 포함하며 잘못된 값은 400이다. 기본은 LATEST/DESC이며 이전 숫자 커서는 이 기본 조합에서만 지원한다. 소원 목록의 숫자 커서와 API는 유지한다.
+
+프런트는 20개씩 ‘응원 더 보기’로 추가하고 이미 읽은 ID는 중복 표시하지 않는다. 정렬 변경/새로고침은 첫 페이지로 돌아가며 늦게 도착한 이전 정렬 응답은 버린다. 하트 숫자는 즉시 반영하되 카드 위치는 변경하지 않는다. 페이지 간 동시 하트/공개 상태 변경은 다음 쿼리에 반영되므로 전체 목록의 시점 고정 스냅샷은 아니며, 변경 중 경계가 이동한 항목은 새로고침으로 다시 조회한다.
+
+목록 본문·작성자·유효 하트 집계를 Redis/공용 캐시에 저장하지 않는다. 현재 화면의 페이지/하트 상태를 메모리에 유지하고 같은 다음 페이지의 동시 요청은 합친다. 작성·수정·명시적 새로고침·정렬 변경 시 목록을 재조회한다. 권한/비활성화/숨김/현재 동의와 하트 자격은 SQL에서 매번 확인하여 별도 집계 캐시의 무효화 경로를 만들지 않는다. 기존 cheer_likes 기본키 `(card_id,user_id)`와 새 `ix_content_public_feed(kind,visibility_status,archived_at,id)`를 사용한다. 최신순은 하트 집계를 생략하고 하트순은 유효 하트를 카드별로 묶어 집계한다. 하트 수는 런타임 집계이므로 해당 값의 정렬 자체가 B-tree 인덱스 정렬이라는 의미는 아니다.
+
+FAST TAP V20과 독립적으로 적용되며 버전 충돌/병합 순서 의존을 만들지 않도록 `R__cheer_palette_and_feed_index.sql` repeatable migration을 추가했다. 불변 revision을 UPDATE하지 않고 CHECK 허용 팔레트와 인덱스만 선언한다. 인덱스가 이미 있으면 다시 생성하지 않아 재실행할 수 있다.
+
+로컬 29개 합성 카드의 EXPLAIN ANALYZE에서 최신순은 PK 역방향 스캔과 LIMIT, 하트순은 유효 하트 집계 후 정렬을 확인했다. 작은 표에서는 옵티마이저가 새 복합 인덱스 대신 PK/표 스캔을 선택할 수 있으며 강제로 인덱스를 지정하지 않는다. 실제 행사 부하나 인덱스 전후 속도 향상을 측정했다는 의미는 아니다.

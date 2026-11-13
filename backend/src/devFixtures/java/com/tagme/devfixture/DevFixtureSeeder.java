@@ -53,13 +53,16 @@ public final class DevFixtureSeeder implements ApplicationRunner {
     private final PasswordEncoder passwords;
     private final TransactionTemplate tx;
     private final DevFixtureSafety safety;
+    private final boolean cheerDemo;
 
     public DevFixtureSeeder(JdbcTemplate db, PasswordEncoder passwords,
-            org.springframework.transaction.PlatformTransactionManager manager, DevFixtureSafety safety) {
+            org.springframework.transaction.PlatformTransactionManager manager, DevFixtureSafety safety,
+            @org.springframework.beans.factory.annotation.Value("${tagme.fixtures.cheers:false}") boolean cheerDemo) {
         this.db = db;
         this.passwords = passwords;
         this.tx = new TransactionTemplate(manager);
         this.safety = safety;
+        this.cheerDemo = cheerDemo;
     }
 
     @Override
@@ -132,6 +135,32 @@ public final class DevFixtureSeeder implements ApplicationRunner {
         visit(ids[18], ids[19], now.minus(1, ChronoUnit.HOURS));
 
         seedTags();
+        if(cheerDemo)seedCheerDemo(ids,now);
+    }
+
+    /** Opt-in synthetic cards for paged mobile review; never compiled into production. */
+    private void seedCheerDemo(long[] peers,Instant now) {
+        var authors=new java.util.ArrayList<Long>();for(long peer:peers)authors.add(peer);
+        for(int i=0;i<8;i++) {
+            String suffix=String.format("%016d",101+i);
+            long user=upsertUser("devfixture"+suffix,"cheerdemo"+i,"응원 더미 "+(i+1));
+            upsertProfile(user,"응원 동료 "+(i+1),"모바일 응원 목록을 확인하는 합성 프로필입니다.");
+            replaceInterests(user,List.of("IT·플랫폼","백엔드"));consent(user,now);authors.add(user);
+        }
+        var colours=List.of("ROSE","PEACH","LEMON","MINT","SAGE","INK","LAVENDER","LILAC","SAND","CLOUD");
+        var messages=List.of("오늘의 작은 시도도 분명 내일의 실력이 될 거예요.","막히는 날에도 함께 고민할 동료가 있다는 걸 기억해요.","조금 느려도 괜찮아요. 자기 속도로 끝까지 가봐요.","첫 프로젝트부터 여기까지 온 우리 모두를 응원해요!","잘 쉬는 것도 오래 달리기 위한 준비예요.","오류를 하나 해결한 오늘의 나에게 박수!","아직 모르는 건 함께 배워가면 돼요.","좋은 코드는 좋은 동료와 함께 자라나요.","오늘 건넨 인사가 다음 프로젝트의 시작일지도 몰라요.","어제보다 한 걸음 더 나아간 여러분을 응원해요.");
+        for(int i=0;i<authors.size();i++) {
+            long user=authors.get(i);
+            db.update("INSERT INTO content_items(author_id,kind) VALUES(?,'CHEER') ON DUPLICATE KEY UPDATE id=content_items.id",user);
+            long card=db.queryForObject("SELECT id FROM content_items WHERE author_id=? AND slot_kind='CHEER'",Long.class,user);
+            String key="fixture-cheer-demo-"+i;
+            String message="[로컬 더미 응원] "+messages.get(i%messages.size())+(i==27?"\n"+"작은 용기를 모아 오늘도 한 걸음 나아가 봐요. ".repeat(12):"");
+            db.update("INSERT INTO content_revisions(item_id,revision_no,content_text,template_id,style,anonymous,submitted_at,idempotency_key,payload_hash,moderation_status,reason_code) VALUES(?,1,?,'PLAIN',?,?,UTC_TIMESTAMP(6),?,SHA2(?,256),'APPROVED','DIRECT_PUBLICATION') ON DUPLICATE KEY UPDATE id=content_revisions.id",card,message,colours.get(i%10),i%2==0,key,message);
+            long revision=db.queryForObject("SELECT id FROM content_revisions WHERE item_id=? AND idempotency_key=?",Long.class,card,key);
+            db.update("UPDATE content_items SET approved_revision_id=?,pending_revision_id=NULL WHERE id=?",revision,card);
+            db.update("DELETE FROM cheer_likes WHERE card_id=?",card);
+            for(int j=0;j<i%8;j++){long liker=authors.get((i+j+1)%authors.size());db.update("INSERT IGNORE INTO cheer_likes(card_id,user_id) VALUES(?,?)",card,liker);}
+        }
     }
 
     private void seedEvent(Instant now) {
