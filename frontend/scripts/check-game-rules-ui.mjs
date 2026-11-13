@@ -97,7 +97,7 @@ try {
       if(slug==='say-something'){
         const own=await page.locator('.content-own').boundingBox(),feed=await page.locator('.content-feed').boundingBox();
         assert.ok(Math.abs(own.x-feed.x)<1&&Math.abs(own.width-feed.width)<1&&feed.y>=own.y+own.height+20,'own cheer and feed stack at the same full width');
-        if(width>=1100)for(const card of await page.locator('.content-feed-list .content-card').all())assert.ok((await card.boundingBox()).width>=280,`desktop cheer cards stay readable at ${width}`);
+        for(const card of await page.locator('.content-feed-list .content-card').all())assert.ok(Math.abs((await card.boundingBox()).width-feed.width)<1,`cheer cards use a single full-width column at ${width}`);
       }
 
       if(slug==='fast-tap')await page.getByText('19층과 20층 사이 계단에서 F를 찾아 NFC 태그를 읽어주세요.',{exact:true}).waitFor();

@@ -70,8 +70,11 @@ try {
  for(const row of await page.locator('.content-feed-list li').all()){const author=await row.locator('.content-byline').innerText();if(author==='익명')assert.equal(await row.locator('.content-byline a').count(),0);}
  await page.getByLabel('어떤 응원을 전하고 싶나요?',{exact:true}).fill('응원 버튼 간격 확인');
  await page.getByRole('button',{name:'응원 보내기',exact:true}).click();await page.getByRole('button',{name:'수정하기',exact:true}).waitFor();
- for(const width of [320,360,390,430,640,641,768,1099,1100,1440]) {
+ for(const width of [320,360,390,430,640,641,768,1000,1001,1099,1100,1280,1440,1920]) {
   await page.setViewportSize({width,height:840});
+  const list=await page.locator('.content-feed-list').boundingBox();
+  const rows=await page.locator('.content-feed-list .content-card').evaluateAll(cards=>cards.map(card=>{const r=card.getBoundingClientRect();return {x:r.x,y:r.y,width:r.width,bottom:r.bottom};}));
+  for(let i=0;i<rows.length;i++){assert.ok(Math.abs(rows[i].width-list.width)<1&&Math.abs(rows[i].x-list.x)<1,`full-width single column at ${width}`);if(i)assert.ok(rows[i].y>=rows[i-1].bottom+15);}
   assert.equal(await page.getByRole('button',{name:'내 글과 접수 상태 새로고침',exact:true}).count(),0);
   const card=await page.locator('.content-own > .content-card').boundingBox(),edit=await page.getByRole('button',{name:'수정하기',exact:true}).boundingBox();
   assert.ok(edit.y-card.y-card.height>=20);assert.ok(edit.height>=48);
@@ -84,6 +87,6 @@ try {
   await page.locator('.content-submit-actions').screenshot({path:resolve(output,`edit-actions-${width}.png`)});
   await page.getByRole('button',{name:'수정 취소하기',exact:true}).click();await page.getByRole('button',{name:'수정하기',exact:true}).waitFor();
  }
- assert.equal(writes,1);console.log('PASS saved/edit action spacing at 320/360/390/430/640/641/768/1099/1100/1440: full-width 48px actions, 24px card gap, 12px save/cancel gap, no routine refresh, cancel makes no write');
+ assert.equal(writes,1);console.log('PASS saved/edit action spacing at fourteen widths from 320 to 1920: full-width 48px actions, 24px card gap, 12px save/cancel gap, no routine refresh, cancel makes no write');
  assert.deepEqual(errors,[]);console.log('PASS ten visible colour chips; real checkbox/nickname/anonymous; five widths; 20+5 pagination; four sort directions; optimistic heart before server response; failed cancel restores server truth; cards stay put; anonymous identities have no links');
 }finally{if(browser)await browser.close();await server.close();}
