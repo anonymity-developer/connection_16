@@ -78,7 +78,7 @@ class DeploymentSafetyTest(unittest.TestCase):
     def test_release_bundle_excludes_all_runtime_secrets(self):
         with tarfile.open(fileobj=io.BytesIO(release.bundle(ROOT)), mode='r:gz') as archive:
             self.assertEqual(set(archive.getnames()), set(release.FILES))
-            self.assertFalse(any(name in archive.getnames() for name in ('.env', '.env.pr-review', '.env.production')))
+            self.assertFalse(any(name in archive.getnames() for name in ('.env', '.env.pr-review', '.env.production', '.env.fixtures', 'compose.fixtures.yml')))
             for member in archive.getmembers():
                 self.assertTrue(member.isfile())
                 self.assertNotIn(b'\r\n', archive.extractfile(member).read())

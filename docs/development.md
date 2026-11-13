@@ -48,27 +48,28 @@ bash scripts/smoke.sh http://localhost:8088
 
 ### 격리된 로컬 참가자 fixture
 
-`compose.fixtures.yml`은 실제 Mattermost·NFC 없이 참가자 흐름을 확인하는 명시적인 로컬 전용 override다. 일반 개발/운영 이미지에는 `backend/src/devFixtures`를 컴파일하지 않는다. `compose.prod.yml`과 함께 사용하지 않는다.
+`compose.fixtures.yml`은 실제 Mattermost·NFC 없이 참가자 흐름을 확인하는 명시적인 로컬 전용 override다. 일반 개발/운영 이미지에는 `backend/src/devFixtures`를 컴파일하지 않는다. 운영 JAR/이미지 검사도 fixture 클래스가 있으면 CI와 릴리스 발행을 중단한다. `compose.prod.yml`과 함께 사용하지 않는다.
 
-다른 컴퓨터에서는 저장소의 `.env.example`을 복사해 로컬 `.env`를 먼저 만들고 Docker Desktop을 실행한다. 기존 PC의 `.env`나 `.env.production`은 비밀값이 있으므로 복사하거나 공유하지 않는다. 아래 파일은 모두 Git에서 받아야 하며 따로 전달할 비밀 파일은 없다.
+다른 컴퓨터에서는 저장소의 `.env.example`을 복사해 로컬 `.env.fixtures`를 먼저 만들고 Docker Desktop을 실행한다. 기존 PC의 `.env`나 `.env.production`은 비밀값이 있으므로 복사하거나 공유하지 않는다. 아래 파일은 모두 Git에서 받아야 하며 따로 전달할 비밀 파일은 없다.
 
 - `compose.fixtures.yml`
 - `backend/Dockerfile`, `backend/build.gradle`
-- `backend/src/devFixtures/java/com/tagme/devfixture/DevFixtureSeeder.java`
+- `backend/src/devFixtures/java/com/tagme/devfixture/DevFixtureSeeder.java`, `DevFixtureSafety.java`
 - `backend/src/devFixtures/java/com/tagme/auth/DevFixtureMattermostClient.java`
 
 ```bash
 git switch main
 git pull --ff-only origin main
-cp .env.example .env
-docker compose --project-name tagme-fixtures -f compose.yml -f compose.dev.yml -f compose.fixtures.yml --profile app up -d --build --wait
-docker compose --project-name tagme-fixtures -f compose.yml -f compose.dev.yml -f compose.fixtures.yml --profile app ps
-bash scripts/smoke.sh http://localhost:8089
+cp .env.example .env.fixtures
+# .env.fixtures의 DB 비밀번호를 새 로컬 값으로 설정한다.
+docker compose --env-file .env.fixtures --project-name tagme-fixtures -f compose.yml -f compose.dev.yml -f compose.fixtures.yml --profile app up -d --build --wait
+docker compose --env-file .env.fixtures --project-name tagme-fixtures -f compose.yml -f compose.dev.yml -f compose.fixtures.yml --profile app ps
+bash scripts/smoke.sh http://localhost:8088
 ```
 
-PowerShell에서는 `cp .env.example .env` 대신 `Copy-Item .env.example .env`를 사용할 수 있다. 이미 개인 설정이 있는 `.env`는 덮어쓰지 않는다.
+PowerShell에서는 `Copy-Item .env.example .env.fixtures`를 사용할 수 있다. 이미 개인 설정이 있는 환경 파일은 덮어쓰지 않는다. 기존 스택이 켜져 있으면 `.env.fixtures`에 `WEB_PORT=8090`, `API_PORT=8082`, `MYSQL_PORT=13309`, `REDIS_PORT=6382`처럼 겹치지 않는 포트를 설정하고 smoke 주소도 8090으로 바꾼다. 데이터베이스 이름은 override가 `tagme_fixtures`로 고정한다.
 
-- 접속: `http://localhost:8089` (`WEB_PORT`가 다르면 해당 포트)
+- 접속: `http://localhost:8088` (`WEB_PORT`가 8090이면 해당 포트)
 - 로그인: 아이디 `test`, 비밀번호 `test1234`
 - 데이터: 테스트 본인 1명과 합성 동료 20명, 최신 산업/개발 분야 필수 관심사와 8개 SYNC 유형, 본인 기준 상호 4명·내가 본 5명·나를 본 5명·무관계 6명, 동료 간 방향 관계, 0~5개 미션 완료 상태, 공개 순위용 완료 근거가 연결된 유효 FAST TAP 11건
 - 테스트 본인은 SHOW ME만 완료하고 나머지 네 미션은 LOCKED로 시작한다. 아래 로컬 태그 URL을 하나씩 열어야 해당 미션이 실제로 해금된다.
@@ -78,13 +79,17 @@ PowerShell에서는 `cp .env.example .env` 대신 `Copy-Item .env.example .env`�
   - FAST TAP: `/t/AwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwM`
   - SAY SOMETHING: `/t/BAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQ`
 
+시작 가드는 `tagme-fixtures` 프로젝트, 실제 연결 DB `tagme_fixtures`, 비운영 쿠키/프로필 설정을 확인한다. 활성 실제 참가자가 섞인 DB에는 시드하지 않는다. 이 검사는 fixture 이미지 자체를 외부에 공개해도 안전하게 만드는 인증 경계는 아니므로 로컬 loopback 바인딩을 유지한다.
+
+관리자도 필요하면 `.env.fixtures`의 `ADMIN_BOOTSTRAP_ID=admin:fixture`와 `ADMIN_BOOTSTRAP_PASSWORD`에 직접 정한 15~64자 비밀번호를 설정한다. 관리자 공용 비밀번호는 배포하지 않는다. 이 파일과 실제 관리자 비밀번호는 Git/PR에 올리지 않는다.
+
 이 계정과 데이터는 실제 참가자, 운영 인증, 공식 미션/시상 기록이 아니다. 별도 `tagme-fixtures` 프로젝트와 볼륨을 사용하므로 기존 개발 DB와 섞이지 않는다. 종료는 같은 파일 조합에 `down`을 사용하고, 데이터가 필요하면 `-v`를 붙이지 않는다.
 
 이전 테스트 이력을 모두 지우고 최초 상태로 되돌릴 때만 fixture 전용 볼륨을 삭제한다. 아래 명령은 `tagme-fixtures`의 합성 MySQL·Redis·Caddy 데이터만 삭제하며 일반 개발/운영 볼륨에는 적용하지 않는다.
 
 ```bash
-docker compose --project-name tagme-fixtures -f compose.yml -f compose.dev.yml -f compose.fixtures.yml --profile app down -v
-docker compose --project-name tagme-fixtures -f compose.yml -f compose.dev.yml -f compose.fixtures.yml --profile app up -d --build --wait
+docker compose --env-file .env.fixtures --project-name tagme-fixtures -f compose.yml -f compose.dev.yml -f compose.fixtures.yml --profile app down -v
+docker compose --env-file .env.fixtures --project-name tagme-fixtures -f compose.yml -f compose.dev.yml -f compose.fixtures.yml --profile app up -d --build --wait
 ```
 
 ### IDE 방식

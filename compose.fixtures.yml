@@ -1,13 +1,23 @@
 # Explicit local-only participant fixtures. Never combine this override with compose.prod.yml.
+name: tagme-fixtures
 services:
+  mysql:
+    environment:
+      MYSQL_DATABASE: tagme_fixtures
   api:
     build:
       args:
         DEV_FIXTURES: "true"
     environment:
       SPRING_PROFILES_ACTIVE: docker,dev-fixtures
+      TAGME_FIXTURES_PROJECT: ${COMPOSE_PROJECT_NAME}
+      DB_NAME: tagme_fixtures
       AUTH_ENABLED: "true"
       MATTERMOST_BASE_URL: http://127.0.0.1
       MATTERMOST_TOKEN: local-fixture-token
+      MATTERMOST_LOGIN_ID: ""
+      MATTERMOST_LOGIN_PASSWORD: ""
       MATTERMOST_CHANNEL_ID: fixturechannel000000000000
+      MATTERMOST_TEAM_NAME: ""
+      MATTERMOST_CHANNEL_NAME: ""
       AUTH_HMAC_KEY: bG9jYWwtZml4dHVyZS1vbmx5LWhtYWMta2V5LTMyLWJ5dGVzLXBsdXM=

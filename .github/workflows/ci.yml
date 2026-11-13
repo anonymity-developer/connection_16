@@ -105,6 +105,12 @@ jobs:
           java-version: 21
       - uses: gradle/actions/setup-gradle@v4
       - run: ./gradlew --no-daemon test integrationTest bootJar
+      - name: Reject fixture classes in the ordinary API archive
+        run: python3 ../scripts/deploy/verify-api-archive.py build/libs/app.jar
+      - name: Check isolated fixture startup guards
+        run: |
+          ./gradlew --no-daemon test -PdevFixtures=true --tests com.tagme.devfixture.DevFixtureSafetyTest
+          ./gradlew --no-daemon integrationTest -PdevFixtures=true --tests 'com.tagme.devfixture.*IntegrationTest'
       - uses: actions/upload-artifact@v4
         if: failure()
         with:
@@ -127,6 +133,7 @@ jobs:
           docker compose -f compose.yml -f compose.prod.yml --profile app config --quiet
           docker compose -f compose.yml -f compose.dev.yml -f compose.small.yml --profile app config --quiet
           docker compose -f compose.yml -f compose.prod.yml -f compose.small.yml --profile app config --quiet
+          docker compose --project-name tagme-fixtures -f compose.yml -f compose.dev.yml -f compose.fixtures.yml --profile app config --quiet
       - name: Check deployment boundaries and private/public image configurations
         env:
           TAGME_IMAGE_TAG: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa-1-1

@@ -52,12 +52,14 @@ public final class DevFixtureSeeder implements ApplicationRunner {
     private final JdbcTemplate db;
     private final PasswordEncoder passwords;
     private final TransactionTemplate tx;
+    private final DevFixtureSafety safety;
 
     public DevFixtureSeeder(JdbcTemplate db, PasswordEncoder passwords,
-            org.springframework.transaction.PlatformTransactionManager manager) {
+            org.springframework.transaction.PlatformTransactionManager manager, DevFixtureSafety safety) {
         this.db = db;
         this.passwords = passwords;
         this.tx = new TransactionTemplate(manager);
+        this.safety = safety;
     }
 
     @Override
@@ -67,6 +69,7 @@ public final class DevFixtureSeeder implements ApplicationRunner {
     }
 
     private void seed(String testHash) {
+        safety.verify();
         Instant now = Instant.now();
         seedEvent(now);
         seedPolicies(now);

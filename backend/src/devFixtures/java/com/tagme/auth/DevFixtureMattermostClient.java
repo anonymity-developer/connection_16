@@ -28,7 +28,7 @@ public final class DevFixtureMattermostClient extends MattermostClient {
 
     @Override
     public void sendCode(Identity target, OtpStore.Purpose purpose, String code) {
-        throw new AuthException(503, "FIXTURE_LOGIN_ONLY", "로컬 fixture에서는 test/test 로그인만 사용해 주세요.");
+        throw new AuthException(503, "FIXTURE_LOGIN_ONLY", "로컬 fixture에서는 test 계정으로 로그인해 주세요.");
     }
 
     @Override
