@@ -91,7 +91,13 @@ try {
   await page.getByRole('button', { name: '미리보기 초기화', exact: true }).click(); await page.getByRole('button', { name: '미리보기 도전 시작하기', exact: true }).waitFor();
   assert.equal(await page.locator('.tap-ranking-list li').count(), 0);
   record('real tap component supports practice, simulated official round and replay reset with no server mutations');
-  await page.getByLabel('미리 볼 미션', { exact: true }).selectOption('SYNC_ME'); await page.getByRole('radio', { name: '먼저 말 걸기', exact: true }).check(); await page.getByRole('button', { name: '나의 성향 확인하기', exact: true }).click(); await page.getByText('반가운 대화', { exact: true }).waitFor(); record('real sync component computes an explicit preview-only result from example questions');
+  await page.getByLabel('미리 볼 미션', { exact: true }).selectOption('SYNC_ME');
+  while (await page.getByRole('button', { name: '다음', exact: true }).count()) {
+    await page.locator('.sync-question-list fieldset:not([hidden]) input[type="radio"]').first().check();
+    await page.getByRole('button', { name: '다음', exact: true }).click();
+  }
+  await page.locator('.sync-question-list fieldset:not([hidden]) input[type="radio"]').last().check();
+  await page.getByRole('button', { name: '결과 확인하기', exact: true }).click(); await page.getByText('반가운 대화', { exact: true }).waitFor(); record('real sync component computes an explicit preview-only result from the stepwise example questions');
   for (const code of ['MAKE_A_WISH', 'SAY_SOMETHING']) {
     await page.getByLabel('미리 볼 미션', { exact: true }).selectOption(code);
     assert.equal(await page.locator('#content-text').getAttribute('maxlength'), '400');

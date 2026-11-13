@@ -37,6 +37,7 @@ try {
         }
         if(path === '/sync/me')return reply(200,{result:sync});
         if(path === '/sync/questions')return reply(200,{available:true,version:'fixture-v1',title:'검사용 질문',questions:[{id:'q1',text:'검사용 취향 선택',options:[{id:'a',label:'함께 만들기'}]}]});
+        if(path === '/discovery/people')return reply(200,{items:[],nextCursor:null});
         if(path === '/tap/me')return reply(200,{officialAvailable:false,attempt:{attemptId:9,status:'INVALID',tapCount:2,reviewReason:'DUPLICATE_MILLISECOND'}});
         if(path === '/tap/leaderboard')return reply(200,{top:[],own:null});
       }
@@ -115,7 +116,7 @@ try {
   console.log('PASS real A completion opens accessible reward, stays on game, respects reduced motion and never repeats on reload/edit');
   for(const [i,action] of [[1,'취향 알아보기'],[4,'응원 남기기']]) {
     await visit(`/t/${tokens[i]}`);await page.getByRole('button',{name:action,exact:true}).click();
-    if(i===1){await page.getByLabel('함께 만들기',{exact:true}).check();await page.getByRole('button',{name:'나의 성향 확인하기',exact:true}).click();}
+    if(i===1){await page.getByLabel('함께 만들기',{exact:true}).check();await page.getByRole('button',{name:'결과 확인하기',exact:true}).click();}
     else{await page.locator('#content-text').fill('브라우저 검사 전용 응원');await page.getByRole('button',{name:'응원 보내기',exact:true}).click();}
     dialog=page.getByRole('dialog',{name:i===1?'두 번째 S를 획득했어요':'Y를 획득했어요',exact:true});await dialog.waitFor();
     await dialog.getByRole('button',{name:'계속 참여하기',exact:true}).click();assert.ok(new URL(page.url()).pathname.startsWith('/missions/'));
