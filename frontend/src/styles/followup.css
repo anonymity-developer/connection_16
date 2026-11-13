@@ -24,10 +24,9 @@
 .sync-progress { width:100%; height:10px; background:#e4ecf1; border-radius:10px; overflow:hidden; margin:20px 0 8px; }.sync-progress > span { display:block; height:100%; background:var(--accent); border-radius:inherit; }
 .sync-step { color:var(--accent-ink); font-size:13px; margin-bottom:20px; }
 .sync-option:has(:checked) { border-color:var(--accent); background:var(--accent-soft); color:var(--accent-ink); }
-.participant-shell .tap-panel { max-width:560px; margin:auto; }
 .participant-shell .tap-area { display:flex; flex-direction:column; align-items:center; justify-content:center; width:min(100%,300px); min-height:0; aspect-ratio:1; margin:24px auto; border-radius:50%; font-size:44px; }
 .participant-shell .tap-area > span { font-size:14px; }
-.participant-shell .content-mission:not(.content-mission--wish) { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); align-items:start; gap:24px; }
+.participant-shell .content-mission:not(.content-mission--wish) { display:grid; grid-template-columns:minmax(0,1fr); align-items:start; gap:24px; }
 .demo-fountain .throw-coin,.demo-fountain .throw-flight > span {
   background:radial-gradient(ellipse at 28% 22%,#fffce1 0%,#f9db7d 38%,#dcac46 76%,#f4d685 100%); /* taste-skill-ignore Approved gold coin illustration shared by the draggable and flying coin. */
   border:3px solid #b88a32;
@@ -35,7 +34,7 @@
 }
 .demo-fountain .throw-coin { animation:coin-invite 1500ms ease-in-out 2; outline:5px solid #ffe7a744; outline-offset:5px; }.throw-assist { font-size:13px; margin:20px 0; color:var(--muted); }.throw-assist summary { min-height:44px; cursor:pointer; }
 @keyframes coin-invite {50%{transform:translate(-50%,-60%) rotate(-7deg);}}
-@media(max-width:700px){.participant-shell .content-mission:not(.content-mission--wish),.peer-detail-grid{grid-template-columns:1fr;}.peer-detail-header{gap:16px;}.peer-detail-grid{gap:16px;padding:20px 0;}.participant-shell .mission-list{grid-template-columns:1fr;}.demo-switcher{padding-inline:16px;}}
+@media(max-width:700px){.peer-detail-grid{grid-template-columns:1fr;}.peer-detail-header{gap:16px;}.peer-detail-grid{gap:16px;padding:20px 0;}.participant-shell .mission-list{grid-template-columns:1fr;}.demo-switcher{padding-inline:16px;}}
 @media(prefers-reduced-motion:reduce){.demo-fountain .throw-coin{animation:none;}}
 .public-profile-page .public-profile { max-width:980px; display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:24px; padding:28px; }
 .public-profile-page .public-profile-intro,.public-profile-page .public-profile-links,.public-profile-page .public-profile > .result-footnote,.public-profile-page .public-profile > .text-link { grid-column:1/-1; }
