@@ -106,10 +106,10 @@ try {
     assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>window.innerWidth),false);
     await page.screenshot({path:resolve(output,`rules-${kind}-400-390.png`),fullPage:true});
     await page.getByRole('button',{name:kind==='wishes'?'동전 던지기':'응원 보내기',exact:true}).click();
-    await page.getByRole('button',{name:'같은 글 수정하기',exact:true}).waitFor();assert.equal(slots[kind].latestRevision.anonymous,false);
+    await page.getByRole('button',{name:'수정하기',exact:true}).waitFor();assert.equal(slots[kind].latestRevision.anonymous,false);
     if(kind==='wishes'){await page.getByRole('button',{name:'소원 1 열기',exact:true}).click();await page.getByRole('link',{name:'공개한 동료의 소원',exact:true}).waitFor();}
-    await page.getByRole('button',{name:'같은 글 수정하기',exact:true}).click();assert.equal(await input.inputValue(),'가'.repeat(400));assert.equal(await anonymous.isChecked(),false);
-    await anonymous.check();await page.getByRole('button',{name:'수정 내용 보내기',exact:true}).click();await page.getByRole('button',{name:'같은 글 수정하기',exact:true}).waitFor();
+    await page.getByRole('button',{name:'수정하기',exact:true}).click();assert.equal(await input.inputValue(),'가'.repeat(400));assert.equal(await anonymous.isChecked(),false);
+    await anonymous.check();await page.getByRole('button',{name:'수정 내용 보내기',exact:true}).click();await page.getByRole('button',{name:'수정하기',exact:true}).waitFor();
     assert.equal(slots[kind].latestRevision.anonymous,true);assert.equal(slots[kind].latestRevision.number,2);
     assert.equal(await page.locator('a[href="/discovery/profiles/81"]').count(),0);
   }

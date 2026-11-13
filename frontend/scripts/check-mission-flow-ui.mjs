@@ -111,8 +111,8 @@ try {
   assert.equal(await dialog.locator('.letter-sticker').evaluate(el=>getComputedStyle(el).animationName),'none');
   await page.keyboard.press('Tab');assert.ok(await page.evaluate(()=>!!document.activeElement.closest('dialog')));
   await page.keyboard.press('Escape');assert.equal(await page.getByRole('dialog').count(),0);
-  await page.reload();await page.getByRole('button',{name:'같은 글 수정하기',exact:true}).waitFor();assert.equal(await page.getByRole('dialog').count(),0);
-  await page.getByRole('button',{name:'같은 글 수정하기',exact:true}).click();await page.locator('#content-text').fill('같은 소원 수정 검사');await page.getByRole('button',{name:'수정 내용 보내기',exact:true}).click();await page.getByRole('button',{name:'같은 글 수정하기',exact:true}).waitFor();assert.equal(await page.getByRole('dialog').count(),0);
+  await page.reload();await page.getByRole('button',{name:'수정하기',exact:true}).waitFor();assert.equal(await page.getByRole('dialog').count(),0);
+  await page.getByRole('button',{name:'수정하기',exact:true}).click();await page.locator('#content-text').fill('같은 소원 수정 검사');await page.getByRole('button',{name:'수정 내용 보내기',exact:true}).click();await page.getByRole('button',{name:'수정하기',exact:true}).waitFor();assert.equal(await page.getByRole('dialog').count(),0);
   console.log('PASS real A completion opens accessible reward, stays on game, respects reduced motion and never repeats on reload/edit');
   for(const [i,action] of [[1,'취향 알아보기'],[4,'응원 남기기']]) {
     await visit(`/t/${tokens[i]}`);await page.getByRole('button',{name:action,exact:true}).click();

@@ -96,13 +96,14 @@ export function ContentMissionView({ kind, api: contentApi, reactions: reactions
         <textarea id="content-text" ref={textarea} rows={4} maxLength={400} value={input.content} disabled={locked} aria-invalid={error ? true : undefined} aria-describedby="content-help content-count" placeholder={wish ? '함께 이루고 싶은 작은 바람을 적어주세요.' : '오늘도 애쓰는 동료에게 한마디를 남겨주세요.'} onChange={event => { setInput({ ...input, content: event.target.value }); setError(''); }} />
         <div className="wish-input-footer"><p id="content-help">연락처·링크와 타인을 향한 모욕은 적지 말아주세요.</p><span id="content-count">{input.content.length}/400</span></div>
         {!wish && <><fieldset className="cheer-colour-field" disabled={locked}><legend>카드 색상</legend><div className="cheer-colour-options">{cheerColours.map(colour => <label key={colour.id} className={`cheer-colour-chip tone-${colour.id.toLowerCase()}`} title={colour.name}><input type="radio" name="style" aria-label={colour.name} checked={input.style === colour.id} onChange={() => setInput({ ...input, templateId: 'PLAIN', style: colour.id })} /><span aria-hidden="true">{input.style === colour.id && <Icon name="check" size={18} />}</span></label>)}</div></fieldset><div className={`content-card tone-${input.style.toLowerCase()} template-plain`} aria-label="응원 카드 미리보기"><p className="content-body">{input.content || '작성한 응원이 여기에 보여요.'}</p><span className="content-byline">{input.anonymous ? '익명' : nickname}</span></div></>}
-        <label className="content-anonymous"><input type="checkbox" checked={input.anonymous} disabled={locked} onChange={event => setInput({ ...input, anonymous: event.target.checked })} />익명으로 남기기</label><Button type="submit" className="full-width" disabled={busy || conflict || heartWrites.size > 0}>{busy ? '보내는 중…' : uncertain ? '같은 글 다시 전송하기' : slot.id ? '수정 내용 보내기' : wish ? '동전 던지기' : '응원 보내기'}<Icon name="arrow" size={18} /></Button>
+        <label className="content-anonymous"><input type="checkbox" checked={input.anonymous} disabled={locked} onChange={event => setInput({ ...input, anonymous: event.target.checked })} />익명으로 남기기</label><div className="content-submit-actions"><Button type="submit" className="full-width" disabled={busy || conflict || heartWrites.size > 0}>{busy ? '보내는 중…' : uncertain ? '같은 글 다시 전송하기' : slot.id ? '수정 내용 보내기' : wish ? '동전 던지기' : '응원 보내기'}<Icon name="arrow" size={18} /></Button>
         {uncertain && <p className="result-footnote">응답을 확인하지 못했어요. 같은 요청으로 다시 보내거나 저장된 글을 확인해 주세요.</p>}
-        {slot.id && !locked && <Button type="button" variant="quiet" onClick={() => setEditing(false)}>수정 취소하기</Button>}
+        {slot.id && !locked && <Button type="button" variant="quiet" className="full-width" onClick={() => setEditing(false)}>수정 취소하기</Button>}
+        </div>
       </form>}
       {error && <p role="alert" className="form-notice is-error">{error}</p>}
-      {!editing && slot?.id && slot.visibility === 'VISIBLE' && <Button variant="secondary" onClick={edit}>같은 글 수정하기</Button>}
-      <Button variant="quiet" disabled={busy || heartWrites.size > 0} onClick={load}>내 글과 접수 상태 새로고침</Button>
+      {!editing && slot?.id && slot.visibility === 'VISIBLE' && <div className="content-edit-actions"><Button className="full-width" variant="secondary" onClick={edit}>수정하기</Button></div>}
+      {(uncertain || conflict || (!slot && !!error)) && <div className="content-recovery-actions"><Button variant="secondary" className="full-width" disabled={busy || heartWrites.size > 0} onClick={load}>저장된 글 다시 확인하기</Button></div>}
     </section>
     {(!wish || !!slot?.id) && feedSection}
   </div>;

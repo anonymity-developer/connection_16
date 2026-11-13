@@ -11,7 +11,8 @@ try {
  const errors=[],codes=['SHOW_ME','SYNC_ME','MAKE_A_WISH','FAST_TAP','SAY_SOMETHING'];page.on('pageerror',e=>errors.push(e.message));
  const cards=Array.from({length:25},(_,i)=>({id:i+1,content:`응원 목록 검사 ${i+1}`,templateId:'NOTE',style:['ROSE','INK','MINT'][i%3],anonymous:i%2===0,nickname:i%2===0?null:`동료 ${i+1}`,profileId:i%2===0?null:i+100,luckScore:null,landingZone:null}));
  const hearts=Object.fromEntries(cards.map(c=>[c.id,{liked:false,count:c.id%4,canLike:true}]));
- let feedReads=0,puts=0,releaseWrite=null,failWrite=false;
+ let feedReads=0,puts=0,releaseWrite=null,failWrite=false,writes=0;
+ let own={id:null,version:0,visibility:null,approvedRevision:null,pendingRevision:null,latestRevision:null,missionCompleted:false,luckScore:null,landingZone:null};
  await page.route('**/api/v1/**',async route=>{
   const req=route.request(),url=new URL(req.url()),path=url.pathname.slice(7),reply=(json,status=200)=>route.fulfill({status,json});
   try {
@@ -22,8 +23,9 @@ try {
    if(path==='/csrf')return reply({headerName:'X-XSRF-TOKEN',token:'cheer-mobile-csrf'});
    if(path==='/event')return reply({status:'OPEN',opensAt:null,submitClosesAt:null,profilePreparationEnabled:false});
    if(path==='/missions/collection')return reply({missions:codes.map((code,i)=>({id:i+1,code,active:true,state:'UNLOCKED'})),completedCount:0,completion:{complete:false,completionOrder:null,completedAt:null,awardConfirmed:false},resetGeneration:0});
-   if(path==='/cheers/me')return reply({id:null,version:0,visibility:null,approvedRevision:null,pendingRevision:null,latestRevision:null,missionCompleted:false,luckScore:null,landingZone:null});
-   if(path==='/cheers'){
+   if(path==='/cheers/me'&&req.method()==='GET')return reply(own);
+   if((path==='/cheers'&&req.method()==='POST')||(path==='/cheers/me'&&req.method()==='PUT')){writes++;const input=req.postDataJSON(),revision={...input,id:800+writes,itemId:800,number:writes,status:'APPROVED',reason:null,submittedAt:new Date().toISOString()};own={...own,id:800,version:writes,visibility:'VISIBLE',approvedRevision:revision,latestRevision:revision,missionCompleted:true};return reply(own,202);}
+   if(path==='/cheers'&&req.method()==='GET'){
     feedReads++;const sort=url.searchParams.get('sort'),direction=url.searchParams.get('direction'),ascending=direction==='ASC';assert.ok(['LATEST','HEARTS'].includes(sort));
     const sorted=[...cards].sort((a,b)=>(ascending?1:-1)*((sort==='HEARTS'?hearts[a.id].count-hearts[b.id].count:0)||a.id-b.id));
     const offset=Number(url.searchParams.get('cursor')||0);return reply({items:sorted.slice(offset,offset+20),nextCursor:offset+20<sorted.length?offset+20:null});
@@ -66,5 +68,22 @@ try {
  failWrite=true;await control.getByRole('button',{name:'하트 취소하기',exact:true}).click();assert.equal(await control.locator('.heart-count').innerText(),'3');while(!releaseWrite)await page.waitForTimeout(10);releaseWrite();await control.getByRole('alert').waitFor();assert.equal(await control.locator('.heart-count').innerText(),'4');assert.equal(puts,2);
  await page.getByRole('button',{name:'하트순 오름차순으로 전환',exact:true}).click();await page.waitForFunction(()=>document.querySelector('.content-feed-list li .content-body')?.textContent==='응원 목록 검사 4');
  for(const row of await page.locator('.content-feed-list li').all()){const author=await row.locator('.content-byline').innerText();if(author==='익명')assert.equal(await row.locator('.content-byline a').count(),0);}
+ await page.getByLabel('어떤 응원을 전하고 싶나요?',{exact:true}).fill('응원 버튼 간격 확인');
+ await page.getByRole('button',{name:'응원 보내기',exact:true}).click();await page.getByRole('button',{name:'수정하기',exact:true}).waitFor();
+ for(const width of [320,360,390,430,640,641,768,1099,1100,1440]) {
+  await page.setViewportSize({width,height:840});
+  assert.equal(await page.getByRole('button',{name:'내 글과 접수 상태 새로고침',exact:true}).count(),0);
+  const card=await page.locator('.content-own > .content-card').boundingBox(),edit=await page.getByRole('button',{name:'수정하기',exact:true}).boundingBox();
+  assert.ok(edit.y-card.y-card.height>=20);assert.ok(edit.height>=48);
+  await page.locator('.content-own').screenshot({path:resolve(output,`saved-actions-${width}.png`)});
+  await page.getByRole('button',{name:'수정하기',exact:true}).click();
+  const save=await page.getByRole('button',{name:'수정 내용 보내기',exact:true}).boundingBox(),cancel=await page.getByRole('button',{name:'수정 취소하기',exact:true}).boundingBox();
+  assert.ok(cancel.y>=save.y+save.height+11);assert.ok(Math.abs(cancel.x-save.x)<1&&Math.abs(cancel.width-save.width)<1);assert.ok(cancel.height>=48);
+  assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>window.innerWidth),false);
+  assert.equal(await page.getByRole('button',{name:'저장된 글 다시 확인하기',exact:true}).count(),0);
+  await page.locator('.content-submit-actions').screenshot({path:resolve(output,`edit-actions-${width}.png`)});
+  await page.getByRole('button',{name:'수정 취소하기',exact:true}).click();await page.getByRole('button',{name:'수정하기',exact:true}).waitFor();
+ }
+ assert.equal(writes,1);console.log('PASS saved/edit action spacing at 320/360/390/430/640/641/768/1099/1100/1440: full-width 48px actions, 24px card gap, 12px save/cancel gap, no routine refresh, cancel makes no write');
  assert.deepEqual(errors,[]);console.log('PASS ten visible colour chips; real checkbox/nickname/anonymous; five widths; 20+5 pagination; four sort directions; optimistic heart before server response; failed cancel restores server truth; cards stay put; anonymous identities have no links');
 }finally{if(browser)await browser.close();await server.close();}

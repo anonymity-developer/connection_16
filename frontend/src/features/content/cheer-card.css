@@ -14,8 +14,8 @@
 .content-mission:not(.content-mission--wish) .content-body { font-size:16px; line-height:1.8; white-space:pre-wrap; overflow-wrap:anywhere; }
 .content-mission:not(.content-mission--wish) .content-byline { display:block; margin-top:20px; font-size:13px; }
 .content-mission:not(.content-mission--wish) .content-byline a { display:inline-flex; align-items:center; min-height:44px; text-decoration:underline; text-underline-offset:3px; }
-.cheer-colour-field { margin-top:24px; }
-.cheer-colour-options { display:grid; grid-template-columns:repeat(5,44px); justify-content:space-between; gap:12px 8px; max-width:344px; margin-top:12px; }
+.cheer-colour-field { min-width:0; max-width:100%; margin-top:24px; }
+.cheer-colour-options { display:grid; width:100%; grid-template-columns:repeat(auto-fit,minmax(44px,1fr)); justify-content:space-between; gap:12px 8px; max-width:280px; margin-top:12px; }
 .cheer-colour-chip { position:relative; width:44px; height:44px; display:grid; place-items:center; cursor:pointer; }
 .cheer-colour-chip input { position:absolute; width:1px; height:1px; opacity:0; }
 .cheer-colour-chip > span { display:grid; place-items:center; width:34px; height:34px; border:1px solid var(--letter-edge); border-radius:50%; background:var(--letter-paper); color:var(--letter-ink); }
@@ -41,3 +41,8 @@
  .content-mission:not(.content-mission--wish) .content-feed-list { grid-template-columns:minmax(0,1fr); }
  .content-mission:not(.content-mission--wish) .content-card { padding:20px; }
 }
+
+/* Shared wish/cheer actions keep the same vertical rhythm in every layout. */
+.content-own .content-edit-actions, .content-own .content-recovery-actions { margin-top:24px; }
+.content-own .content-submit-actions { display:flex; flex-direction:column; gap:12px; margin-top:20px; }
+.content-own :is(.content-edit-actions, .content-submit-actions, .content-recovery-actions) > .button { width:100%; min-height:48px; margin:0; }
