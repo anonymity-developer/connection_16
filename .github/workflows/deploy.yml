@@ -57,6 +57,14 @@ jobs:
           load: true
           provenance: false
           tags: tagme-api:${{ steps.source.outputs.tag }}
+      - name: Reject local fixtures in the API image before publishing
+        env:
+          IMAGE_TAG: ${{ steps.source.outputs.tag }}
+        run: |
+          set -Eeuo pipefail
+          archive="$RUNNER_TEMP/tagme-production-api.jar"
+          docker run --rm --entrypoint cat "tagme-api:$IMAGE_TAG" /app/app.jar > "$archive"
+          python3 scripts/deploy/verify-api-archive.py "$archive"
       - name: Build web image on GitHub runner
         uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
         with:

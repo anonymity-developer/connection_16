@@ -11,6 +11,13 @@ java {
     toolchain { languageVersion = JavaLanguageVersion.of(21) }
 }
 
+// Development fixtures are compiled only for the explicit fixture image.
+// A normal bootJar, including the production Docker build, never sees this source tree.
+if (providers.gradleProperty('devFixtures').map { it.toBoolean() }.getOrElse(false)) {
+    sourceSets.main.java.srcDir 'src/devFixtures/java'
+    sourceSets.test.java.srcDir 'src/devFixturesTest/java'
+}
+
 repositories { mavenCentral() }
 
 configurations { mockitoAgent }
