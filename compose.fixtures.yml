@@ -1,0 +1,13 @@
+# Explicit local-only participant fixtures. Never combine this override with compose.prod.yml.
+services:
+  api:
+    build:
+      args:
+        DEV_FIXTURES: "true"
+    environment:
+      SPRING_PROFILES_ACTIVE: docker,dev-fixtures
+      AUTH_ENABLED: "true"
+      MATTERMOST_BASE_URL: http://127.0.0.1
+      MATTERMOST_TOKEN: local-fixture-token
+      MATTERMOST_CHANNEL_ID: fixturechannel000000000000
+      AUTH_HMAC_KEY: bG9jYWwtZml4dHVyZS1vbmx5LWhtYWMta2V5LTMyLWJ5dGVzLXBsdXM=
