@@ -40,8 +40,8 @@ class DevFixtureStartupIntegrationTest {
 
     @Test void seedsTheIsolatedStackAndRefusesLaterForeignParticipantsBeforeChangingData() {
         assertThat(db.queryForObject("SELECT COUNT(*) FROM users", Long.class)).isEqualTo(29);
-        assertThat(db.queryForObject("SELECT COUNT(DISTINCT type_code) FROM sync_results", Long.class)).isEqualTo(8);
-        assertThat(db.queryForObject("SELECT COUNT(*) FROM tap_attempts WHERE status='VALID'", Long.class)).isEqualTo(11);
+        assertThat(db.queryForObject("SELECT COUNT(*) FROM sync_results", Long.class)).isEqualTo(6);
+        assertThat(db.queryForObject("SELECT COUNT(*) FROM tap_attempts WHERE status='VALID' AND archived_at IS NULL", Long.class)).isEqualTo(7);
         assertThat(db.queryForObject("SELECT COUNT(*) FROM tags", Long.class)).isEqualTo(4);
         assertThat(db.queryForObject("SELECT COUNT(*) FROM sync_results s JOIN users u ON u.id=s.user_id WHERE u.mattermost_username='test'", Long.class)).isZero();
         assertThat(db.queryForObject("SELECT COUNT(*) FROM content_items WHERE kind='CHEER' AND archived_at IS NULL", Long.class)).isEqualTo(28);

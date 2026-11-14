@@ -165,8 +165,8 @@ public final class DevFixtureSeeder implements ApplicationRunner {
             long card=db.queryForObject("SELECT id FROM content_items WHERE author_id=? AND slot_kind='CHEER'",Long.class,user);
             String key="fixture-cheer-demo-"+i;
             String message="[로컬 더미 응원] "+messages.get(i%messages.size())+(i==27?"\n"+"작은 용기를 모아 오늘도 한 걸음 나아가 봐요. ".repeat(12):"");
-            db.update("INSERT INTO content_revisions(item_id,revision_no,content_text,template_id,style,anonymous,submitted_at,idempotency_key,payload_hash,moderation_status,reason_code) VALUES(?,1,?,'PLAIN',?,?,UTC_TIMESTAMP(6),?,SHA2(?,256),'APPROVED','DIRECT_PUBLICATION') ON DUPLICATE KEY UPDATE id=content_revisions.id",card,message,colours.get(i%10),i%2==0,key,message);
-            long revision=db.queryForObject("SELECT id FROM content_revisions WHERE item_id=? AND idempotency_key=?",Long.class,card,key);
+            db.update("INSERT INTO content_revisions(item_id,revision_no,content_text,template_id,style,anonymous,submitted_at,idempotency_key,payload_hash,moderation_status,reason_code) VALUES(?,1,?,'PLAIN',?,?,UTC_TIMESTAMP(6),?,SHA2(?,256),'APPROVED','DIRECT_PUBLICATION') ON DUPLICATE KEY UPDATE content_text=VALUES(content_text),template_id=VALUES(template_id),style=VALUES(style),anonymous=VALUES(anonymous),submitted_at=VALUES(submitted_at),payload_hash=VALUES(payload_hash),moderation_status='APPROVED',reason_code='DIRECT_PUBLICATION'",card,message,colours.get(i%10),i%2==0,key,message);
+            long revision=db.queryForObject("SELECT id FROM content_revisions WHERE item_id=? AND revision_no=1",Long.class,card);
             db.update("UPDATE content_items SET approved_revision_id=?,pending_revision_id=NULL WHERE id=?",revision,card);
             db.update("DELETE FROM cheer_likes WHERE card_id=?",card);
             for(int j=0;j<i%8;j++){long liker=authors.get((i+j+1)%authors.size());db.update("INSERT IGNORE INTO cheer_likes(card_id,user_id) VALUES(?,?)",card,liker);}
