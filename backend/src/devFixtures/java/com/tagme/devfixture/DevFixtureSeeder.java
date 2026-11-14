@@ -92,15 +92,25 @@ public final class DevFixtureSeeder implements ApplicationRunner {
         long[] ids = new long[PEERS.size()];
         for (int index = 0; index < PEERS.size(); index++) {
             Peer peer = PEERS.get(index);
+            List<String> completed = completedMissions(index, peer.completedMissions());
             String suffix = String.format("%02d", index + 2);
             ids[index] = upsertUser("devfixture" + "0".repeat(14) + suffix, "fixture" + suffix, peer.realName());
             upsertProfile(ids[index], peer.nickname(), peer.bio());
             replaceInterests(ids[index], peer.interests());
             consent(ids[index], now.minus(index + 1L, ChronoUnit.HOURS));
-            seedPeerProgress(ids[index], peer, now.minus(index + 2L, ChronoUnit.HOURS));
-            seedSync(ids[index], peer.typeCode(), now.minus(index + 1L, ChronoUnit.HOURS));
-            if (peer.tapCount() > 0) seedTap(ids[index], peer.tapCount(), now.minus(index + 1L, ChronoUnit.HOURS));
+            resetPeerParticipation(ids[index], completed, now);
+            seedPeerProgress(ids[index], completed, now.minus(index + 2L, ChronoUnit.HOURS));
+            if (completed.contains("SYNC_ME"))
+                seedSync(ids[index], peer.typeCode(), now.minus(index + 1L, ChronoUnit.HOURS));
+            if (completed.contains("FAST_TAP"))
+                seedTap(ids[index], peer.tapCount() > 0 ? peer.tapCount() : 12 + index * 3, now.minus(index + 1L, ChronoUnit.HOURS));
+            if (completed.contains("MAKE_A_WISH"))
+                seedContent(ids[index], "WISH", index, now.minus(index + 1L, ChronoUnit.HOURS));
+            if (completed.contains("SAY_SOMETHING"))
+                seedContent(ids[index], "CHEER", index, now.minus(index + 1L, ChronoUnit.HOURS));
         }
+
+        seedCheerLikes(ids);
 
         // Keep repeated starts deterministic even when the isolated fixture volume is preserved.
         db.update("""
@@ -155,8 +165,8 @@ public final class DevFixtureSeeder implements ApplicationRunner {
             long card=db.queryForObject("SELECT id FROM content_items WHERE author_id=? AND slot_kind='CHEER'",Long.class,user);
             String key="fixture-cheer-demo-"+i;
             String message="[로컬 더미 응원] "+messages.get(i%messages.size())+(i==27?"\n"+"작은 용기를 모아 오늘도 한 걸음 나아가 봐요. ".repeat(12):"");
-            db.update("INSERT INTO content_revisions(item_id,revision_no,content_text,template_id,style,anonymous,submitted_at,idempotency_key,payload_hash,moderation_status,reason_code) VALUES(?,1,?,'PLAIN',?,?,UTC_TIMESTAMP(6),?,SHA2(?,256),'APPROVED','DIRECT_PUBLICATION') ON DUPLICATE KEY UPDATE id=content_revisions.id",card,message,colours.get(i%10),i%2==0,key,message);
-            long revision=db.queryForObject("SELECT id FROM content_revisions WHERE item_id=? AND idempotency_key=?",Long.class,card,key);
+            db.update("INSERT INTO content_revisions(item_id,revision_no,content_text,template_id,style,anonymous,submitted_at,idempotency_key,payload_hash,moderation_status,reason_code) VALUES(?,1,?,'PLAIN',?,?,UTC_TIMESTAMP(6),?,SHA2(?,256),'APPROVED','DIRECT_PUBLICATION') ON DUPLICATE KEY UPDATE content_text=VALUES(content_text),template_id=VALUES(template_id),style=VALUES(style),anonymous=VALUES(anonymous),submitted_at=VALUES(submitted_at),payload_hash=VALUES(payload_hash),moderation_status='APPROVED',reason_code='DIRECT_PUBLICATION'",card,message,colours.get(i%10),i%2==0,key,message);
+            long revision=db.queryForObject("SELECT id FROM content_revisions WHERE item_id=? AND revision_no=1",Long.class,card);
             db.update("UPDATE content_items SET approved_revision_id=?,pending_revision_id=NULL WHERE id=?",revision,card);
             db.update("DELETE FROM cheer_likes WHERE card_id=?",card);
             for(int j=0;j<i%8;j++){long liker=authors.get((i+j+1)%authors.size());db.update("INSERT IGNORE INTO cheer_likes(card_id,user_id) VALUES(?,?)",card,liker);}
@@ -257,19 +267,90 @@ public final class DevFixtureSeeder implements ApplicationRunner {
         progress(userId, "SHOW_ME", "COMPLETED", now.minus(1, ChronoUnit.HOURS));
     }
 
-    private void seedPeerProgress(long userId, Peer peer, Instant at) {
-        List<String> order = peer.tapCount() > 0
-                ? List.of("SHOW_ME", "FAST_TAP", "SYNC_ME", "MAKE_A_WISH", "SAY_SOMETHING")
-                : List.of("SHOW_ME", "SYNC_ME", "MAKE_A_WISH", "FAST_TAP", "SAY_SOMETHING");
-        for (int index = 0; index < peer.completedMissions(); index++)
-            progress(userId, order.get(index), "COMPLETED", at.plus(index, ChronoUnit.MINUTES));
-        if (peer.completedMissions() == 5) {
+    private List<String> completedMissions(int peerIndex, int count) {
+        if (count == 0) return List.of();
+        List<String> rotating = List.of("SYNC_ME", "MAKE_A_WISH", "FAST_TAP", "SAY_SOMETHING");
+        var completed = new java.util.ArrayList<String>();
+        completed.add("SHOW_ME");
+        for (int index = 0; index < count - 1; index++)
+            completed.add(rotating.get((peerIndex + index) % rotating.size()));
+        return List.copyOf(completed);
+    }
+
+    private void resetPeerParticipation(long userId, List<String> completed, Instant now) {
+        db.update("DELETE FROM event_completions WHERE user_id=?", userId);
+        db.update("DELETE FROM mission_completion_evidence WHERE user_id=?", userId);
+        db.update("DELETE FROM submission_receipts WHERE user_id=?", userId);
+        db.update("DELETE FROM mission_progress WHERE user_id=?", userId);
+        db.update("DELETE FROM sync_results WHERE user_id=?", userId);
+        if (!completed.contains("FAST_TAP")) {
+            db.update("UPDATE tap_slots SET current_attempt_id=NULL,version=version+1 WHERE user_id=?", userId);
+            db.update("UPDATE tap_attempts SET archived_at=? WHERE user_id=? AND archived_at IS NULL", Timestamp.from(now), userId);
+        }
+        if (!completed.contains("MAKE_A_WISH"))
+            db.update("UPDATE content_items SET archived_at=? WHERE author_id=? AND kind='WISH' AND archived_at IS NULL", Timestamp.from(now), userId);
+        if (!completed.contains("SAY_SOMETHING"))
+            db.update("UPDATE content_items SET archived_at=? WHERE author_id=? AND kind='CHEER' AND archived_at IS NULL", Timestamp.from(now), userId);
+    }
+
+    private void seedPeerProgress(long userId, List<String> completed, Instant at) {
+        for (int index = 0; index < completed.size(); index++)
+            progress(userId, completed.get(index), "COMPLETED", at.plus(index, ChronoUnit.MINUTES));
+        if (completed.size() == 5) {
             db.update("""
                     INSERT INTO event_completions(user_id,completion_order,completed_at)
                     VALUES (?,(SELECT next_value FROM event_completion_sequence WHERE id=1),?)
                     ON DUPLICATE KEY UPDATE completed_at=VALUES(completed_at)
                     """, userId, Timestamp.from(at.plus(5, ChronoUnit.MINUTES)));
             db.update("UPDATE event_completion_sequence SET next_value=GREATEST(next_value,(SELECT COALESCE(MAX(completion_order),0)+1 FROM event_completions)) WHERE id=1");
+        }
+    }
+
+    private void seedContent(long userId, String kind, int index, Instant at) {
+        boolean wish = "WISH".equals(kind);
+        List<String> messages = wish
+                ? List.of("새로운 기술을 즐겁게 배우고 싶어요.", "좋은 동료들과 프로젝트를 완주하고 싶어요.", "발표할 때 조금 더 자신감이 생기면 좋겠어요.", "꾸준히 성장하는 개발자가 되고 싶어요.")
+                : List.of("오늘의 작은 시도도 분명 내일의 실력이 될 거예요.", "막히는 날에도 함께 고민할 동료가 있다는 걸 기억해요.", "조금 느려도 괜찮아요. 자기 속도로 끝까지 가봐요.", "첫 프로젝트부터 여기까지 온 우리 모두를 응원해요!");
+        String message = "[로컬 더미 " + (wish ? "소원" : "응원") + "] " + messages.get(index % messages.size());
+        Integer luck = wish ? 100 + index * 17 : null;
+        Integer zone = wish ? index % 5 : null;
+        db.update("""
+                INSERT INTO content_items(author_id,kind,luck_score,landing_zone)
+                VALUES (?,?,?,?) ON DUPLICATE KEY UPDATE luck_score=VALUES(luck_score),landing_zone=VALUES(landing_zone),visibility_status='VISIBLE'
+                """, userId, kind, luck, zone);
+        long item = db.queryForObject("SELECT id FROM content_items WHERE author_id=? AND slot_kind=?", Long.class, userId, kind);
+        String key = "fixture-" + kind.toLowerCase(java.util.Locale.ROOT) + "-" + userId;
+        String style = index % 2 == 0 ? "ROSE" : "INK";
+        db.update("""
+                INSERT INTO content_revisions(item_id,revision_no,content_text,template_id,style,anonymous,submitted_at,idempotency_key,payload_hash,moderation_status,reason_code)
+                VALUES (?,1,?,'PLAIN',?,?,?,?,SHA2(?,256),'APPROVED','DIRECT_PUBLICATION')
+                ON DUPLICATE KEY UPDATE content_text=VALUES(content_text),style=VALUES(style),anonymous=VALUES(anonymous),submitted_at=VALUES(submitted_at),moderation_status='APPROVED',reason_code='DIRECT_PUBLICATION'
+                """, item, message, style, index % 3 == 0, Timestamp.from(at), key, message);
+        long revision = db.queryForObject("SELECT id FROM content_revisions WHERE item_id=? AND idempotency_key=?", Long.class, item, key);
+        db.update("UPDATE content_items SET approved_revision_id=?,pending_revision_id=NULL WHERE id=?", revision, item);
+        String source = wish ? "WISH_REVISION" : "CHEER_REVISION";
+        db.update("""
+                INSERT INTO submission_receipts(user_id,source_kind,source_id,received_at) VALUES (?,?,?,?)
+                ON DUPLICATE KEY UPDATE received_at=VALUES(received_at)
+                """, userId, source, revision, Timestamp.from(at));
+        long receipt = db.queryForObject("SELECT id FROM submission_receipts WHERE user_id=? AND source_kind=? AND source_id=?", Long.class, userId, source, revision);
+        String mission = wish ? "MAKE_A_WISH" : "SAY_SOMETHING";
+        db.update("""
+                INSERT INTO mission_completion_evidence(user_id,mission_id,source_kind,source_id,receipt_order,accepted_received_at)
+                SELECT ?,id,?,?,?,? FROM missions WHERE code=?
+                ON DUPLICATE KEY UPDATE source_kind=VALUES(source_kind),source_id=VALUES(source_id),receipt_order=VALUES(receipt_order),accepted_received_at=VALUES(accepted_received_at)
+                """, userId, source, revision, receipt, Timestamp.from(at), mission);
+    }
+
+    private void seedCheerLikes(long[] peers) {
+        List<Long> cards = db.queryForList("SELECT id FROM content_items WHERE kind='CHEER' AND archived_at IS NULL AND author_id IN (" +
+                java.util.stream.LongStream.of(peers).mapToObj(value -> "?").collect(java.util.stream.Collectors.joining(",")) + ") ORDER BY id", Long.class,
+                java.util.stream.LongStream.of(peers).boxed().toArray());
+        for (int index = 0; index < cards.size(); index++) {
+            long card = cards.get(index);
+            db.update("DELETE FROM cheer_likes WHERE card_id=?", card);
+            for (int like = 0; like <= index % 5; like++)
+                db.update("INSERT IGNORE INTO cheer_likes(card_id,user_id) VALUES (?,?)", card, peers[(index + like + 1) % peers.length]);
         }
     }
 
@@ -293,7 +374,7 @@ public final class DevFixtureSeeder implements ApplicationRunner {
         db.update("""
                 INSERT INTO tap_attempts(user_id,generation,idempotency_key,starts_at,ends_at,submit_deadline,status,tap_count,submitted_at,payload_hash)
                 VALUES (?,1,CONCAT('local-fixture-',?),?,?,?,'VALID',?,?,REPEAT('1',64))
-                ON DUPLICATE KEY UPDATE status='VALID',tap_count=VALUES(tap_count),submitted_at=VALUES(submitted_at),review_reason=NULL
+                ON DUPLICATE KEY UPDATE status='VALID',tap_count=VALUES(tap_count),submitted_at=VALUES(submitted_at),review_reason=NULL,archived_at=NULL
                 """, userId, userId, Timestamp.from(at.minusSeconds(12)), Timestamp.from(at.minusSeconds(2)),
                 Timestamp.from(at.plusSeconds(3)), tapCount, Timestamp.from(at));
         Long attempt = db.queryForObject("SELECT id FROM tap_attempts WHERE user_id=? AND generation=1", Long.class, userId);
