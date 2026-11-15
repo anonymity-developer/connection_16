@@ -124,7 +124,7 @@ SIGN_UP의 이미 가입된 ACTIVE 계정은 사용자 요청에 따라 409 ACCO
 - 백엔드 단위: PBKDF2 salt/한글/원문 유지, 비밀번호 길이, 민감 DTO, Mattermost 경로/멤버십/오류/DM 요청.
 - Testcontainers MySQL/Redis: V3, 선행 0, 해시/세션 교체, username 재사용/변경, legacy 초기 설정, DB 롤백과 code 재사용 금지, 동일/다른 purpose·세션, 재발송/만료/오답, 동시 소비와 비밀번호 버전 경합, 현재/다른 세션 차단, 외부 실패와 CSRF.
 - 브라우저: 기존 5개 폭/키보드 검사와 별도 API 계약 대역으로 signup/login/change/reset/logout, CSRF 헤더, 발송 중 중복 방지, 재발송/정책/실패 상태, 새로고침 후 서버 세션 복원.
-- 실제 Mattermost, 실제 휴대전화 키보드/NFC/QR, 서버 배포/부하 검증은 아직 수행하지 않았다. 브라우저 계약 대역은 실제 외부 연동 성공의 증거가 아니다.
+- 실제 Mattermost, 실제 휴대전화 키보드/NFC, 서버 배포/부하 검증은 아직 수행하지 않았다. 브라우저 계약 대역은 실제 외부 연동 성공의 증거가 아니다.
 
 ## 참고한 공식 계약
 

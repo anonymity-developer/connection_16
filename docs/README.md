@@ -1,109 +1,44 @@
-# TAG ME 개발 기준서
+# TAG ME 문서 안내
 
-오류 신고·계정 비활성화/재가입·글자별 조정은 [운영 지원 계약](support-and-member-controls.md)을 따른다.
+문서는 현재 `main`의 구현과 운영 경계를 설명합니다. 과거 PR별 인수인계와 일회성 검증 기록은 제거했으며, 실제 동작은 코드·Flyway migration·OpenAPI를 최종 기준으로 봅니다.
 
-2026-11-12 승인한 미션 안내·400자/익명 선택·FAST TAP 상위 10명과 소감·추천 내부 신호는 [확정 미션 규칙](mission-rules.md)을 따른다. PR #21 검토 중이며 운영 배포와 구분한다.
+## 먼저 읽기
 
-미병합 PR #16·#17·#18의 로컬 테스트 주소, 통합 범위와 재실행 방법은 [PR 로컬 테스트](pr-16-18-local-review.md)를 참고한다. 운영 배포와 분리된 리뷰 환경이다.
-
-독립 관리자 로그인, 참가자/접속 분석, 미션별 순위와 반복 미리보기의 현재 계약은 [관리자 콘솔](admin-console.md)이다. 기존 콘텐츠 검수 화면은 `/admin/moderation`으로 이동했다.
-
-신규 AWS 계정과 한 달 이내 행사 운영을 위한 [EC2 가입·서버 생성·2GiB 메모리 설정](ec2-deploy.md)을 준비했다. 실제 클라우드 배포·DNS·100명 부하 검증은 서버 생성 후 진행한다.
-
-GitHub Actions → 공개 배포 릴리스 → Sydney EC2 구현과 `anonymity-developer.site` 가비아 DNS/운영 환경변수, 실제 배포 상태는 [배포 연결](github-actions-ec2.md)에 기록한다.
-
-이 폴더는 이전 대화를 보지 않은 개발자와 운영자가 TAG ME를 이해하기 위한 기준서다. 서비스 정책, 화면 흐름, 서버 구조, 데이터 관계, API, 장애 및 행사 운영을 함께 다룬다. 문서에 나오는 **설계는 구현 완료를 뜻하지 않는다.**
-
-Codex로 구현을 이어갈 때는 먼저 [현재 페이즈](progress.md)와 [스킬/개발 환경](codex-setup.md)을 읽고 해당 작업의 문서만 선택한다. 저장소 루트와 frontend/backend/infra의 AGENTS.md가 작업별 규칙을 제공한다.
-
-## 1. 읽는 순서와 문서 역할
-
-| 순서 | 문서 | 확인할 내용 |
-| --- | --- | --- |
-| 1 | [기획 개요](overview.md) | 누구를 위한 서비스인지, 다섯 미션, 참여 제한, 공개 범위, 성공 기준 |
-| 2 | [유저 플로우](user-flows.md) | 최초 진입, 인증, 미션별 진행, 재접속, 동료 탐색, 예외 분기 |
-| 3 | [화면과 UI/UX](ui-ux.md) | 화면 목록, 내비게이션, 입력/상태/모션, 모바일 품질 기준 |
-| 4 | [아키텍처](architecture.md) | Docker 배치, 요청/검수 처리, 저장소 책임, 보안과 장애 경계 |
-| 5 | [데이터 모델](data-model.md) | 현재 DDL, 후속 테이블 사전, 제약, 인덱스와 마이그레이션 |
-| 6 | [전체 도메인 ERD](erd.md) | 계정부터 콘텐츠, 게임, 시상까지 컬럼과 관계를 나눈 도식 |
-| 7 | [API 계약](api.md) | 현재/예정 경로, 입력/응답, 인가, 오류와 멱등성 |
-| 8 | [상세 구현 계획](implementation-plan.md) | 개발 순서, 트랜잭션, 동시성, 정산 규칙, 검증 완료 기준 |
-| 9 | [개발 및 배포](development.md) | 환경변수, 로컬 실행, Docker, CI, 백업/복원과 롤백 |
-| 10 | [행사 운영](operations.md) | 태그 설치, 개장/마감, 검수, 신고, 재도전, 수상 및 종료 |
-
-인증을 구현할 때는 [회원가입과 비밀번호 인증](auth.md)을 우선 읽는다. 아이디는 Mattermost username, 비밀번호는 가입 시 TAG ME에 설정한 값이다. DM의 숫자 6자리 인증은 가입/비밀번호 변경/재설정용이며 일반 로그인은 아이디/비밀번호로 처리한다.
-
-Mattermost 원본 정보와 입력 항목/상세 공개는 [가입·프로필 계약](mattermost-profile.md)이 현재 기준이다. 닉네임만 필수이며 도메인/기술 스택·소개·링크는 선택, 비공개 기능은 없다.
-
-프로필/동의/태그/완료 구현은 [참여 계약](participation.md)과 [참여 OpenAPI](participation.openapi.yaml)를 우선 읽는다.
-
-성향/공식 게임은 [결과 계약](results.md)과 [결과 OpenAPI](results.openapi.yaml)를 따른다.
-
-소원/응원과 검수는 [콘텐츠 계약](content.md)과 [콘텐츠 OpenAPI](content.openapi.yaml)를 따른다. 댓글/하트는 [반응 계약](reactions.md)과 [반응 OpenAPI](reactions.openapi.yaml)를 따른다.
-
-관리자 검수/공개 관리/감사는 [운영 계약](operations-admin.md)과 [운영 OpenAPI](operations.openapi.yaml)를 따른다. 실제 ADMIN 계정 지정/외부 검수·운영 배포는 별도다.
-
-탐색/상세/방문/관계는 [탐색 계약](discovery.md)과 [탐색 OpenAPI](discovery.openapi.yaml)를 따른다. 공개 목록에는 닉네임만, 실명/반은 OPEN 기간의 POST 상세에만 포함한다.
-
-기획 변경은 overview와 해당 도메인 문서에 함께 반영한다. 화면 분기는 user-flows/UI, 저장 방식은 data-model/ERD, 요청 계약은 API, 처리 순서는 implementation-plan을 함께 확인한다.
-
-## 2. 서비스 한 장 요약
-
-SSAFY 16기 서울캠퍼스 참여자가 프로필을 완성하고 네 종류 NFC/QR 미션에 참여해 **S S A F Y**를 모은다. 가입할 때 Mattermost DM의 숫자 6자리 인증번호로 계정 소유를 확인하고 TAG ME 비밀번호를 설정한다. 이후 Mattermost 아이디와 그 비밀번호로 로그인하며, 비밀번호 변경/재설정에도 DM 인증을 요구한다. 처음에는 닉네임으로 동료를 탐색하고 상세 프로필을 열면 실명, 반, 소개, 외부 링크를 확인한다. 상세 방문은 방향 관계로 기록하며 서로 방문하면 상호 발견이 된다.
-
-| 코드 | 이름 | 글자 | 최초 완료 조건 |
-| --- | --- | --- | --- |
-| SHOW_ME | SHOW ME | 첫 번째 S | 행사 OPEN 중 공개 프로필·소개·관심사 1개 이상·현재 두 동의 확인 후 자동 지급, NFC 불필요 |
-| SYNC_ME | SYNC ME | 두 번째 S | 태그 해금 + 서버가 계산한 최초 성향 결과 저장 |
-| MAKE_A_WISH | A WISH COME TRUE | A | 태그 해금 + 최초 유효 소원 제출 저장 |
-| FAST_TAP | FAST TAP | F | 태그 해금 + 공식 게임 유효 결과 확정 |
-| SAY_SOMETHING | YOU GOT THIS | Y | 태그 해금 + 최초 유효 응원 제출 저장 |
-
-네 태그를 찾는 순서는 자유다. 위 표의 순서는 수집판 표시 순서이며 필수 수행 순서가 아니다. 닉네임과 동의만으로 온보딩을 마칠 수 있지만 SHOW ME 보상에는 소개·관심사도 필요하다. 사전 등록자는 행사 시작 후 인증된 POST 재평가로 지급하며 조회 GET은 상태를 변경하지 않는다.
-
-## 3. 확정한 설계 원칙
-
-1. 로그인은 Mattermost 아이디 + TAG ME 가입 시 설정한 비밀번호다. 가입/비밀번호 변경/재설정 시 목적이 구분된 DM 인증을 거친다. 인증번호는 영문/기호 없는 숫자 6자리 문자열로 앞자리 0을 유지하고 매번 안전하게 새로 발급한다. 고정 공용 번호나 OTP 단독 일반 로그인을 사용하지 않는다.
-2. 메인 페이지는 공개 진입점이다. 참여에는 인증이 필요하고, SHOW ME를 제외한 네 미션은 사용자의 해당 태그 해금 기록도 필요하다.
-3. NFC/QR 주소는 `/t/{token}`이다. 태그별 32바이트 난수를 Base64URL 43자리로 인코딩하고 DB에는 SHA-256만 저장한다. URL 공유를 완전히 막거나 현장 체류를 증명하지는 않는다.
-4. 미션 완료, 콘텐츠 승인, 프로필 공개, 시상 자격은 별도 상태다. 하나의 상태값으로 묶지 않는다.
-5. 소원과 응원은 각각 슬롯 1개, 성향 결과는 최초 1회, 탭 게임은 공식 슬롯 1개다. 수정과 관리자 승인 재도전은 이력으로 구분한다.
-6. 모든 미션 완료는 공통 완료 서비스와 사용자 행 잠금 경로를 사용한다. 기존 최초 완료 시각을 덮어쓰지 않는다.
-7. 전체 완성의 운영상 완료 순번과 검수 지연을 보정한 최종 선착순 수상 순위는 다르다.
-8. 현재는 기본 입력/참가 검사를 통과한 소원·응원·댓글을 즉시 공개한다. AI·관리자 검수는 비활성이다. 상태와 근거는 분리해 보관하며 [직접 공개·초기화 계약](direct-publication-and-reset.md)을 따른다.
-9. 상세 프로필 방문만 그래프 간선을 만든다. 현재 추천은 관심사·성향·댓글·하트·미방문·다른 반 가산점의 합을 사용하며, 익명 교류 신호는 내부 정렬에만 반영한다. 추천 조회는 방문 자체를 대체하지 않는다.
-10. 모바일 UI 품질은 필수 범위다. 공통 디자인과 핵심 화면을 먼저 구성하고 기능을 연결한다.
-
-## 4. 현재 구현과 예정 범위
-
-| 구분 | 현재 저장소 상태 |
+| 목적 | 문서 |
 | --- | --- |
-| 실행 기반 | React/TypeScript 초기 화면, Java 21/Spring Boot, Gradle Wrapper, Docker Compose, Caddy, MySQL/Redis 설정 있음 |
-| 기본 API | `/api/v1/meta`, `/api/v1/csrf`, 보안 필터와 헬스체크 있음 |
-| 영속 스키마 | V1 핵심 테이블, V2 미션 시드, V3 username/credentials, V4 정책/동의/행사/근거, V5 성향/게임, V6 콘텐츠/검수, V7 댓글/하트, V8 관리자 감사/재처리 한도, V9 Mattermost 소스/사진 버전·관심사 분류 있음. 탐색은 V1 profile_views 사용 |
-| 인증 | 사용자/채널/DM 어댑터, username/해시, 가입/로그인/변경/재설정과 세션 차단 구현. 실제 외부 권한 검증 대기 |
-| 주요 기능 | 프로필/동의·태그·수집판·SHOW ME와 공통 완료 구현. SYNC/FAST TAP과 1회 결과 구현. 소원/응원·revision 검수·댓글/하트 구현. 닉네임 탐색/POST 상세/최초 방문/내 그래프·통계 구현. 관리자 검수·공개 관리·감사 화면 구현. 신고/외부 자동 검수 연결은 후순위로 보류. 개인별 차단/게임 검토/시상은 후속 |
-| 운영 | CI/백업/실행 설정은 있음. 실제 서버/DNS/외부 비밀키/행사 태그는 연결되지 않음 |
-| 검증 이력 | 초기 로컬 빌드와 단위/설정 검사 이력은 development에 기록. 문서 추가는 기능 또는 실기기 검증 완료를 의미하지 않음 |
+| 서비스와 미션 이해 | [제품 개요](overview.md), [유저 플로우](user-flows.md) |
+| 로컬 실행과 테스트 | [개발 가이드](development.md), [Codex 셋업](codex-setup.md) |
+| 화면 구성·반응형 기준 | [UI 기준](ui-ux.md) |
+| 인프라 처음 이해하기 | [서버·DB·Redis 안내](infrastructure.md) |
+| 시스템 구조 파악 | [아키텍처](architecture.md), [데이터 모델](data-model.md), [ERD](erd.md) |
+| 행사·관리자 운영 | [행사 운영](operations.md), [관리자 콘솔](admin-console.md), [운영 배포](github-actions-ec2.md) |
+| 현재 완료 범위 확인 | [구현 상태](progress.md) |
 
-후속 ERD를 읽고 테이블이 이미 존재한다고 가정하지 않는다. 현재 데이터베이스의 기준은 `backend/src/main/resources/db/migration`이다. 적용된 migration은 수정하지 않고 새 버전을 추가한다.
+## 도메인 계약
 
-## 5. 운영 확정 전인 항목
-
-| 미확정 항목 | 현재 개발 방향 | 확정 책임/시점 |
+| 영역 | 정책·동작 | API 계약 |
 | --- | --- | --- |
-| Mattermost 권한/지정 채널 | 서버에서 멤버십 조회와 DM 가능 여부 검증 | 인증 구현 전 운영자 |
-| 행사 일시/태그 위치/힌트 | 다섯 미션의 자유 순서 탐색, QR 대체 | 행사 공지 전 운영자 |
-| 동의 문구/공개 항목/보관 기간 | 상세 공개 항목을 가입 시 안내·확인, 사용자 비공개 설정 없음 | 회원 기능 배포 전 운영자 |
-| 성향 질문/유형/점수/동점 규칙 | 버전 고정, 서버 계산, 결과 1회 | SYNC 구현 전 기획 |
-| 소원 레거시 운 점수/낙하 구역 | 신규 생성 중단, nullable API·기존 값만 호환 유지 | 종이배 호수 리뉴얼 |
-| 시상 인원/경품/예산/중복 수상 | 자동 후보 집계 후 관리자 확정 | 행사 공지 전 운영자 |
-| 제출/검수 정산 마감 및 동점 | 서버 접수 시각 기반, 완료 순번과 분리 | 행사 공지 전 운영자 |
-| OTP 제한/게임 제출 유예/성능 목표 | 문서의 제안 기본값으로 검증 후 설정화 | 통합/부하 검증 후 개발/운영 |
-| 비밀번호 정책 | 초기 구현은 15~64 code point, PBKDF2-SHA256 600,000회. 운영 부하/정책 재검토 | 배포 전 개발/운영 |
-| 디자인 색상/서체/구체 문구 | 공통 토큰과 모바일 핵심 화면부터 구성 | UI 단계에서 기획/개발 |
+| 인증 | [인증](auth.md), [Mattermost 프로필](mattermost-profile.md) | [auth.openapi.yaml](auth.openapi.yaml) |
+| 프로필·참여·NFC | [참여](participation.md) | [participation.openapi.yaml](participation.openapi.yaml) |
+| SYNC·FAST TAP | [결과 미션](results.md), [미션 규칙](mission-rules.md) | [results.openapi.yaml](results.openapi.yaml) |
+| 소원·응원 | [콘텐츠](content.md), [직접 공개와 초기화](direct-publication-and-reset.md) | [content.openapi.yaml](content.openapi.yaml) |
+| 댓글·하트 | [반응](reactions.md) | [reactions.openapi.yaml](reactions.openapi.yaml) |
+| 동료 탐색 | [탐색](discovery.md), [추천 경계](recommendation-design.md) | [discovery.openapi.yaml](discovery.openapi.yaml) |
+| 관리자 | [관리자 콘솔](admin-console.md), [운영 API](operations-admin.md), [지원 조치](support-and-member-controls.md) | [admin.openapi.yaml](admin.openapi.yaml), [operations.openapi.yaml](operations.openapi.yaml) |
 
-미확정 사항을 임의의 확정 정책으로 구현하거나 테스트 편의를 위해 인증을 우회하지 않는다. 이 표의 항목은 요구사항 부족을 숨기지 않기 위한 결정 목록이다.
+주요 경로와 공통 오류 형식은 [API 개요](api.md)를 먼저 봅니다.
 
-- [소원·응원과 검수 구현 계약](content.md): 1회 슬롯, revision/fence/lease, 공개 포인터, 관리자 판정과 남은 범위.
-- [탐색 계약](discovery.md): 현재 공개 필터, 닉네임/상세 분리, 최초 방문, 직접 관계/통계와 콘텐츠 프로필 링크.
+## 운영 보조 자료
+
+- [OTP 안내 문구](auth/otp-message.md)
+- [행사 종료 후 결과 API](post-event/API.md)
+- [활동 데이터 정의](post-event/DATA_DICTIONARY.md)
+- [행사 종료 체크리스트](post-event/OPERATIONS_CHECKLIST.md)
+- [결과 보고서 템플릿](post-event/REPORT_TEMPLATE.md)
+
+## 문서 관리 원칙
+
+- 구현 완료와 계획을 섞지 않습니다. 계획은 이슈/PR에 두고, 병합 후 현재 문서만 갱신합니다.
+- 비밀번호, 세션, 원본 NFC 토큰, 운영 `.env`, 실제 참가자 정보와 DB 추출물은 문서에 기록하지 않습니다.
+- 정책 변경은 해당 도메인 문서와 OpenAPI, 데이터 변경은 migration과 데이터 문서를 함께 갱신합니다.
+- 문서 링크와 예시는 PR 전에 검사하며, 오래된 실행 결과를 현재 상태처럼 보존하지 않습니다.
