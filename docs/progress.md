@@ -37,4 +37,4 @@
 - 예상 참가자 규모의 부하와 장애 복구
 - 최종 수상자 확정·중복 수상·발표 절차
 
-구체 실행은 [개발 가이드](development.md), 현장 점검은 [행사 운영](operations.md), 배포 상태는 [운영 배포](github-actions-ec2.md)를 따른다.
+인프라 역할과 저장/재시작 경계는 [서버·DB·Redis 안내](infrastructure.md)를 따른다. 구체 실행은 [개발 가이드](development.md), 현장 점검은 [행사 운영](operations.md), 배포 상태는 [운영 배포](github-actions-ec2.md)를 따른다.

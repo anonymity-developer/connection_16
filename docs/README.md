@@ -9,6 +9,7 @@
 | 서비스와 미션 이해 | [제품 개요](overview.md), [유저 플로우](user-flows.md) |
 | 로컬 실행과 테스트 | [개발 가이드](development.md), [Codex 셋업](codex-setup.md) |
 | 화면 구성·반응형 기준 | [UI 기준](ui-ux.md) |
+| 인프라 처음 이해하기 | [서버·DB·Redis 안내](infrastructure.md) |
 | 시스템 구조 파악 | [아키텍처](architecture.md), [데이터 모델](data-model.md), [ERD](erd.md) |
 | 행사·관리자 운영 | [행사 운영](operations.md), [관리자 콘솔](admin-console.md), [운영 배포](github-actions-ec2.md) |
 | 현재 완료 범위 확인 | [구현 상태](progress.md) |

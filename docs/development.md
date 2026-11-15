@@ -1,5 +1,7 @@
 # 개발 가이드
 
+구성 요소의 역할과 재시작/저장 원리는 [서버·DB·Redis 안내](infrastructure.md)를 참고한다.
+
 ## 준비
 
 - Docker Desktop/Engine과 Compose v2

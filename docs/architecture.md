@@ -1,5 +1,7 @@
 # 아키텍처
 
+서버·컨테이너·DB·Redis 역할부터 이해하려면 [인프라 안내](infrastructure.md)를 먼저 읽는다.
+
 ## 실행 구성
 
 ```mermaid

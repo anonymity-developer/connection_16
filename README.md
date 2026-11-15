@@ -2,7 +2,7 @@
 
 SSAFY 16기 서울 캠퍼스를 위한 모바일 네트워킹 서비스입니다. 참가자는 현장의 NFC 태그로 미션을 열고, 다섯 글자 **SSAFY**를 모으며 서로의 프로필과 활동을 통해 대화를 시작합니다.
 
-[운영 사이트](https://anonymity-developer.site) · [문서 안내](docs/README.md) · [로컬 실행](docs/development.md)
+[운영 사이트](https://anonymity-developer.site) · [문서 안내](docs/README.md) · [로컬 실행](docs/development.md) · [서버·DB·Redis 이해하기](docs/infrastructure.md)
 
 ## 서비스 화면
 
