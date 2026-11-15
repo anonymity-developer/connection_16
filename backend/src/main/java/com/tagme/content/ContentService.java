@@ -34,8 +34,8 @@ public class ContentService {
     public OwnSlot own(long user,Kind kind) { return tx.execute(s->snapshot(user,kind)); }
     private OwnSlot snapshot(long user,Kind kind) {
         var item=repository.own(user,kind);boolean complete="COMPLETED".equals(participation.mission(user,kind.mission()).state());
-        if(item==null)return new OwnSlot(null,0,null,null,null,null,complete,null,null);
-        return new OwnSlot(item.id(),item.version(),item.visibility(),item.approvedId()==null?null:repository.revision(item.approvedId()),item.pendingId()==null?null:repository.revision(item.pendingId()),repository.latest(item.id()),complete,item.approvedId()==null?null:item.luckScore(),item.approvedId()==null?null:item.landingZone());
+        if(item==null)return new OwnSlot(null,0,null,null,null,null,complete,null,null,0);
+        return new OwnSlot(item.id(),item.version(),item.visibility(),item.approvedId()==null?null:repository.revision(item.approvedId()),item.pendingId()==null?null:repository.revision(item.pendingId()),repository.latest(item.id()),complete,item.approvedId()==null?null:item.luckScore(),item.approvedId()==null?null:item.landingZone(),item.kind()==Kind.WISH?repository.publicCommentCount(item.id()):0);
     }
     private record Payload(String content,String templateId,String style,boolean anonymous) { }
     private String hash(ContentController.Submit body) {

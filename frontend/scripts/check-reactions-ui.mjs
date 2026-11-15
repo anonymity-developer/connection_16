@@ -13,7 +13,7 @@ try {
   const blank = { id: null, version: 0, visibility: null, approvedRevision: null, pendingRevision: null, latestRevision: null, missionCompleted: false, luckScore: null, landingZone: null };
   const wish = { id: 71, content: '테스트용 소원입니다. 실제로 공개된 참여자 데이터가 아닙니다.', templateId: 'PLAIN', style: 'ROSE', anonymous: true, nickname: null, luckScore: null, landingZone: null };
   const cards = [81, 82].map(id => ({ ...wish, id, content: id === 81 ? '서로의 내일을 응원하는 테스트 카드' : '하트를 남길 수 없는 카드의 테스트 상태', templateId: 'NOTE', style: 'INK' }));
-  let mine = [], comments = [], posts = 0, failComment = false, commentRequest = null, publicHidden = false, commentReads = 0, puts = 0, deletes = 0, failPut = false, failDelete = false, failBatch = false, forbidden = false, batches = 0, singles = 0;
+  let mine = [], comments = [], posts = 0, failComment = false, commentRequest = null, publicHidden = false, puts = 0, deletes = 0, failPut = false, failDelete = false, failBatch = false, forbidden = false, batches = 0, singles = 0;
   const hearts = { 81: { liked: false, count: 0, canLike: true }, 82: { liked: false, count: 0, canLike: false } };
   await page.route('**/api/v1/**', async route => {
     try {
@@ -30,8 +30,8 @@ try {
       if (method === 'GET' && ['/wishes/me', '/cheers/me'].includes(path)) return reply(200, blank);
       if (method === 'GET' && path === '/wishes') return reply(200, { items: [wish], nextCursor: null });
       if (method === 'GET' && path === '/cheers') return reply(200, { items: cards, nextCursor: null });
-      if (method === 'GET' && path === '/wishes/71/comments/me') { commentReads++; return reply(200, { items: mine, nextCursor: null }); }
-      if (method === 'GET' && path === '/wishes/71/comments') { commentReads++; return publicHidden ? reply(404, { code: 'CONTENT_NOT_FOUND', message: '공개된 글을 찾을 수 없어요.' }) : reply(200, { items: comments, nextCursor: null }); }
+      if (method === 'GET' && path === '/wishes/71/comments/me') return reply(200, { items: mine, nextCursor: null });
+      if (method === 'GET' && path === '/wishes/71/comments') return publicHidden ? reply(404, { code: 'CONTENT_NOT_FOUND', message: '공개된 글을 찾을 수 없어요.' }) : reply(200, { items: comments, nextCursor: null });
       if (method === 'GET' && path === '/cheers/likes') { batches++; assert.deepEqual(url.searchParams.get('ids').split(',').map(Number), [81, 82]); return failBatch ? reply(503, { message: '하트 묶음 조회에 실패했어요.' }) : reply(200, hearts); }
       if (method === 'GET' && /^\/cheers\/\d+\/like$/.test(path)) { singles++; return reply(200, hearts[Number(path.split('/')[2])]); }
       assert.equal(req.headers()['x-xsrf-token'], 'reaction-test-csrf');
@@ -51,12 +51,12 @@ try {
     } catch (error) { routeErrors.push(error.message); await route.fulfill({ status: 500, contentType: 'application/json', body: JSON.stringify({ message: '계약 검사 오류' }) }); }
   });
   const visit = path => page.goto(`http://127.0.0.1:4475${path}`); const record = text => { checks.push(text); console.log(`PASS ${text}`); };
-  await visit('/missions/make-a-wish'); const feed = page.locator('.content-feed'); await feed.getByRole('button', { name: '소원 1 열기', exact: true }).click(); await feed.getByRole('button', { name: '댓글 보기', exact: true }).waitFor(); assert.equal(commentReads, 0); await feed.getByRole('button', { name: '댓글 보기', exact: true }).click(); const thread = page.locator('.comment-thread');
+  await visit('/missions/make-a-wish'); const feed = page.locator('.content-feed'); await feed.getByRole('button', { name: '익명의 소원 1 열기', exact: true }).click(); const thread = page.locator('.wish-detail-sheet .comment-thread');
   await thread.getByRole('button', { name: '댓글 남기기', exact: true }).waitFor(); await thread.getByRole('button', { name: '댓글 남기기', exact: true }).click(); await thread.getByRole('alert').waitFor(); assert.equal(posts, 0); assert.equal(await thread.locator('textarea').evaluate(el => el === document.activeElement), true);
   record('comments load only when opened and blank input focuses the field without submitting');
   await thread.getByLabel('동료의 소원에 댓글 남기기', { exact: true }).fill('테스트 댓글입니다.'); failComment = true;
   await thread.getByRole('button', { name: '댓글 남기기', exact: true }).click(); await thread.getByRole('button', { name: '같은 댓글 다시 보내기', exact: true }).waitFor(); assert.equal(await thread.locator('textarea').isDisabled(), true); await thread.getByRole('button', { name: '같은 댓글 다시 보내기', exact: true }).click(); await thread.locator('.own-comments .comment-list li').first().waitFor(); assert.equal(posts, 2); assert.equal(mine.length, 1); assert.equal(await thread.locator(':scope > .comment-list li').count(), 0);
-  await page.reload(); await feed.getByRole('button', { name: '소원 1 열기', exact: true }).click(); await feed.getByRole('button', { name: '댓글 보기', exact: true }).click(); await page.locator('.own-comments .comment-list li').first().waitFor(); assert.equal(await page.locator('.content-status').getByText('글자 획득 완료', { exact: true }).count(), 0);
+  await page.reload(); await feed.getByRole('button', { name: '익명의 소원 1 열기', exact: true }).click(); await page.locator('.own-comments .comment-list li').first().waitFor(); assert.equal(await page.locator('.content-status').getByText('글자 획득 완료', { exact: true }).count(), 0);
   record('uncertain comments retry the same key and text; pending state restores without public text or a letter');
   const current = page.locator('.comment-thread'); await current.locator('textarea').fill('다른 테스트 댓글'); await current.getByRole('checkbox', { name: '닉네임 표시하기', exact: true }).check(); failComment = true; await current.getByRole('button', { name: '댓글 남기기', exact: true }).click(); await current.getByRole('button', { name: '같은 댓글 다시 보내기', exact: true }).waitFor(); const beforeRefresh = posts;
   await current.getByRole('button', { name: '댓글 상태 새로고침', exact: true }).click(); await page.waitForFunction(() => document.querySelector('.comment-thread textarea')?.disabled === false); assert.equal(await current.locator('textarea').inputValue(), ''); assert.equal(posts, beforeRefresh); assert.equal(mine.length, 2); assert.equal(mine[0].revealProfile, true); commentRequest = null;

@@ -44,19 +44,24 @@ export function WishCard({ item, children }: { item: PublicContent; children?: R
   return <article className="wish-detail-card"><p className="content-byline">{item.anonymous ? '익명의 소원' : item.profileId ? <Link href={`/discovery/profiles/${item.profileId}`}>{item.nickname || '동료'}의 소원</Link> : `${item.nickname || '동료'}의 소원`}</p><p className="content-body">{item.content}</p>{children}</article>;
 }
 
-export function WishGallery({ items, receipt = null, earned = false, feedReady = true, initialView = 'lake', sceneOverlay, sceneRef, renderComments = comments, loadMore, loadingMore = false }: {
-  sceneOverlay?: ReactNode; sceneRef?: Ref<HTMLDivElement>; items: PublicContent[]; receipt?: number | null; earned?: boolean; feedReady?: boolean; initialView?: WishView; renderComments?: (id: number) => ReactNode; loadMore?: () => Promise<boolean>; loadingMore?: boolean;
+export function WishGallery({ items, receipt = null, earned = false, feedReady = true, initialView = 'lake', sceneOverlay, sceneRef, renderComments = comments, loadMore, loadingMore = false, ownItem = null, openOwnRequest = 0 }: {
+  sceneOverlay?: ReactNode; sceneRef?: Ref<HTMLDivElement>; items: PublicContent[]; receipt?: number | null; earned?: boolean; feedReady?: boolean; initialView?: WishView; renderComments?: (id: number) => ReactNode; loadMore?: () => Promise<boolean>; loadingMore?: boolean; ownItem?: PublicContent | null; openOwnRequest?: number;
 }) {
   const [view, setView] = useState<WishView>(initialView);
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [batchIds, setBatchIds] = useState<number[]>(() => [...new Map(items.map(item => [item.id, item])).values()].slice(0, 6).map(item => item.id));
   const [waitingForMore, setWaitingForMore] = useState(false);
   const seen = useRef(new Set<number>());
+  const handledOwnRequest = useRef(0);
   const advanceAfterLoad = useRef(false);
   const boatCount = useBoatCount();
   const uid = useId();
   const unique = useMemo(() => [...new Map(items.map(item => [item.id, item])).values()], [items]);
-  const selected = unique.find(item => item.id === selectedId) ?? null;
+  const detailItems = useMemo(() => ownItem && !unique.some(item => item.id === ownItem.id) ? [ownItem, ...unique] : unique, [ownItem, unique]);
+  const selectedIndex = detailItems.findIndex(item => item.id === selectedId);
+  const selected = selectedIndex < 0 ? null : detailItems[selectedIndex];
+
+  useEffect(() => { if (openOwnRequest && openOwnRequest !== handledOwnRequest.current && ownItem) { handledOwnRequest.current = openOwnRequest; setSelectedId(ownItem.id); } }, [openOwnRequest, ownItem]);
 
   useEffect(() => {
     const target = Math.min(boatCount, unique.length);
@@ -121,12 +126,12 @@ export function WishGallery({ items, receipt = null, earned = false, feedReady =
     {view === 'list' && <section className="wish-list-view" aria-labelledby={`${uid}-list-title`}>
       <div className="wish-list-heading"><div><h3 id={`${uid}-list-title`}>소원 목록</h3><p>호수에 공개된 소원을 천천히 둘러보세요.</p></div><span>{unique.length}개 불러옴</span></div>
       {!unique.length && feedReady && <p className="content-empty">아직 공개된 소원이 없어요.</p>}
-      <ul className="wish-card-list" aria-label="소원 목록">{unique.map(item => <li key={item.id}><button type="button" onClick={() => setSelectedId(item.id)}><span className="wish-list-boat"><PaperBoat colour={boatColours[item.id % boatColours.length]} /></span><span><b>{item.anonymous ? '익명의 소원' : `${item.nickname || '동료'}의 소원`}</b><span>{item.content}</span></span></button></li>)}</ul>
+      <ul className="wish-card-list" aria-label="소원 목록">{unique.map(item => <li key={item.id}><button type="button" onClick={() => setSelectedId(item.id)}><span className="wish-list-boat"><PaperBoat colour={boatColours[item.id % boatColours.length]} /></span><span><b>{item.anonymous ? '익명의 소원' : `${item.nickname || '동료'}의 소원`}</b><span>{item.content}</span><small>댓글 {item.commentCount ?? 0}개</small></span></button></li>)}</ul>
       {loadMore && <Button type="button" variant="secondary" disabled={loadingMore} onClick={() => void loadMore()}>{loadingMore ? '불러오는 중…' : '소원 더 보기'}</Button>}
     </section>}
 
     <Dialog open={!!selected} title="소원과 댓글" className="wish-detail-sheet" onClose={() => setSelectedId(null)}>
-      {selected && <WishCard key={selected.id} item={selected}>{renderComments(selected.id)}</WishCard>}
+      {selected && <><nav className="wish-detail-nav" aria-label="다른 소원 보기"><Button type="button" variant="quiet" aria-label="이전 소원" disabled={selectedIndex <= 0} onClick={() => setSelectedId(detailItems[selectedIndex - 1].id)}>←</Button><span>{selectedIndex + 1} / {detailItems.length}</span><Button type="button" variant="quiet" aria-label="다음 소원" disabled={selectedIndex >= detailItems.length - 1} onClick={() => setSelectedId(detailItems[selectedIndex + 1].id)}>→</Button></nav><WishCard key={selected.id} item={selected}>{renderComments(selected.id)}</WishCard></>}
     </Dialog>
   </div>;
 }

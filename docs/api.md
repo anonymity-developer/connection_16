@@ -283,9 +283,10 @@ route는 서버가 정한 내부 경로이며 토큰에서 외부 URL을 읽어 
   "approvedRevision": {"id": 201, "number": 1, "content": "함께 성장하고 싶어요.", "status": "APPROVED"},
   "pendingRevision": {"id": 202, "number": 2, "content": "좋은 동료들과 함께 성장하고 싶어요.", "status": "QUEUED"},
   "latestRevision": {"id": 202, "number": 2, "content": "좋은 동료들과 함께 성장하고 싶어요.", "status": "QUEUED"},
-  "missionCompleted": true,
-  "luckScore": null,
-  "landingZone": null
+    "missionCompleted": true,
+    "luckScore": null,
+    "landingZone": null,
+    "commentCount": 3
 }
 ```
 

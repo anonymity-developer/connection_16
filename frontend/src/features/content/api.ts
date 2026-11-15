@@ -7,8 +7,8 @@ export type SortDirection = 'ASC' | 'DESC';
 export type FeedCursor = number | string;
 export interface ContentInput { content: string; templateId: Template; style: Style; anonymous: boolean; expectedVersion: number | null }
 export interface Revision { id: number; itemId: number; number: number; content: string; templateId: Template; style: Style; anonymous: boolean; submittedAt: string; status: 'QUEUED' | 'PROCESSING' | 'APPROVED' | 'REJECTED' | 'REVIEW_REQUIRED' | 'SUPERSEDED'; reason: string | null }
-export interface OwnSlot { id: number | null; version: number; visibility: 'VISIBLE' | 'HIDDEN' | null; approvedRevision: Revision | null; pendingRevision: Revision | null; latestRevision: Revision | null; missionCompleted: boolean; luckScore: number | null; landingZone: number | null }
-export interface PublicContent { profileId: number | null; id: number; content: string; templateId: Template; style: Style; anonymous: boolean; nickname: string | null; luckScore: number | null; landingZone: number | null }
+export interface OwnSlot { id: number | null; version: number; visibility: 'VISIBLE' | 'HIDDEN' | null; approvedRevision: Revision | null; pendingRevision: Revision | null; latestRevision: Revision | null; missionCompleted: boolean; luckScore: number | null; landingZone: number | null; commentCount?: number }
+export interface PublicContent { profileId: number | null; id: number; content: string; templateId: Template; style: Style; anonymous: boolean; nickname: string | null; luckScore: number | null; landingZone: number | null; commentCount?: number }
 export interface Feed { items: PublicContent[]; nextCursor: FeedCursor | null }
 export const contentApi = {
   own: (kind: ContentKind) => request<OwnSlot>(`/${kind}/me`),

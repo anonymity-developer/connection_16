@@ -92,7 +92,7 @@ try {
   failFeed = true; await refresh(); await page.getByText('목록을 확인하지 못했어요.', { exact: true }).waitFor(); assert.equal(await page.getByRole('button', { name: '내 소원 수정하기', exact: true }).count(), 1); failFeed = false;
   record('rejected text can be corrected in the same slot; text is escaped and list failures retain the private record');
   // Only synthetic approved feed entries; own rejected/pending text must stay outside the lake.
-  const publicWish = (index) => ({ id:500-index, content:`가상 공개 소원 ${index+1}`, templateId:'PLAIN', style:'ROSE', anonymous:true, nickname:null, profileId:null, luckScore:null, landingZone:null });
+  const publicWish = (index) => ({ id:500-index, content:`가상 공개 소원 ${index+1}`, templateId:'PLAIN', style:'ROSE', anonymous:true, nickname:null, profileId:null, luckScore:null, landingZone:null, commentCount:index%4 });
   feeds.wishes.items = Array.from({length:20}, (_, index) => publicWish(index));
   feeds.wishes.nextCursor = feeds.wishes.items.at(-1).id;
   olderWishes = Array.from({length:5}, (_, index) => publicWish(index + 20));
@@ -130,9 +130,13 @@ try {
   const wishes = page.getByRole('list',{name:'소원 목록'});
   await page.waitForFunction(() => document.querySelectorAll('.wish-card-list li').length === 25);
   assert.equal(await wishes.getByRole('listitem').count(),25);
+  await wishes.getByText('댓글 3개',{exact:true}).first().waitFor();
   assert.deepEqual(await page.getByRole('group',{name:'소원 보기 방식'}).getByRole('button').allTextContents(), ['소원 호수', '소원 목록']);
   await wishes.getByRole('button').last().press('Enter');
   await page.getByRole('dialog').getByText('가상 공개 소원 25', { exact: true }).waitFor();
+  assert.equal(await page.getByRole('button',{name:'다음 소원',exact:true}).isDisabled(),true);
+  await page.getByRole('button',{name:'이전 소원',exact:true}).click();
+  await page.getByRole('dialog').getByText('가상 공개 소원 24', { exact: true }).waitFor();
   await page.getByRole('button',{name:'닫기',exact:true}).click();
   await page.screenshot({path:resolve(output,'wish-list-1440.png'),fullPage:true});
   await page.getByRole('button',{name:'소원 호수',exact:true}).click();
