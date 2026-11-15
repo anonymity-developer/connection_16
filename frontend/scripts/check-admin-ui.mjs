@@ -115,7 +115,7 @@ try {
   await page.getByRole('button', { name: '익명의 소원 1 열기', exact: true }).click(); await page.getByRole('heading', { name: '소원과 댓글', exact: true }).waitFor();
   const wish = page.getByRole('dialog').filter({ hasText: '관리자 미리보기 예시 소원입니다.' });
   await wish.getByLabel('동료의 소원에 댓글 남기기', { exact: true }).fill('메모리 댓글 승인 확인');
-  await wish.getByRole('button', { name: '댓글 남기기', exact: true }).click(); await wish.getByText('공개됨', { exact: true }).waitFor(); await wish.locator('.comment-list').first().getByText('메모리 댓글 승인 확인', { exact: true }).waitFor();
+  await wish.getByRole('button', { name: '댓글 남기기', exact: true }).click(); await wish.locator('.comment-list').first().getByText('메모리 댓글 승인 확인', { exact: true }).waitFor(); assert.equal(await wish.locator('.own-comments').count(), 0); await wish.getByRole('button', { name: '내 댓글 삭제', exact: true }).click(); await wish.getByText('아직 공개된 댓글이 없어요. 작성한 댓글이 여기에 모여요.', { exact: true }).waitFor();
   record('shared wish lake, comments and heart controls run entirely in preview memory');
   await page.getByLabel('미리 볼 미션', { exact: true }).selectOption('SHOW_ME'); await page.getByLabel('닉네임', { exact: true }).fill('미리보기 첫인사'); await page.getByRole('checkbox', { name: '참여 안내와 상세 정보 공개 범위를 확인했어요.', exact: true }).check(); await page.getByRole('button', { name: '프로필 저장하기', exact: true }).click(); assert.equal(await page.getByText('미리보기 프로필을 저장했어요.', { exact: false }).count(),0);
   await page.getByRole('heading', { name: '첫 번째 S 준비하기', exact: true }).waitFor();
