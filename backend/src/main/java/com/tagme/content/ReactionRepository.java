@@ -10,7 +10,7 @@ import static com.tagme.content.ContentModels.*;
 @Repository
 public class ReactionRepository {
     public record CommentLink(long id,long wishId,long itemId,long authorId,long wishAuthorId,String hash) { }
-    public record PublicComment(long id,String content,boolean revealProfile,String nickname,Long profileId) { }
+    public record PublicComment(long id,String content,boolean revealProfile,String nickname,Long profileId,boolean mine) { }
     public record OwnComment(long id,String content,boolean revealProfile,String status,String reason,java.time.Instant submittedAt,String requestKey) { }
     public record Comments(List<PublicComment> items,Long nextCursor) { }
     public record OwnComments(List<OwnComment> items,Long nextCursor) { }
@@ -30,11 +30,13 @@ public class ReactionRepository {
     private static final String LINKS="SELECT c.*,i.author_id AS wish_author_id FROM wish_comments c JOIN content_items i ON i.id=c.wish_id";
     private CommentLink mapLink(ResultSet r,int n) throws SQLException { return new CommentLink(r.getLong("id"),r.getLong("wish_id"),r.getLong("content_item_id"),r.getLong("author_id"),r.getLong("wish_author_id"),r.getString("payload_hash")); }
     public CommentLink byItem(long itemId) { return db.query(LINKS+" WHERE c.content_item_id=?",this::mapLink,itemId).stream().findFirst().orElse(null); }
+    public CommentLink comment(long wish,long id) { return db.query(LINKS+" WHERE c.wish_id=? AND c.id=?",this::mapLink,wish,id).stream().findFirst().orElse(null); }
     public CommentLink byKey(long author,String key) { return db.query(LINKS+" WHERE c.author_id=? AND c.idempotency_key=?",this::mapLink,author,key).stream().findFirst().orElse(null); }
     public long saveComment(long wish,long item,long author,String key,String hash) {
         var keys=new GeneratedKeyHolder();db.update(c->{var s=c.prepareStatement("INSERT INTO wish_comments(wish_id,content_item_id,author_id,idempotency_key,payload_hash) VALUES (?,?,?,?,?)",Statement.RETURN_GENERATED_KEYS);s.setLong(1,wish);s.setLong(2,item);s.setLong(3,author);s.setString(4,key);s.setString(5,hash);return s;},keys);return Objects.requireNonNull(keys.getKey()).longValue();
     }
-    public Comments comments(long wish,long cursor) {
+    public Comments comments(long wish,long cursor) { return comments(wish,cursor,0); }
+    public Comments comments(long wish,long cursor,long viewer) {
         var rows=db.query("""
             SELECT c.id,c.author_id,r.content_text,r.anonymous,p.nickname FROM wish_comments c
             JOIN content_items i ON i.id=c.content_item_id JOIN content_revisions r ON r.id=i.approved_revision_id
@@ -48,9 +50,10 @@ public class ReactionRepository {
             AND u.status='ACTIVE' AND p.is_public=TRUE AND
             2=(SELECT COUNT(*) FROM current_consent_policies cp JOIN user_consents uc ON uc.policy_type=cp.policy_type AND uc.policy_version=cp.policy_version AND uc.user_id=u.id AND uc.withdrawn_at IS NULL)
             ORDER BY c.id DESC LIMIT 21
-            """,(r,n)->new PublicComment(r.getLong("id"),r.getString("content_text"),!r.getBoolean("anonymous"),r.getBoolean("anonymous")?null:r.getString("nickname"),r.getBoolean("anonymous")?null:r.getLong("author_id")),wish,cursor);
+            """,(r,n)->new PublicComment(r.getLong("id"),r.getString("content_text"),!r.getBoolean("anonymous"),r.getBoolean("anonymous")?null:r.getString("nickname"),r.getBoolean("anonymous")?null:r.getLong("author_id"),r.getLong("author_id")==viewer),wish,cursor);
         var items=rows.stream().limit(20).toList();return new Comments(items,rows.size()>20?items.getLast().id():null);
     }
+    public void deleteComment(long item) { db.update("UPDATE content_items SET visibility_status='HIDDEN',archived_at=UTC_TIMESTAMP(6),version=version+1 WHERE id=? AND archived_at IS NULL",item); }
     public OwnComments own(long wish,long user,long cursor) {
         var rows=db.query("""
             SELECT c.id AS comment_id,c.idempotency_key AS request_key,r.* FROM wish_comments c JOIN content_items active ON active.id=c.content_item_id AND active.archived_at IS NULL JOIN content_revisions r ON r.item_id=c.content_item_id

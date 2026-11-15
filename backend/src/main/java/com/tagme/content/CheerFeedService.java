@@ -63,7 +63,7 @@ public class CheerFeedService {
             args.add(cursor.id());
         }
         String sql="SELECT * FROM ("+inner+") cards"+boundary+" ORDER BY "+(hearts?"heart_count "+direction.name()+",":"")+"id "+direction.name()+" LIMIT 21";
-        var rows=db.query(sql,(r,n)->new Row(new PublicContent(r.getLong("id"),r.getString("content_text"),"PLAIN",r.getString("style"),r.getBoolean("anonymous"),r.getBoolean("anonymous")?null:r.getString("nickname"),null,null,r.getBoolean("anonymous")?null:r.getLong("author_id")),r.getLong("heart_count")),args.toArray());
+        var rows=db.query(sql,(r,n)->new Row(new PublicContent(r.getLong("id"),r.getString("content_text"),"PLAIN",r.getString("style"),r.getBoolean("anonymous"),r.getBoolean("anonymous")?null:r.getString("nickname"),null,null,r.getBoolean("anonymous")?null:r.getLong("author_id"),0),r.getLong("heart_count")),args.toArray());
         var page=rows.stream().limit(20).toList();Row last=page.isEmpty()?null:page.getLast();
         String next=rows.size()>20?new Cursor(ceiling,last.card().id(),last.hearts()).encode(sort,direction):null;
         return new Page(page.stream().map(Row::card).toList(),next);

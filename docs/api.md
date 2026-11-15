@@ -117,7 +117,7 @@ GET `/event`, `/policies`, `/users/me/profile`, GET/POST `/tags/pending`, POST `
 | GET | `/wishes` | 승인된 공개 목록, 커서 |
 | GET | `/wishes/{id}` | 후속: 승인된 상세 정보 |
 | GET | `/wishes/me` | 내 슬롯/승인본/대기본 상태 |
-| PUT | `/wishes/me` | 수정안 → 202 재검수; 운 점수 유지 |
+| PUT | `/wishes/me` | 같은 슬롯의 새 revision으로 수정; 직접 공개 |
 | POST | `/wishes/{id}/comments` | content, revealProfile → 202 검수 대기 |
 | GET | `/wishes/{id}/comments` | 승인 댓글만 공개 조회 |
 | POST | `/cheers` | content, templateId, style, anonymous → 202 |
@@ -148,7 +148,7 @@ GET `/event`, `/policies`, `/users/me/profile`, GET/POST `/tags/pending`, POST `
 | GET | `/sync/me` | 저장된 결과 |
 | GET | `/sync/types` | 유형별 공개 설명 |
 
-위 표 중 공개 `/tap/rankings`만 후속이며 그 외 경로는 구현했다. `/tap/start`의 준비/플레이/유예는 5/10/5초다. finish는 attemptId, taps(최대 1000개 상대 ms), interruptions를 받고 count를 서버에서 계산한다. 실제 형식/초기 검토 기준/기한/재시도는 [결과 계약](results.md)과 [결과 OpenAPI](results.openapi.yaml)를 따른다. `tap_count`, 운 점수, 유형 코드는 클라이언트가 확정하지 않는다.
+위 표 중 공개 `/tap/rankings`만 후속이며 그 외 경로는 구현했다. `/tap/start`의 준비/플레이/유예는 5/10/5초다. finish는 attemptId, taps(최대 1000개 상대 ms), interruptions를 받고 count를 서버에서 계산한다. 실제 형식/초기 검토 기준/기한/재시도는 [결과 계약](results.md)과 [결과 OpenAPI](results.openapi.yaml)를 따른다. `tap_count`와 유형 코드는 클라이언트가 확정하지 않는다. 소원 응답의 `luckScore`·`landingZone`은 레거시 호환용 nullable 필드이며 신규 소원에는 생성하지 않는다.
 
 ## 6. 동료 탐색 — 페이즈 5-1 구현
 
@@ -283,9 +283,10 @@ route는 서버가 정한 내부 경로이며 토큰에서 외부 URL을 읽어 
   "approvedRevision": {"id": 201, "number": 1, "content": "함께 성장하고 싶어요.", "status": "APPROVED"},
   "pendingRevision": {"id": 202, "number": 2, "content": "좋은 동료들과 함께 성장하고 싶어요.", "status": "QUEUED"},
   "latestRevision": {"id": 202, "number": 2, "content": "좋은 동료들과 함께 성장하고 싶어요.", "status": "QUEUED"},
-  "missionCompleted": true,
-  "luckScore": null,
-  "landingZone": null
+    "missionCompleted": true,
+    "luckScore": null,
+    "landingZone": null,
+    "commentCount": 3
 }
 ```
 

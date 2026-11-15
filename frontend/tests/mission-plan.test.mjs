@@ -70,9 +70,9 @@ test('wish feedback deduplicates fulfilled revisions and does not depend on luck
   assert.equal(feedback({id:null,latestRevision:null}),null);
   assert.equal(pending.missionCompleted,false);assert.equal(pending.luckScore,null);
 });
-test('wish toss announces landing without repeating the collection reward', () => {
+test('wish launch announces the paper boat without repeating the collection reward', () => {
   const html = renderToStaticMarkup(createElement(WishToss, { earned: true }));
-  assert.match(html,/role="status"/);assert.match(html,/동전이 분수 위에 안착했어요/);assert.doesNotMatch(html,/획득했어요/);
+  assert.match(html,/role="status"/);assert.match(html,/소원을 담은 종이배를 띄웠어요/);assert.doesNotMatch(html,/획득했어요/);
   assert.doesNotMatch(html,/글자 획득 완료|운 점수|landingZone|<button|<input/);
 });
 test('SAY display name changes consistently while internal identifier, Y and route remain stable', () => {

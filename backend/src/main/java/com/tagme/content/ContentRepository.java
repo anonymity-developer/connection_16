@@ -25,7 +25,6 @@ public class ContentRepository {
         var key=new GeneratedKeyHolder();db.update(c->{var p=c.prepareStatement(sql,Statement.RETURN_GENERATED_KEYS);for(int i=0;i<values.length;i++)p.setObject(i+1,values[i]);return p;},key);return Objects.requireNonNull(key.getKey()).longValue();
     }
     public long create(long user,Kind kind,Integer luck,Integer zone) { return insert("INSERT INTO content_items(author_id,kind,luck_score,landing_zone) VALUES (?,?,?,?)",user,kind.name(),luck,zone); }
-    public int[] luckPolicy() { return db.query("SELECT * FROM content_settings WHERE id=1 FOR SHARE",(r,n)->new int[]{r.getInt("wish_luck_min"),r.getInt("wish_luck_max"),r.getInt("wish_zone_count")}).stream().findFirst().orElse(null); }
     public long addRevision(long item,int number,ContentController.Submit body,String key,String hash,Instant received) {
         return insert("INSERT INTO content_revisions(item_id,revision_no,content_text,template_id,style,anonymous,submitted_at,idempotency_key,payload_hash) VALUES (?,?,?,?,?,?,?,?,?)",item,number,body.content().strip(),body.templateId(),body.style(),body.anonymous(),Timestamp.from(received),key,hash);
     }
@@ -73,15 +72,37 @@ public class ContentRepository {
     public boolean inModerationWindow() { return Boolean.TRUE.equals(db.queryForObject("SELECT COUNT(*)=1 FROM event_settings WHERE id=1 AND UTC_TIMESTAMP(6)>=opens_at AND UTC_TIMESTAMP(6)<=moderation_closes_at",Boolean.class)); }
     public Feed feed(Kind kind,long cursor) {
         var rows=db.query("""
-            SELECT i.id,i.author_id,r.content_text,r.template_id,r.style,r.anonymous,p.nickname,i.luck_score,i.landing_zone
+            SELECT i.id,i.author_id,r.content_text,r.template_id,r.style,r.anonymous,p.nickname,i.luck_score,i.landing_zone,
+              CASE WHEN i.kind='WISH' THEN (SELECT COUNT(*) FROM wish_comments c
+                JOIN content_items ci ON ci.id=c.content_item_id AND ci.archived_at IS NULL
+                JOIN content_revisions cr ON cr.id=ci.approved_revision_id AND cr.moderation_status='APPROVED'
+                JOIN users cu ON cu.id=c.author_id AND cu.status='ACTIVE'
+                JOIN profiles cp ON cp.user_id=cu.id AND cp.is_public=TRUE
+                WHERE c.wish_id=i.id AND ci.visibility_status='VISIBLE'
+                AND 2=(SELECT COUNT(*) FROM current_consent_policies policy JOIN user_consents consent
+                  ON consent.policy_type=policy.policy_type AND consent.policy_version=policy.policy_version
+                  AND consent.user_id=cu.id AND consent.withdrawn_at IS NULL)) ELSE 0 END AS comment_count
             FROM content_items i JOIN content_revisions r ON r.id=i.approved_revision_id
             JOIN users u ON u.id=i.author_id JOIN profiles p ON p.user_id=u.id
             WHERE i.kind=? AND i.id<? AND i.visibility_status='VISIBLE' AND r.moderation_status='APPROVED'
               AND u.status='ACTIVE' AND p.is_public=TRUE
               AND 2=(SELECT COUNT(*) FROM current_consent_policies cp JOIN user_consents uc ON uc.policy_type=cp.policy_type AND uc.policy_version=cp.policy_version AND uc.user_id=u.id AND uc.withdrawn_at IS NULL)
             ORDER BY i.id DESC LIMIT 21
-            """,(r,n)->new PublicContent(r.getLong("id"),r.getString("content_text"),r.getString("template_id"),r.getString("style"),r.getBoolean("anonymous"),r.getBoolean("anonymous")?null:r.getString("nickname"),r.getObject("luck_score",Integer.class),r.getObject("landing_zone",Integer.class),r.getBoolean("anonymous")?null:r.getLong("author_id")),kind.name(),cursor);
+            """,(r,n)->new PublicContent(r.getLong("id"),r.getString("content_text"),r.getString("template_id"),r.getString("style"),r.getBoolean("anonymous"),r.getBoolean("anonymous")?null:r.getString("nickname"),r.getObject("luck_score",Integer.class),r.getObject("landing_zone",Integer.class),r.getBoolean("anonymous")?null:r.getLong("author_id"),r.getLong("comment_count")),kind.name(),cursor);
         boolean more=rows.size()>20;var items=rows.stream().limit(20).toList();return new Feed(items,more?items.getLast().id():null);
+    }
+    public long publicCommentCount(long wish) {
+        return db.queryForObject("""
+            SELECT COUNT(*) FROM wish_comments c
+            JOIN content_items i ON i.id=c.content_item_id AND i.archived_at IS NULL
+            JOIN content_revisions r ON r.id=i.approved_revision_id AND r.moderation_status='APPROVED'
+            JOIN users u ON u.id=c.author_id AND u.status='ACTIVE'
+            JOIN profiles p ON p.user_id=u.id AND p.is_public=TRUE
+            WHERE c.wish_id=? AND i.visibility_status='VISIBLE'
+            AND 2=(SELECT COUNT(*) FROM current_consent_policies cp JOIN user_consents uc
+              ON uc.policy_type=cp.policy_type AND uc.policy_version=cp.policy_version
+              AND uc.user_id=u.id AND uc.withdrawn_at IS NULL)
+            """,Long.class,wish);
     }
     public long receiptId(long user,String kind,long revision) { return db.queryForObject("SELECT id FROM submission_receipts WHERE user_id=? AND source_kind=? AND source_id=?",Long.class,user,kind,revision); }
     public void hide(long item,String visibility) { db.update("UPDATE content_items SET visibility_status=?,version=version+1,updated_at=UTC_TIMESTAMP(6) WHERE id=?",visibility,item); }

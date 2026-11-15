@@ -96,11 +96,11 @@ try {
   console.log('PASS a delayed previous tag response cannot replace the current NFC identity');
   signedIn=true;await page.setViewportSize({width:390,height:900});
   await visit(`/t/${tokens[2]}`);await page.getByRole('button',{name:'소원 남기기',exact:true}).click();
-  await page.waitForURL('**/missions/make-a-wish');await page.locator('#content-text').waitFor();
+  await page.waitForURL('**/missions/make-a-wish');await page.getByRole('button',{name:'내 소원 띄우기',exact:true}).waitFor();
   assert.equal(await page.locator('.mission-detail-heading .context-label').count(),0);
   assert.equal(await page.getByRole('heading',{name:names[2],exact:true}).count(),1);
   assert.equal(await page.getByRole('dialog').count(),0);
-  await page.locator('#content-text').fill('브라우저 검사 전용 소원');await page.getByRole('button',{name:'동전 던지기',exact:true}).click();
+  await page.getByRole('button',{name:'내 소원 띄우기',exact:true}).click();await page.locator('#content-text').fill('브라우저 검사 전용 소원');await page.getByRole('button',{name:'종이배 띄우기',exact:true}).click();
   let dialog=page.getByRole('dialog',{name:'A를 획득했어요',exact:true});await dialog.waitFor();
   assert.equal(new URL(page.url()).pathname,'/missions/make-a-wish');
   for(const width of [360,390,430,768,1440]) {
@@ -111,12 +111,12 @@ try {
   assert.equal(await dialog.locator('.letter-sticker').evaluate(el=>getComputedStyle(el).animationName),'none');
   await page.keyboard.press('Tab');assert.ok(await page.evaluate(()=>!!document.activeElement.closest('dialog')));
   await page.keyboard.press('Escape');assert.equal(await page.getByRole('dialog').count(),0);
-  await page.reload();await page.getByRole('button',{name:'수정하기',exact:true}).waitFor();assert.equal(await page.getByRole('dialog').count(),0);
-  await page.getByRole('button',{name:'수정하기',exact:true}).click();await page.locator('#content-text').fill('같은 소원 수정 검사');await page.getByRole('button',{name:'수정 내용 보내기',exact:true}).click();await page.getByRole('button',{name:'수정하기',exact:true}).waitFor();assert.equal(await page.getByRole('dialog').count(),0);
+  await page.reload();await page.getByRole('button',{name:'내 소원 수정하기',exact:true}).waitFor();assert.equal(await page.getByRole('dialog').count(),0);
+  await page.getByRole('button',{name:'내 소원 수정하기',exact:true}).click();await page.locator('#content-text').fill('같은 소원 수정 검사');await page.getByRole('button',{name:'수정 내용 보내기',exact:true}).click();await page.getByRole('button',{name:'내 소원 수정하기',exact:true}).waitFor();assert.equal(await page.getByRole('dialog',{name:'A를 획득했어요',exact:true}).count(),0);
   console.log('PASS real A completion opens accessible reward, stays on game, respects reduced motion and never repeats on reload/edit');
   for(const [i,action] of [[1,'취향 알아보기'],[4,'응원 남기기']]) {
     await visit(`/t/${tokens[i]}`);await page.getByRole('button',{name:action,exact:true}).click();
-    if(i===1){await page.getByLabel('함께 만들기',{exact:true}).check();await page.getByRole('button',{name:'결과 확인하기',exact:true}).click();}
+    if(i===1){const count=Number(await page.getByRole('progressbar',{name:'설문 진행률'}).getAttribute('aria-valuemax'));for(let question=0;question<count;question++){await page.getByRole('radio').first().check();if(question<count-1)await page.getByRole('button',{name:'다음',exact:true}).click();}await page.getByRole('button',{name:'결과 확인하기',exact:true}).click();}
     else{await page.locator('#content-text').fill('브라우저 검사 전용 응원');await page.getByRole('button',{name:'응원 보내기',exact:true}).click();}
     dialog=page.getByRole('dialog',{name:i===1?'두 번째 S를 획득했어요':'Y를 획득했어요',exact:true});await dialog.waitFor();
     await dialog.getByRole('button',{name:'계속 참여하기',exact:true}).click();assert.ok(new URL(page.url()).pathname.startsWith('/missions/'));
@@ -124,7 +124,7 @@ try {
   await visit(`/t/${tokens[3]}`);await page.getByRole('button',{name:'탭 도전하기',exact:true}).click();await page.getByRole('heading',{name:'기록이 자동 무효 처리됐어요',exact:true}).waitFor();assert.equal(await page.getByRole('dialog').count(),0);
   console.log('PASS SYNC/Y reward uses server completion and invalid TAP never earns F');
   generation++;completed.delete('MAKE_A_WISH');slots.wishes=blank();
-  await visit('/missions/make-a-wish');await page.locator('#content-text').fill('초기화 후 새 회차 검사');await page.getByRole('button',{name:'동전 던지기',exact:true}).click();
+  await visit('/missions/make-a-wish');await page.getByRole('button',{name:'내 소원 띄우기',exact:true}).click();await page.locator('#content-text').fill('초기화 후 새 회차 검사');await page.getByRole('button',{name:'종이배 띄우기',exact:true}).click();
   dialog=page.getByRole('dialog',{name:'A를 획득했어요',exact:true});await dialog.waitFor();await dialog.getByRole('link',{name:'수집판 보기',exact:true}).click();await page.waitForURL('http://127.0.0.1:4277/');assert.equal(await page.getByRole('dialog').count(),0);
   await visit('/t/'+ 'Z'.repeat(43));await page.getByRole('alert').waitFor();assert.equal(await page.locator('.tag-discovery-artwork').count(),0);
   assert.deepEqual(errors,[]);console.log('PASS reset generation can celebrate again, collection navigation is optional and invalid NFC never shows a discovery');

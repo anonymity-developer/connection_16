@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: TAG ME 소원 댓글과 응원 하트 API
-  version: 0.4.3
+  version: 0.4.4
   description: 읽기는 세션, 쓰기는 CSRF/해금/행사/현재 프로필·동의 필요. 기본 모드에서 댓글은 즉시 공개하며 검수 작업을 만들지 않는다. 쓰기는 X-Participation-Generation 헤더로 현재 세대를 전송한다. 댓글은 미션 글자를 추가 지급하지 않는다.
 servers:
 - url: /api/v1
@@ -84,6 +84,26 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/OwnComments'
+        default:
+          $ref: '#/components/responses/Error'
+  /wishes/{id}/comments/{commentId}:
+    delete:
+      summary: 본인이 작성한 댓글 삭제
+      security:
+      - session: []
+      parameters:
+      - *id001
+      - name: commentId
+        in: path
+        required: true
+        schema:
+          type: integer
+          format: int64
+          minimum: 1
+      - *id003
+      responses:
+        '204':
+          description: 삭제 성공
         default:
           $ref: '#/components/responses/Error'
   /cheers/{id}/like:
@@ -200,12 +220,15 @@ components:
           - integer
           - 'null'
           format: int64
+        mine:
+          type: boolean
       required:
       - id
       - content
       - revealProfile
       - nickname
       - profileId
+      - mine
     OwnComment:
       type: object
       additionalProperties: false

@@ -372,6 +372,10 @@ components:
           type:
           - integer
           - 'null'
+        commentCount:
+          type: integer
+          format: int64
+          minimum: 0
       required:
       - id
       - version
@@ -382,6 +386,7 @@ components:
       - missionCompleted
       - luckScore
       - landingZone
+      - commentCount
     PublicContent:
       type: object
       additionalProperties: false
@@ -428,6 +433,10 @@ components:
           - integer
           - 'null'
           format: int64
+        commentCount:
+          type: integer
+          format: int64
+          minimum: 0
       required:
       - id
       - content
@@ -438,6 +447,7 @@ components:
       - luckScore
       - landingZone
       - profileId
+      - commentCount
     Feed:
       type: object
       additionalProperties: false

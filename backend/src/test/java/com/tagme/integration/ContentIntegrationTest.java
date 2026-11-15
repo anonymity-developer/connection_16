@@ -56,10 +56,10 @@ class ContentIntegrationTest {
     ModerationProvider.Decision approved(){return new ModerationProvider.Decision("APPROVED","TEST_ACCEPTED","TEST","test-v1");}
     ContentController.Submit body(String text,Long version){return new ContentController.Submit(text,"PLAIN","ROSE",true,version);}
     OwnSlot submit(Kind kind,String key,String text,Long version){return service.submit(actor,kind,key,body(text,version),version!=null);}
-    @Test void submissionGrantsLetterWhilePublicationAndLuckWaitForApproval(){
+    @Test void submissionGrantsLetterWhilePublicationWaitsForApprovalAndCreatesNoLuckResult(){
         db.update("INSERT INTO content_settings VALUES (1,10,20,3)");var slot=submit(Kind.WISH,"first-wish-key-0001","테스트 소원",null);assertThat(slot.missionCompleted()).isTrue();assertThat(slot.luckScore()).isNull();assertThat(service.feed(Kind.WISH,null).items()).isEmpty();
         var receipt=db.queryForMap("SELECT * FROM submission_receipts");moderation.processOne();var approved=service.own(actor.userId(),Kind.WISH);
-        assertThat(approved.missionCompleted()).isTrue();assertThat(approved.luckScore()).isBetween(10,20);assertThat(approved.landingZone()).isBetween(0,2);assertThat(service.feed(Kind.WISH,null).items()).hasSize(1);
+        assertThat(approved.missionCompleted()).isTrue();assertThat(approved.luckScore()).isNull();assertThat(approved.landingZone()).isNull();assertThat(service.feed(Kind.WISH,null).items()).hasSize(1);
         assertThat(db.queryForMap("SELECT accepted_received_at,receipt_order FROM mission_completion_evidence")).containsEntry("receipt_order",receipt.get("id")).containsEntry("accepted_received_at",receipt.get("received_at"));
         assertThat(service.submit(actor,Kind.WISH,"first-wish-key-0001",body("테스트 소원",null),false).id()).isEqualTo(slot.id());
         assertThatThrownBy(()->submit(Kind.WISH,"first-wish-key-0001","다른 내용",null)).isInstanceOf(AuthException.class);
@@ -74,7 +74,7 @@ class ContentIntegrationTest {
         var work=moderation.claim();moderation.apply(work,approved());moderation.apply(work,approved());assertThat(service.feed(Kind.CHEER,null).items().getFirst().content()).isEqualTo("테스트 수정");assertThat(db.queryForObject("SELECT COUNT(*) FROM mission_completion_evidence",Integer.class)).isEqualTo(1);assertThat(db.queryForObject("SELECT COUNT(*) FROM moderation_reviews",Integer.class)).isEqualTo(1);
         assertThatThrownBy(()->submit(Kind.CHEER,"cheer-version-key03","오래된 수정",second.version())).isInstanceOf(AuthException.class);
     }
-    @Test void rejectingAnEditKeepsApprovedTextFirstCompletionAndLuck(){
+    @Test void rejectingAnEditKeepsApprovedTextAndFirstCompletion(){
         db.update("INSERT INTO content_settings VALUES (1,10,20,3)");submit(Kind.WISH,"accepted-wish-key01","승인본",null);moderation.processOne();var old=service.own(actor.userId(),Kind.WISH);var evidence=db.queryForMap("SELECT * FROM mission_completion_evidence");
         submit(Kind.WISH,"accepted-wish-key02","새 수정본",old.version());assertThat(service.feed(Kind.WISH,null).items().getFirst().content()).isEqualTo("승인본");
         var work=moderation.claim();moderation.apply(work,new ModerationProvider.Decision("REJECTED","TEST_REJECTED","TEST","test-v1"));var next=service.own(actor.userId(),Kind.WISH);assertThat(next.approvedRevision().content()).isEqualTo("승인본");assertThat(next.latestRevision().status()).isEqualTo("REJECTED");assertThat(next.luckScore()).isEqualTo(old.luckScore());assertThat(db.queryForMap("SELECT * FROM mission_completion_evidence")).isEqualTo(evidence);
