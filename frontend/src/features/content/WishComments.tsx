@@ -5,8 +5,9 @@ import { ApiError } from '../auth/api';
 import { reactionsApi as serverApi } from './reactions-api';
 import type { CommentPage, OwnComment, PublicComment } from './reactions-api';
 const statusLabels: Record<OwnComment['status'], string> = { QUEUED: '확인 중', PROCESSING: '확인 중', APPROVED: '공개됨', REJECTED: '공개되지 않았어요', REVIEW_REQUIRED: '확인 중', SUPERSEDED: '이전 댓글' };
-export function WishComments({ id, api = serverApi }: { id: number; api?: typeof serverApi }) {
+export function WishComments({ id, api = serverApi, embedded = false }: { id: number; api?: typeof serverApi; embedded?: boolean }) {
   const uid = useId(); const [open, setOpen] = useState(false);
+  if (embedded) return <div className="wish-comments wish-comments--embedded"><CommentThread id={id} api={api} /></div>;
   return <div className="wish-comments"><Button type="button" variant="quiet" aria-expanded={open} aria-controls={uid} onClick={() => setOpen(!open)}>{open ? '댓글 접기' : '댓글 보기'}</Button>{open && <div id={uid}><CommentThread id={id} api={api} /></div>}</div>;
 }
 function CommentThread({ id, api: reactionsApi }: { id: number; api: typeof serverApi }) {

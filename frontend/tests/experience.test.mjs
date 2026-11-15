@@ -5,7 +5,6 @@ import {createServer} from 'vite';
 import {createElement} from 'react';import {renderToStaticMarkup} from 'react-dom/server';
 const server=await createServer({server:{middlewareMode:true,hmr:false},appType:'custom',logLevel:'error'});after(()=>server.close());
 const {createExperience}=await server.ssrLoadModule('/src/dev/experience-store.ts');
-const {chooseLanding}=await server.ssrLoadModule('/src/dev/FountainExperience.tsx');
 const {missions}=await server.ssrLoadModule('/src/features/missions/model.ts');
 const {localPhase}=await server.ssrLoadModule('/src/features/results/timing.ts');
 const input={content:'가상 소원',templateId:'PLAIN',style:'ROSE',anonymous:true,expectedVersion:null};
@@ -29,8 +28,8 @@ test('SYNC draft choices are validated and first local result remains unchanged'
 test('wish preview request is one slot, idempotent, earns A at submission and is private until publication',async()=>{
  const s=createExperience();await assert.rejects(s.content.submit('wishes',false,'locked',input));s.unlockTag('MAKE_A_WISH');const n=s.feeds.wishes.length;const saved=await s.content.submit('wishes',false,'same-key',input);assert.equal(s.feeds.wishes.length,n);assert.equal(s.progress.MAKE_A_WISH,'COMPLETED');assert.deepEqual(await s.content.submit('wishes',false,'same-key',input),saved);s.moderate('wishes','REJECTED');assert.equal(s.feeds.wishes.length,n);assert.equal(s.progress.MAKE_A_WISH,'COMPLETED');await s.content.submit('wishes',true,'edit-key',{...input,expectedVersion:s.slots.wishes.version});s.moderate('wishes','APPROVED');assert.equal(s.progress.MAKE_A_WISH,'COMPLETED');assert.equal(s.feeds.wishes.length,n+1);assert.equal(s.feeds.wishes[0].anonymous,true);assert.equal(s.slots.wishes.id,saved.id);
 });
-test('failed coin submission produces no new slot; both landing outcomes have identical reward rules',async()=>{
- assert.equal(chooseLanding(.5,.34),'statue');assert.equal(chooseLanding(.1,.8),'water');assert.equal(chooseLanding(.5,.8),'water');const s=createExperience();s.unlockTag('MAKE_A_WISH');s.fail();await assert.rejects(s.content.submit('wishes',false,'retry',input));assert.equal(s.slots.wishes.id,null);assert.equal(s.progress.MAKE_A_WISH,'UNLOCKED');await s.content.submit('wishes',false,'retry',input);assert.equal(s.progress.MAKE_A_WISH,'COMPLETED');assert.equal(s.slots.wishes.landingZone,null);assert.equal(s.slots.wishes.luckScore,null);
+test('failed paper boat submission produces no slot and a retry keeps legacy result fields empty',async()=>{
+ const s=createExperience();s.unlockTag('MAKE_A_WISH');s.fail();await assert.rejects(s.content.submit('wishes',false,'retry',input));assert.equal(s.slots.wishes.id,null);assert.equal(s.progress.MAKE_A_WISH,'UNLOCKED');await s.content.submit('wishes',false,'retry',input);assert.equal(s.progress.MAKE_A_WISH,'COMPLETED');assert.equal(s.slots.wishes.landingZone,null);assert.equal(s.slots.wishes.luckScore,null);
 });
 test('FAST preview preserves five second preparation and ten second play, with no finish before time',async()=>{
  const real=Date.now;let clock=2000000000000;Date.now=()=>clock;

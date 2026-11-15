@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react';
 import type { OwnSlot } from './api';
 
-/** Only fulfilled submission replies enter here. Never reads or changes luck/reward fields. */
+/** Only fulfilled submission replies enter here. Never reads or changes reward fields. */
 export function createWishFeedback() {
   const shown = new Set<number>();
   return (slot: OwnSlot) => {
@@ -10,11 +10,12 @@ export function createWishFeedback() {
     shown.add(id); return id;
   };
 }
+
 export function WishToss({ earned }: { earned: boolean }) {
   const scene = useRef<HTMLDivElement>(null);
-  useEffect(() => { scene.current?.scrollIntoView({ block: 'center' }); }, []);
-  return <div ref={scene} className="wish-toss wish-toss--in-lake" role="status" data-completed={earned}>
-    <span className="toss-coin" aria-hidden="true">A</span>
-    <p><strong>동전이 분수 위에 안착했어요!</strong></p>
+  useEffect(() => { scene.current?.scrollIntoView({ block: 'center', behavior: 'smooth' }); }, []);
+  return <div ref={scene} className="wish-launch" role="status" data-completed={earned}>
+    <span className="wish-folding-paper" aria-hidden="true"><i /><i /><i /></span>
+    <p><strong>소원을 담은 종이배를 띄웠어요.</strong></p>
   </div>;
 }

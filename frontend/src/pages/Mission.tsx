@@ -38,6 +38,6 @@ export function MissionPage({ mission, data }: { mission: Mission; data: ScreenD
       {contentMission && <ContentMission kind={mission.code === 'MAKE_A_WISH' ? 'wishes' : 'cheers'} />}
       {state === 'UNLOCKED' && !resultMission && !contentMission && !canPreviewWish && mission.code !== 'SHOW_ME' && <div className="mission-message"><Icon name={mission.icon} size={28} /><h2>참여 화면을 준비하고 있어요</h2><p>지금은 해금 상태의 화면 구성만 확인할 수 있어요.<br />이 미션의 실제 참여 기능은 다음 단계에서 연결돼요.</p><Link className="button button--secondary" href="/">수집판으로 돌아가기</Link></div>}
     </section><MissionProgress mission={mission} data={data} signedIn={!!auth.user} /></div>
-    <Dialog open={earned} title="소원을 띄운 뒤의 화면이에요" onClose={() => setEarned(false)}><div className="letter-celebration"><LetterSticker code="MAKE_A_WISH" /></div><p>글자 획득 연출 미리보기예요. 실제 미션에서 동전을 던지면 A를 받아요. 이 화면에서는 소원과 완료 기록을 저장하지 않아요.</p><Button className="full-width" onClick={() => setEarned(false)}>확인했어요<Icon name="check" size={18} /></Button></Dialog>
+    <Dialog open={earned} title="소원을 띄운 뒤의 화면이에요" onClose={() => setEarned(false)}><div className="letter-celebration"><LetterSticker code="MAKE_A_WISH" /></div><p>글자 획득 연출 미리보기예요. 실제 미션에서는 소원을 담은 종이배를 띄우면 A를 받아요. 이 화면에서는 소원과 완료 기록을 저장하지 않아요.</p><Button className="full-width" onClick={() => setEarned(false)}>확인했어요<Icon name="check" size={18} /></Button></Dialog>
   </div>;
 }

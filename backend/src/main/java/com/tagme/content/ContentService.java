@@ -21,7 +21,6 @@ public class ContentService {
     private final AuthRateLimiter limits;
     private final ObjectMapper json;
     private final PublicationPolicy publication;
-    private final SecureRandom random=new SecureRandom();
     public ContentService(ContentRepository repository,ParticipationRepository participation,MissionCompletionService completion,PlatformTransactionManager manager,AuthRateLimiter limits,ObjectMapper json,PublicationPolicy publication) {
         this.repository=repository;this.participation=participation;this.completion=completion;this.tx=new TransactionTemplate(manager);this.limits=limits;this.json=json;this.publication=publication;
     }
@@ -62,9 +61,9 @@ public class ContentService {
             if(!repository.now().isBefore(participation.event(true).submitClosesAt())||received.isBefore(participation.event(true).opensAt()))throw error(403,"EVENT_CLOSED","지금은 제출 가능한 시간이 아니에요.");
             if(item==null) {
                 if(edit||body.expectedVersion()!=null)throw error(409,"SLOT_NOT_CREATED","내 글을 다시 불러와 주세요.");
-                Integer luck=null,zone=null;
-                if(kind==Kind.WISH) { var policy=repository.luckPolicy();if(policy!=null){luck=policy[0]+random.nextInt(policy[1]-policy[0]+1);zone=random.nextInt(policy[2]);} }
-                item=repository.item(repository.create(actor.userId(),kind,luck,zone),true);
+                // Legacy luck/landing columns stay nullable for stored-data compatibility.
+                // The paper-boat lake does not create a score or landing result.
+                item=repository.item(repository.create(actor.userId(),kind,null,null),true);
             } else {
                 if(!edit)throw error(409,"SLOT_ALREADY_EXISTS","작성한 글이 있어요. 내 글을 확인해 주세요.");
                 if(!"VISIBLE".equals(item.visibility()))throw error(409,"CONTENT_HIDDEN","운영자가 숨긴 글은 수정할 수 없어요.");

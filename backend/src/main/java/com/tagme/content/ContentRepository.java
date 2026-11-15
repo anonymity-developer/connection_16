@@ -25,7 +25,6 @@ public class ContentRepository {
         var key=new GeneratedKeyHolder();db.update(c->{var p=c.prepareStatement(sql,Statement.RETURN_GENERATED_KEYS);for(int i=0;i<values.length;i++)p.setObject(i+1,values[i]);return p;},key);return Objects.requireNonNull(key.getKey()).longValue();
     }
     public long create(long user,Kind kind,Integer luck,Integer zone) { return insert("INSERT INTO content_items(author_id,kind,luck_score,landing_zone) VALUES (?,?,?,?)",user,kind.name(),luck,zone); }
-    public int[] luckPolicy() { return db.query("SELECT * FROM content_settings WHERE id=1 FOR SHARE",(r,n)->new int[]{r.getInt("wish_luck_min"),r.getInt("wish_luck_max"),r.getInt("wish_zone_count")}).stream().findFirst().orElse(null); }
     public long addRevision(long item,int number,ContentController.Submit body,String key,String hash,Instant received) {
         return insert("INSERT INTO content_revisions(item_id,revision_no,content_text,template_id,style,anonymous,submitted_at,idempotency_key,payload_hash) VALUES (?,?,?,?,?,?,?,?,?)",item,number,body.content().strip(),body.templateId(),body.style(),body.anonymous(),Timestamp.from(received),key,hash);
     }

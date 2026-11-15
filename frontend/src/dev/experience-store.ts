@@ -37,7 +37,7 @@ export function createExperience(wait:()=>Promise<void> = async()=>{}) {
   const slots:Record<ContentKind,OwnSlot>={wishes:empty(),cheers:empty()};
   const feeds:Record<ContentKind,PublicContent[]>={wishes:wishes.map((x,i)=>publicItem(x,100+i)),cheers:cheers.map((x,i)=>publicItem(x,200+i,i!==1))};
   const ownComments=new Map<number,OwnComment[]>();const publicComments=new Map<number,PublicComment[]>();const likes=new Map<number,boolean>();const requests=new Map<string,OwnSlot>();
-  let sync:SyncResult|null=null;let tap:TapAttempt|null=null;let failNext=false;let counter=1000;let wishLanding:'statue'|'water'|null=null;let profile={nickname:'',bio:'',interests:[] as string[]};
+  let sync:SyncResult|null=null;let tap:TapAttempt|null=null;let failNext=false;let counter=1000;let profile={nickname:'',bio:'',interests:[] as string[]};
   const notify=()=>{revision++;listeners.forEach(fn=>fn());};
   const change=(code:MissionCode,state:MissionState)=>{progress[code]=state;notify();};
   const unlockTag = (code: Exclude<MissionCode, 'SHOW_ME'>) => { if (progress[code] === 'LOCKED') change(code, 'UNLOCKED'); };
@@ -77,13 +77,12 @@ export function createExperience(wait:()=>Promise<void> = async()=>{}) {
     if(code==='SYNC_ME')sync=state==='COMPLETED'?{questionnaireVersion:'DEV-DRAFT',type:{...draft.types[0],title:'가상 결과 · '+draft.types[0].title},axisScores:Object.fromEntries(draft.axes.map(axis=>[axis.id,-3])),submittedAt:new Date().toISOString()}:null;
     if(code==='FAST_TAP'){const now=Date.now();tap=['COMPLETED','PENDING'].includes(state)?{attemptId:++counter,generation:1,status:state==='COMPLETED'?'VALID':'REVIEW_REQUIRED',serverNow:new Date(now).toISOString(),startsAt:new Date(now-15000).toISOString(),endsAt:new Date(now-5000).toISOString(),submitDeadline:new Date(now+5000).toISOString(),tapCount:20,reviewReason:null,provisional:true}:null;}
     if(code==='MAKE_A_WISH'||code==='SAY_SOMETHING'){
-      if(code==='MAKE_A_WISH')wishLanding=null;
       const kind=code==='MAKE_A_WISH'?'wishes':'cheers';const old=slots[kind].id;feeds[kind]=feeds[kind].filter(x=>x.id!==old);slots[kind]=empty();
       if(state==='PENDING'||state==='COMPLETED'){const id=++counter;const row:Revision={id:id+1,itemId:id,number:1,content:'개발용 상태 전환으로 만든 가상 메시지예요.',templateId:'NOTE',style:'ROSE',anonymous:true,submittedAt:new Date().toISOString(),status:state==='COMPLETED'?'APPROVED':'QUEUED',reason:null};slots[kind]={...empty(),id,version:1,visibility:'VISIBLE',latestRevision:row,pendingRevision:state==='PENDING'?row:null,approvedRevision:state==='COMPLETED'?row:null,missionCompleted:state==='COMPLETED'};if(state==='COMPLETED')feeds[kind].unshift(publicItem(row.content,id));}
     }
     change(code,state);
   }
-  return {progress,unlockTag,celebrations,slots,feeds,content,reactions,results,moderate,scenario,get wishLanding(){return wishLanding;},rememberLanding:(value:'statue'|'water')=>{wishLanding=value;},get profile(){return profile;},
+  return {progress,unlockTag,celebrations,slots,feeds,content,reactions,results,moderate,scenario,get profile(){return profile;},
     subscribe:(fn:()=>void)=>{listeners.add(fn);return()=>{listeners.delete(fn);};},snapshot:()=>revision,
     refresh:async()=>{notify();},change,fail:()=>{failNext=true;},emptyFeed:(kind:ContentKind)=>{feeds[kind]=[];notify();},
     saveProfile:(nickname:string,bio:string,interests:string[],accepted:boolean)=>{if(!nickname.trim()||!bio.trim()||!interests.length||!accepted)throw new Error('닉네임·한 줄 소개·관심 분야와 가상 안내 확인을 모두 채워주세요.');if(nickname.trim().length>30||bio.length>200)throw new Error('닉네임은 30자, 소개는 200자 이내로 적어주세요.');profile={nickname:nickname.trim(),bio,interests:[...interests]};change('SHOW_ME','COMPLETED');},

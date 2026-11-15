@@ -112,18 +112,17 @@ try {
   console.log('PASS all five completed missions show one progress badge; SHOW ME restores profile; fourteen widths share the same full game canvas; desktop cheer cards stay readable');
   editing=true;slots.wishes=blank();slots.cheers=blank();await page.setViewportSize({width:390,height:900});
   for(const [kind,slug] of [['wishes','make-a-wish'],['cheers','say-something']]) {
-    await visit(slug);const input=page.locator('#content-text'),anonymous=page.getByRole('checkbox',{name:'익명으로 남기기',exact:true});
+    await visit(slug);if(kind==='wishes')await page.getByRole('button',{name:'내 소원 띄우기',exact:true}).click();const input=page.locator('#content-text'),anonymous=page.getByRole('checkbox',{name:'익명으로 남기기',exact:true});
     await input.waitFor();assert.equal(await input.getAttribute('maxlength'),'400');assert.equal(await anonymous.isChecked(),true);
     await input.fill('가'.repeat(400));await anonymous.uncheck();
     assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>window.innerWidth),false);
     await page.screenshot({path:resolve(output,`rules-${kind}-400-390.png`),fullPage:true});
-    await page.getByRole('button',{name:kind==='wishes'?'동전 던지기':'응원 보내기',exact:true}).click();
-    await page.getByRole('button',{name:'수정하기',exact:true}).waitFor();assert.equal(slots[kind].latestRevision.anonymous,false);
-    if(kind==='wishes'){await page.getByRole('button',{name:'소원 1 열기',exact:true}).click();await page.getByRole('link',{name:'공개한 동료의 소원',exact:true}).waitFor();}
-    await page.getByRole('button',{name:'수정하기',exact:true}).click();assert.equal(await input.inputValue(),'가'.repeat(400));assert.equal(await anonymous.isChecked(),false);
-    await anonymous.check();await page.getByRole('button',{name:'수정 내용 보내기',exact:true}).click();await page.getByRole('button',{name:'수정하기',exact:true}).waitFor();
+    await page.getByRole('button',{name:kind==='wishes'?'종이배 띄우기':'응원 보내기',exact:true}).click();
+    const editName=kind==='wishes'?'내 소원 수정하기':'수정하기';await page.getByRole('button',{name:editName,exact:true}).waitFor();assert.equal(slots[kind].latestRevision.anonymous,false);
+    await page.getByRole('button',{name:editName,exact:true}).click();assert.equal(await input.inputValue(),'가'.repeat(400));assert.equal(await anonymous.isChecked(),false);
+    await anonymous.check();await page.getByRole('button',{name:'수정 내용 보내기',exact:true}).click();await page.getByRole('button',{name:editName,exact:true}).waitFor();
     assert.equal(slots[kind].latestRevision.anonymous,true);assert.equal(slots[kind].latestRevision.number,2);
-    assert.equal(await page.locator('a[href="/discovery/profiles/81"]').count(),0);
+    await page.waitForFunction(()=>document.querySelectorAll('a[href="/discovery/profiles/81"]').length===0);
   }
   console.log('PASS 400-character wish/cheer edits preserve a single slot and explicitly toggle public profile links');
   await visit('fast-tap');await page.locator('.tap-ranking-list li').last().waitFor();
@@ -140,7 +139,7 @@ try {
     if(mode==='conflict'){assert.equal(await page.getByRole('button',{name:'소감 남기기',exact:true}).isDisabled(),true);await page.getByRole('button',{name:'순위 새로고침',exact:true}).click();await message.waitFor();assert.equal(await message.isEnabled(),true);}
     else {assert.equal(await page.locator('.tap-ranking-list li').count(),0);assert.equal(await message.count(),0);}
   }
-  locked=true;const reads=rankingReads;
+  locked=true;await page.reload();const reads=rankingReads;
   for(const width of [320,360,390,430,640,641,768,1000,1001,1099,1100,1280,1440,1920]) {
     await page.setViewportSize({width,height:900});
     for(const slug of slugs) {

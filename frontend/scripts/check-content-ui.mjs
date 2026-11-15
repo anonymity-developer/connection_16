@@ -56,16 +56,16 @@ try {
   const visit = path => page.goto(`http://127.0.0.1:4474${path}`);
   const record = name => { checks.push(name); console.log(`PASS ${name}`); };
   const refresh = () => page.reload();
-  await visit('/missions/make-a-wish'); await page.getByRole('button', { name: '동전 던지기', exact: true }).waitFor();
-  await page.getByRole('button', { name: '동전 던지기', exact: true }).click(); await page.getByRole('alert').waitFor(); assert.equal(posts, 0); assert.equal(await page.locator('#content-text').evaluate(el => el === document.activeElement), true);
+  await visit('/missions/make-a-wish'); await page.getByRole('button', { name: '내 소원 띄우기', exact: true }).waitFor();
+  await page.getByRole('button', { name: '내 소원 띄우기', exact: true }).click(); await page.getByRole('button', { name: '종이배 띄우기', exact: true }).click(); await page.getByRole('alert').waitFor(); assert.equal(posts, 0); assert.equal(await page.locator('#content-text').evaluate(el => el === document.activeElement), true);
   assert.equal(await page.locator('.content-feed-list li').count(), 0);
-  await page.getByLabel('지금, 어떤 소원을 품고 있나요?', { exact: true }).fill('테스트 전용 소원입니다. 운영에 게시되지 않습니다.');
+  await page.getByLabel('종이배에 어떤 소원을 담을까요?', { exact: true }).fill('테스트 전용 소원입니다. 운영에 게시되지 않습니다.');
   for (const width of [360, 375, 390, 412, 430, 768, 1440]) { await page.setViewportSize({ width, height: 900 }); assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth), false); await page.screenshot({ path: resolve(output, `wish-write-${width}.png`), fullPage: true }); }
   await page.setViewportSize({ width: 390, height: 900 });
-  rejectWish = true; await page.getByRole('button', {name:'동전 던지기',exact:true}).click(); await page.getByRole('alert').waitFor(); assert.equal(await page.locator('.wish-toss').count(),0); rejectWish = false;
+  rejectWish = true; await page.getByRole('button', {name:'종이배 띄우기',exact:true}).click(); await page.getByRole('alert').waitFor(); assert.equal(await page.locator('.wish-launch').count(),0); rejectWish = false;
   record('empty and invalid wishes do not create a slot; accessible form fits five widths');
-  await page.getByRole('button', { name: '동전 던지기', exact: true }).click(); await page.getByRole('button', { name: '수정하기', exact: true }).waitFor(); assert.equal(posts, 1); assert.equal(await page.locator('.wish-toss').count(),1); await page.emulateMedia({reducedMotion:'reduce'}); assert.equal(await page.locator('.toss-coin').evaluate(el => getComputedStyle(el).animationName),'none'); await page.emulateMedia({reducedMotion:'no-preference'}); assert.equal(slots.wishes.missionCompleted, true); assert.equal(await page.locator('.content-feed-list li').count(), 0);
-  await page.locator('.mission-progress-summary').getByText('글자 획득 완료', { exact: true }).waitFor(); await page.reload(); await page.locator('.content-review-state').getByText('내가 남긴 글', { exact: true }).waitFor(); assert.equal(await page.locator('.wish-toss').count(),0); await page.screenshot({ path: resolve(output, 'wish-pending-390.png'), fullPage: true });
+  await page.getByRole('button', { name: '종이배 띄우기', exact: true }).click(); await page.getByRole('button', { name: '내 소원 수정하기', exact: true }).waitFor(); assert.equal(posts, 1); assert.equal(await page.locator('.wish-launch').count(),1); await page.emulateMedia({reducedMotion:'reduce'}); assert.equal(await page.locator('.wish-folding-paper').evaluate(el => getComputedStyle(el).animationName),'none'); await page.emulateMedia({reducedMotion:'no-preference'}); assert.equal(slots.wishes.missionCompleted, true); assert.equal(await page.locator('.content-feed-list li').count(), 0);
+  await page.locator('.mission-progress-summary').getByText('글자 획득 완료', { exact: true }).waitFor(); await page.reload(); await page.locator('.wish-own-card').getByText('저장된 소원', { exact: true }).waitFor(); assert.equal(await page.locator('.wish-launch').count(),0); await page.screenshot({ path: resolve(output, 'wish-pending-390.png'), fullPage: true });
   record('202 grants A while the pending revision stays private across reloads');
   await visit('/missions/say-something'); await page.getByLabel('어떤 응원을 전하고 싶나요?', { exact: true }).fill('테스트 전용 응원');
   assert.equal(await page.getByRole('radio', { name: '작은 편지', exact: true }).count(),0);
@@ -88,8 +88,8 @@ try {
   stale = true; await page.getByRole('button', { name: '수정하기', exact: true }).click(); await page.locator('#content-text').fill('오래된 화면의 수정'); await page.getByRole('button', { name: '수정 내용 보내기', exact: true }).click(); await page.getByRole('alert').waitFor(); assert.equal(await page.getByRole('button', { name: '수정 내용 보내기', exact: true }).isDisabled(), true); stale = false; await page.getByRole('button',{name:'저장된 글 다시 확인하기',exact:true}).click(); await page.getByRole('button', { name: '수정하기', exact: true }).waitFor();
   record('a stale revision blocks further writes and requires loading the server state');
   slots.wishes.latestRevision.status = 'REJECTED'; slots.wishes.pendingRevision = null; slots.wishes.version++;
-  await visit('/missions/make-a-wish'); await page.getByText('수정이 필요해요', { exact: true }).waitFor(); await page.getByRole('button', { name: '수정하기', exact: true }).click(); await page.locator('#content-text').fill('<script>window.untrusted = true</script>'); await page.getByRole('button', { name: '수정 내용 보내기', exact: true }).click(); await page.getByRole('button', { name: '수정하기', exact: true }).waitFor(); assert.equal(await page.evaluate(() => window.untrusted), undefined);
-  failFeed = true; await refresh(); await page.getByText('목록을 확인하지 못했어요.', { exact: true }).waitFor(); assert.equal(await page.getByRole('button', { name: '수정하기', exact: true }).count(), 1); failFeed = false;
+  await visit('/missions/make-a-wish'); await page.locator('.wish-own-summary').getByText('수정이 필요해요', { exact: true }).waitFor(); await page.getByRole('button', { name: '내 소원 수정하기', exact: true }).click(); await page.locator('#content-text').fill('<script>window.untrusted = true</script>'); await page.getByRole('button', { name: '수정 내용 보내기', exact: true }).click(); await page.getByRole('button', { name: '내 소원 수정하기', exact: true }).waitFor(); assert.equal(await page.evaluate(() => window.untrusted), undefined);
+  failFeed = true; await refresh(); await page.getByText('목록을 확인하지 못했어요.', { exact: true }).waitFor(); assert.equal(await page.getByRole('button', { name: '내 소원 수정하기', exact: true }).count(), 1); failFeed = false;
   record('rejected text can be corrected in the same slot; text is escaped and list failures retain the private record');
   // Only synthetic approved feed entries; own rejected/pending text must stay outside the lake.
   const publicWish = (index) => ({ id:500-index, content:`가상 공개 소원 ${index+1}`, templateId:'PLAIN', style:'ROSE', anonymous:true, nickname:null, profileId:null, luckScore:null, landingZone:null });
@@ -97,54 +97,47 @@ try {
   feeds.wishes.nextCursor = feeds.wishes.items.at(-1).id;
   olderWishes = Array.from({length:5}, (_, index) => publicWish(index + 20));
   await refresh();
-  await page.getByRole('button', {name:'소원 1 열기',exact:true}).waitFor();
-  await page.waitForFunction(() => document.querySelector('.wish-gallery .fountain-letter')?.naturalWidth > 0);
-  assert.equal(await page.locator('.wish-lake-coin').count(),10);
-  assert.equal(await page.locator('.wish-coin-gold').count(),3);
-  assert.equal(await page.locator('.wish-coin-shadow').count(),7);
-  const shadow = page.locator('.wish-coin-shadow').first();
-  assert.ok(await shadow.evaluate(el => el.getAnimations().some(animation => animation.playState === 'running')));
+  await page.locator('.wish-boats button').first().waitFor();
+  assert.equal(await page.locator('.wish-boats button').count(),6);
+  const floatingBoat = page.locator('.wish-boats .paper-boat').first();
+  assert.equal(await floatingBoat.evaluate(el => getComputedStyle(el).animationName),'boat-float');
   await page.emulateMedia({ reducedMotion: 'reduce' });
-  assert.equal(await shadow.evaluate(el => el.getAnimations().length),0);
+  assert.equal(await floatingBoat.evaluate(el => el.getAnimations().length),0);
   await page.emulateMedia({ reducedMotion: 'no-preference' });
   assert.equal(await page.locator('.wish-gallery').getByText('비공개 검수 중인 테스트 수정본',{exact:true}).count(),0);
   for (const width of [360,390,430,1440]) {
     await page.setViewportSize({width,height:900});
+    const expectedBoats=width<=360?5:width<768?6:7;
+    await page.waitForFunction(expected=>{const nodes=[...document.querySelectorAll('.wish-boats button')];return nodes.length===expected&&nodes.every(node=>node.getBoundingClientRect().width>=44);},expectedBoats);
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth),false);
-    const boxes=await page.locator('.wish-lake-coin').evaluateAll(nodes => nodes.map(node => {const r=node.getBoundingClientRect();return {x:r.x,y:r.y,right:r.right,bottom:r.bottom,width:r.width,height:r.height};}));
+    const boxes=await page.locator('.wish-boats button').evaluateAll(nodes => nodes.map(node => {const r=node.getBoundingClientRect();return {x:r.x,y:r.y,right:r.right,bottom:r.bottom,width:r.width,height:r.height};}));
     for(let i=0;i<boxes.length;i++) {
-      assert.ok(boxes[i].width>=44 && boxes[i].height>=44);
-      for(let j=i+1;j<boxes.length;j++) assert.ok(boxes[i].right<=boxes[j].x || boxes[j].right<=boxes[i].x || boxes[i].bottom<=boxes[j].y || boxes[j].bottom<=boxes[i].y);
+      assert.ok(boxes[i].width>=44 && boxes[i].height>=44,JSON.stringify({width,i,box:boxes[i]}));
+      for(let j=i+1;j<boxes.length;j++) assert.ok(boxes[i].right<=boxes[j].x || boxes[j].right<=boxes[i].x || boxes[i].bottom<=boxes[j].y || boxes[j].bottom<=boxes[i].y,JSON.stringify({width,i,j,a:boxes[i],b:boxes[j]}));
     }
     await page.screenshot({path:resolve(output,`wish-lake-${width}.png`),fullPage:true});
   }
-  await page.getByRole('button',{name:'소원 1 열기',exact:true}).focus(); await page.keyboard.press('Enter');
-  await page.getByRole('heading',{name:'발견한 소원',exact:true}).waitFor();
-  assert.equal(await page.getByRole('heading',{name:'발견한 소원'}).evaluate(el => el===document.activeElement),true);
-  await page.getByRole('button',{name:'댓글 보기',exact:true}).click();
+  await page.getByRole('button',{name:'익명의 소원 1 열기',exact:true}).focus(); await page.keyboard.press('Enter');
+  await page.getByRole('heading',{name:'소원과 댓글',exact:true}).waitFor();
   await page.getByLabel('동료의 소원에 댓글 남기기',{exact:true}).waitFor();
-  await page.getByRole('button',{name:'소원 닫기',exact:true}).click();
-  assert.equal(await page.getByRole('button',{name:'소원 1 열기',exact:true}).evaluate(el => el===document.activeElement),true);
-  await page.getByRole('button',{name:'소원 4 열기',exact:true}).click();
-  await page.locator('.wish-lake-detail').getByText('가상 공개 소원 4', { exact: true }).waitFor();
-  await page.getByRole('button',{name:'다음 동전',exact:true}).click();
-  await page.getByRole('button',{name:'소원 11 열기',exact:true}).waitFor();
-  await page.getByRole('button',{name:'소원 더 불러오기',exact:true}).click();
-  await page.getByRole('button',{name:'소원 21 열기',exact:true}).waitFor();
-  assert.equal(await page.locator('.wish-lake-coin').count(),5);
-  await page.getByRole('button',{name:'구름으로 보기',exact:true}).click();
-  const clouds = page.getByRole('list',{name:'구름 소원 목록'});
-  assert.equal(await clouds.getByRole('listitem').count(),25);
-  assert.equal(await page.locator('.wish-sky-flight').isVisible(), true);
-  assert.deepEqual(await page.getByRole('group',{name:'소원 보기 방식'}).getByRole('button').allTextContents(), ['분수로 보기', '구름으로 보기']);
-  await clouds.getByRole('button').last().press('Enter');
-  await page.locator('.wish-lake-detail').getByText('가상 공개 소원 25', { exact: true }).waitFor();
-  await page.getByRole('button',{name:'소원 닫기',exact:true}).click();
-  assert.equal(await clouds.getByRole('button').last().evaluate(el => el === document.activeElement),true);
-  await page.screenshot({path:resolve(output,'wish-cloud-1440.png'),fullPage:true});
-  await page.getByRole('button',{name:'분수로 보기',exact:true}).click();
-  feeds.wishes={items:[],nextCursor:null}; await refresh(); await page.getByRole('button',{name:'소원 21 열기',exact:true}).waitFor({state:'hidden'}); assert.equal(await page.locator('.wish-lake-coin').count(),0);
-  record('three stacked coins and seven drifting shadows page without overlap, respect reduced motion and open accessible details');
+  await page.getByRole('button',{name:'닫기',exact:true}).click();
+  const firstWishBatch=await page.locator('.wish-boats button > span').allTextContents();
+  await page.getByRole('button',{name:'새로운 소원 만나기',exact:true}).click();
+  await page.waitForFunction(previous=>JSON.stringify([...document.querySelectorAll('.wish-boats button > span')].map(node=>node.textContent))!==JSON.stringify(previous),firstWishBatch);
+  await page.getByRole('button',{name:'소원 목록',exact:true}).click();
+  const moreWishes=page.getByRole('button',{name:'소원 더 보기',exact:true});
+  if(await moreWishes.count()) await moreWishes.click();
+  const wishes = page.getByRole('list',{name:'소원 목록'});
+  await page.waitForFunction(() => document.querySelectorAll('.wish-card-list li').length === 25);
+  assert.equal(await wishes.getByRole('listitem').count(),25);
+  assert.deepEqual(await page.getByRole('group',{name:'소원 보기 방식'}).getByRole('button').allTextContents(), ['소원 호수', '소원 목록']);
+  await wishes.getByRole('button').last().press('Enter');
+  await page.getByRole('dialog').getByText('가상 공개 소원 25', { exact: true }).waitFor();
+  await page.getByRole('button',{name:'닫기',exact:true}).click();
+  await page.screenshot({path:resolve(output,'wish-list-1440.png'),fullPage:true});
+  await page.getByRole('button',{name:'소원 호수',exact:true}).click();
+  feeds.wishes={items:[],nextCursor:null}; await refresh(); assert.equal(await page.locator('.wish-boats button').count(),0);
+  record('five to seven floating boats rotate unseen wishes, respect reduced motion and open shared details');
   // Unload the unlocked screen before changing fixtures: its refresh can enqueue a feed
   // after a network-idle observation. Locked-screen requests are measured independently.
   await page.goto('about:blank');

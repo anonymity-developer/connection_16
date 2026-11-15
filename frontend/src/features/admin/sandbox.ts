@@ -29,7 +29,7 @@ export function createSandbox(definition: PreviewDefinition, interests: Interest
   const hearts = new Map<number, LikeState>();
   const submissions = new Map<string, { fingerprint: string; result: OwnSlot }>();
   const examples: Record<ContentKind, PublicContent> = {
-    wishes: { id: 10001, content: '관리자 미리보기 예시 소원입니다. 댓글과 분수 화면을 확인해 보세요.', templateId: 'PLAIN', style: 'ROSE', anonymous: true, nickname: null, profileId: null, luckScore: null, landingZone: null },
+    wishes: { id: 10001, content: '관리자 미리보기 예시 소원입니다. 댓글과 종이배 호수를 확인해 보세요.', templateId: 'PLAIN', style: 'ROSE', anonymous: true, nickname: null, profileId: null, luckScore: null, landingZone: null },
     cheers: { id: 10002, content: '관리자 미리보기 예시 응원입니다. 하트를 눌러 보세요.', templateId: 'NOTE', style: 'INK', anonymous: true, nickname: null, profileId: null, luckScore: null, landingZone: null },
   };
   let profile: ProfileState = { identity: { realName: '미리보기 예시', region: '서울', classNo: 1, photoUrl: null, ready: true }, profile: null,
