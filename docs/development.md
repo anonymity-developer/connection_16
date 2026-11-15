@@ -10,7 +10,9 @@
 
 ## fixture로 전체 흐름 확인
 
-fixture 이미지는 실제 Mattermost·NFC 없이 테스트 본인 1명과 합성 동료 20명, 서로 다른 미션/탐색/콘텐츠 상태를 전용 `tagme_fixtures` DB에 준비한다. 일반·운영 JAR에는 fixture 소스가 포함되지 않는다.
+fixture 이미지는 실제 Mattermost·NFC 없이 테스트 본인 1명과 합성 동료 20명, 서로 다른 미션/탐색/콘텐츠 상태를 전용 `tagme_fixtures` DB에 준비한다. 일반·운영 JAR에는 fixture 소스가 포함되지 않는다. 기본 더미에는 미션별 콘텐츠·SYNC 결과·탭 순위·관계가 포함된다. `test`는 첫 S를 가진 시작 상태로 준비한다.
+
+fixture API를 재시작하면 행사 설정·더미 참여/관계가 재구성되고 테스트 계정의 미션 상태도 다시 준비된다. 볼륨을 남긴다는 이유만으로 모든 테스트 상태가 유지된다고 가정하지 않는다. 진행 중인 사용자 테스트를 보존하려면 API를 재시작하지 말고 필요한 web 서비스만 갱신한다. `TAGME_FIXTURES_CHEERS=true`는 응원 전용 추가 합성 카드 28개를 준비하는 선택 옵션이다.
 
 ```powershell
 Copy-Item .env.example .env.fixtures
@@ -26,7 +28,7 @@ docker compose --env-file .env.fixtures --project-name tagme-fixtures `
 ```
 
 - 기본 주소: `http://localhost:8088`
-- 참가자: `test` / `test1234`
+- 참가자: `test` / `test1234` (직접 심은 로컬 fixture 전용 기존 자격증명. 실제 가입 비밀번호 정책 8~20자와 별개)
 - 별도 스택과 포트가 겹치면 `.env.fixtures`에 `WEB_PORT=8090`, `API_PORT=8082`, `MYSQL_PORT=13309`, `REDIS_PORT=6382`를 지정한다.
 - 관리자 테스트가 필요하면 `.env.fixtures`에 `ADMIN_BOOTSTRAP_ID=admin:fixture`와 직접 정한 15~64자 로컬 비밀번호를 추가한다. 공용 관리자 비밀번호는 저장소에 두지 않는다.
 
@@ -98,7 +100,14 @@ cd ../backend
 ./gradlew.bat integrationTest
 ```
 
-통합 테스트는 Docker의 실제 MySQL/Redis를 사용한다. 브라우저 검사와 화면 캡처는 `frontend/AGENTS.md`의 실제 프로덕션 빌드 절차를 따른다. 테스트를 생략하거나 운영 외부 연동 성공으로 확대 해석하지 않는다.
+통합 테스트는 Docker의 실제 MySQL/Redis를 사용한다. 브라우저 검사와 화면 캡처는 [프론트 AGENTS](../frontend/AGENTS.md)의 실제 프로덕션 빌드 절차를 따른다. 예를 들어 `frontend`에서 `npm run test:results-ui`, `npm run test:content-ui`, `npm run test:discovery-ui`를 실행한다. 이 검사는 loopback Vite preview와 합성 API 응답을 사용하며 운영/fixture DB를 변경하지 않는다.
+
+```powershell
+# 최초 브라우저 준비 (frontend에서)
+npx playwright install chromium
+```
+
+기존 README 세 화면은 로컬 fixture, 추가 게임/관계 화면은 운영 빌드 브라우저 계약 대역으로 촬영했다. 캡처 선정과 보관 기준은 [Codex 셋업](codex-setup.md)을 따른다. 개발용 9문항 예시는 `frontend/src/dev/sync-questionnaire.proposal.json`, 비교 검증용 사본은 `backend/src/test/resources/fixtures/`에 둔다. 현재 실제 설문은 V19가 등록한 9문항·8유형이며 예시 파일로 운영 설정을 대체하지 않는다. 테스트를 생략하거나 운영 외부 연동 성공으로 확대 해석하지 않는다.
 
 ## 일반 개발 스택
 

@@ -18,7 +18,7 @@ class ResultRulesTest {
         assertThatThrownBy(()->TapValidation.inspect(java.util.stream.IntStream.range(0,1001).boxed().toList(),List.of(),10000)).isInstanceOf(IllegalArgumentException.class);
     }
     @Test void reviewOnlyQuestionnaireProposalPassesTheSameServerValidator() throws Exception {
-        var source=java.nio.file.Files.readString(java.nio.file.Path.of("../docs/sync-questionnaire.proposal.json"));
+        var source=new org.springframework.core.io.ClassPathResource("fixtures/sync-questionnaire.proposal.json").getContentAsString(java.nio.charset.StandardCharsets.UTF_8);
         var q=Questionnaire.parse(source,new com.fasterxml.jackson.databind.ObjectMapper());
         assertThat(q.questions()).hasSize(9);assertThat(q.axes()).hasSize(3);assertThat(q.types()).hasSize(8);
         for(var type:q.types()) {

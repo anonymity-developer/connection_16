@@ -6,7 +6,7 @@
 
 ## 구현 범위
 
-MAKE A WISH와 SAY SOMETHING의 최초 작성, 내 슬롯, 수정, 승인된 공개 목록, 비동기 검수, 관리자 판정 API를 구현한다. 댓글/하트는 페이즈 4-3의 [반응 계약](reactions.md)으로 확장했다. 관리자 검수 화면/커서/재처리와 콘텐츠 숨김·복구/감사는 [페이즈 5-2](operations-admin.md)에 연결했다. 일반 공개 상세 조회/참가자 신고/외부 검수 업체 연동/시상 정산은 후속 범위다. DB에는 참여자나 문구, 운 정책을 시드하지 않는다.
+A WISH COME TRUE와 YOU GOT THIS의 최초 작성·내 슬롯·수정·공개 목록과 [댓글/하트](reactions.md)를 제공한다. 소원 호수·목록에서 공통 상세/댓글을 열고 이전/다음으로 탐색한다. 운영자는 [콘텐츠 숨김·복구/감사](operations-admin.md)를 사용하며 [오류 신고](support-and-member-controls.md)는 별도 API다. 기본 모드에서는 외부 검수를 호출하지 않는다. 아래 작업자/판정 설명은 명시적 검수 모드의 계약이다.
 
 검수 모드에서 외부 검수 업체가 선택되지 않은 `ModerationProvider`는 `REVIEW_REQUIRED / PROVIDER_NOT_CONFIGURED`만 반환한다. 승인처럼 보이는 테스트 대역은 통합 검사에만 존재한다. 이는 검수 모드를 켠 경우의 동작이며 현재 기본 모드에서는 제공자를 호출하지 않는다. 외부 AI 호출이나 실제 제출/배포를 수행했다는 의미가 아니다.
 
@@ -21,9 +21,11 @@ MAKE A WISH와 SAY SOMETHING의 최초 작성, 내 슬롯, 수정, 승인된 공
 - `expectedVersion`은 내용 해시에서 제외한다. 이미 저장된 요청의 재전송을 상태 변화 뒤에도 확인할 수 있게 하기 위함이다. 저장된 본문/설정과 다르면 재전송으로 인정하지 않는다.
 - 동일 요청의 응답이 유실되면 프론트는 입력을 잠그고 동일 키/본문으로 재시도하거나 내 슬롯을 다시 조회한다. 페이지 새로고침 후에는 내 슬롯 조회로 복원한다. 초안 본문/키를 브라우저 영구 저장소에 남기지 않는다.
 
-접수 시각은 사용자 잠금 대기 전에 조회한 DB UTC 시각이다. 실제 HTTP 네트워크 도착 순서를 입증하는 값은 아니다. 저장 시에도 행사 제출 기간을 검사한다. item, 불변 revision, job, receipt와 최초 A/Y 획득을 한 MySQL 트랜잭션에 저장하고 202를 반환한다. 공개 여부는 별도로 결정한다.
+접수 시각은 사용자 잠금 대기 전에 조회한 DB UTC 시각이다. 실제 HTTP 네트워크 도착 순서를 입증하는 값은 아니다. 저장 시에도 행사 제출 기간을 검사한다. item, 불변 revision, receipt와 최초 A/Y 획득을 한 MySQL 트랜잭션에 저장하고 202를 반환한다. 기본 모드에서는 같은 트랜잭션에서 공개 포인터를 갱신하고 job을 만들지 않는다. 명시적 검수 모드에서만 job과 대기 포인터를 만들고 공개를 나중에 결정한다.
 
 ## 버전과 공개 포인터
+
+기본 모드에서는 유효한 새 revision을 즉시 APPROVED로 공개하고 pending은 비운다. 아래 대기/거절/worker 경합은 검수 모드를 켠 경우에만 적용된다.
 
 `approved_revision_id`와 `pending_revision_id`를 구분한다. 복합 FK `(revision_id, item_id)`는 같은 item의 revision만 참조하도록 막는다. 수정 중에는 기존 승인본을 유지한다. 거절되면 pending 포인터를 비우고 latest revision에 거절 상태를 남긴다. 기존 승인본과 글자는 지우지 않는다.
 
@@ -76,7 +78,7 @@ MAKE A WISH와 SAY SOMETHING의 최초 작성, 내 슬롯, 수정, 승인된 공
 - 현재 pending과 fence가 다르거나 이미 처리한 작업은 409다. 중복 판정 요청으로 추가 승인/글자를 만들지 않는다. manual fence 증가가 늦은 자동 응답을 무효화한다.
 - 성공은 204이며 관리자 ID/판정/사유/시각/fence를 `moderation_reviews`에 저장한다. APPROVED 요청이라도 참가 조건이 사라졌으면 REVIEW_REQUIRED로 남으며 실제 결과는 목록/내 슬롯에서 다시 확인한다.
 
-페이즈 5-2는 `/admin` 화면과 GET `/admin/moderation/tasks` 커서 목록, 제한 재처리, 콘텐츠 승인본/대기본·숨김/복구와 감사 조회를 추가했다. 기존 최대 50건 배열 GET은 호환 유지한다. 판정의 requestedDecision과 실제 상태를 V8 admin_audit_logs에 기록하며 감사 실패 시 판정/글자도 롤백한다. 참가자 신고/계정 제재/게임 검토/시상은 후속이다. 정확한 조건과 한계는 [운영 계약](operations-admin.md)을 따른다.
+페이즈 5-2는 `/admin` 화면과 GET `/admin/moderation/tasks` 커서 목록, 제한 재처리, 콘텐츠 승인본/대기본·숨김/복구와 감사 조회를 추가했다. 기존 최대 50건 배열 GET은 호환 유지한다. 판정의 requestedDecision과 실제 상태를 V8 admin_audit_logs에 기록하며 감사 실패 시 판정/글자도 롤백한다. 오류 신고·계정 비활성화·미션 조정은 별도 [지원 계약](support-and-member-controls.md), 잠정 시상 조회는 [관리자 콘솔](admin-console.md)을 따른다. 최종 시상 확정은 제공하지 않는다. 정확한 조건과 한계는 [운영 계약](operations-admin.md)을 따른다.
 
 ## 검증 범위
 

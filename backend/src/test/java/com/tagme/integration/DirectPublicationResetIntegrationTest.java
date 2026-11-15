@@ -54,12 +54,12 @@ class DirectPublicationResetIntegrationTest {
         for(String type:List.of("PARTICIPATION","PROFILE_PUBLICATION")){db.update("INSERT INTO consent_policies VALUES(?,'reset-v1','integration policy','isolated fixture')",type);db.update("INSERT INTO current_consent_policies VALUES(?,'reset-v1')",type);}
         alice=participant("reset-alice");bob=participant("reset-bob");
         when(mattermost.byUsername("reset-alice")).thenReturn(Optional.of(new MattermostClient.Identity("reset-alice-external-fixture","reset-alice",new MattermostProfile("통합 검사","서울",1,0))));
-        db.update("INSERT INTO sync_questionnaires VALUES('reset-v1',?)",java.nio.file.Files.exists(java.nio.file.Path.of("../docs/sync-questionnaire.proposal.json"))?readQuestionnaire():"{}");
+        db.update("INSERT INTO sync_questionnaires VALUES('reset-v1',?)",readQuestionnaire());
         db.update("INSERT INTO current_sync_questionnaire VALUES(1,'reset-v1')");
         time=db.queryForObject("SELECT UTC_TIMESTAMP(6)",java.sql.Timestamp.class).toInstant();doAnswer(i->time).when(resultRows).now();
         clearInvocations(provider,mattermost);
     }
-    String readQuestionnaire(){try{return java.nio.file.Files.readString(java.nio.file.Path.of("../docs/sync-questionnaire.proposal.json"));}catch(Exception e){throw new IllegalStateException(e);}}
+    String readQuestionnaire(){try{return new org.springframework.core.io.ClassPathResource("fixtures/sync-questionnaire.proposal.json").getContentAsString(java.nio.charset.StandardCharsets.UTF_8);}catch(Exception e){throw new IllegalStateException(e);}}
     AuthPrincipal participant(String name) {
         long id=accounts.insertUser(name+"-external-fixture",name);accounts.insertCredential(id,passwords.encode("isolated participant password"));
         db.update("UPDATE users SET real_name='통합 검사',region='서울',class_no=1,mattermost_profile_synced_at=UTC_TIMESTAMP(6) WHERE id=?",id);

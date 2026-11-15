@@ -12,7 +12,7 @@ const input={content:'가상 소원',templateId:'PLAIN',style:'ROSE',anonymous:t
 test('Docker-local development questionnaire stays identical to the review-only proposal',async()=>{
  const [fixture,proposal]=await Promise.all([
   readFile(new URL('../src/dev/sync-questionnaire.proposal.json',import.meta.url),'utf8'),
-  readFile(new URL('../../docs/sync-questionnaire.proposal.json',import.meta.url),'utf8'),
+  readFile(new URL('../../backend/src/test/resources/fixtures/sync-questionnaire.proposal.json',import.meta.url),'utf8'),
  ]);
  assert.deepEqual(JSON.parse(fixture),JSON.parse(proposal));
 });

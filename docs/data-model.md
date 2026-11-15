@@ -1,4 +1,4 @@
-# 데이터 모델과 마이그레이션 계획
+# 데이터 모델과 마이그레이션
 
 2026-11-13 응원 후속: `R__cheer_palette_and_feed_index.sql`은 revision의 기존 데이터/형태를 보존하면서 10색 CHECK와 `content_items(kind,visibility_status,archived_at,id)` 인덱스를 추가한다. 별도 카운터/캐시 테이블은 만들지 않는다. [현재 콘텐츠 계약](content.md).
 
@@ -16,7 +16,7 @@ V10은 `local_admin_accounts`(user_id PK/FK, login_id UNIQUE)와 `connection_ses
 
 ## 1. 적용 범위
 
-현재 실행 가능한 DDL은 `backend/src/main/resources/db/migration`의 V1~V12다. 소원/응원과 검수는 V6, 댓글/하트는 V7, 관리자 감사/재처리 한도는 V8이며 시상은 아래 **후속 설계**다. 해당 도메인의 규칙과 함께 마이그레이션을 추가한다.
+현재 실행 가능한 DDL은 `backend/src/main/resources/db/migration`의 V1~V20과 응원 repeatable migration이다. 소원/응원과 검수는 V6, 댓글/하트는 V7, 관리자 감사/재처리 한도는 V8이며 시상은 아래 **후속 설계**다. 해당 도메인의 규칙과 함께 마이그레이션을 추가한다.
 
 이 문서의 ERD는 핵심 요약이다. 모든 도메인의 컬럼/관계/복합키와 nullable 규칙은 [전체 도메인 ERD](erd.md)를 함께 읽는다. 현재 SQL과 후속 설계의 경계를 유지하고, 후속 설계를 현재 DB에 적용된 것으로 간주하지 않는다.
 
@@ -181,7 +181,7 @@ submission_receipts는 제출을 받는 같은 트랜잭션에서 생성하며 �
 
 ## V5 적용: 최초 성향과 공식 탭
 
-sync_questionnaires는 버전별 검토한 JSON을 보존하고 current_sync_questionnaire가 현재 버전을 가리킨다. V18은 사용자 승인 문항 `sync-2026-11-13-v1`을 새 불변 행으로 추가하고 현재 포인터를 갱신한다. 기존 버전과 결과는 보존한다. sync_results의 PK는 사용자이며 같은 정규화 답변 hash만 재시도한다. type/score는 서버가 계산한다.
+sync_questionnaires는 버전별 검토한 JSON을 보존하고 current_sync_questionnaire가 현재 버전을 가리킨다. V19는 사용자 승인 문항 `sync-2026-11-13-v1`을 새 불변 행으로 추가하고 현재 포인터를 갱신한다. 기존 버전과 결과는 보존한다. sync_results의 PK는 사용자이며 같은 정규화 답변 hash만 재시도한다. type/score는 서버가 계산한다.
 
 tap_slots.current_attempt_id와 user_id 복합 FK가 다른 사용자의 도전을 가리키는 것을 막는다. 시작 key는 사용자 범위로 유일하고 준비 중 취소만 슬롯을 복구한다. events/최초 상태/payload_hash/receipt/글자를 한 트랜잭션에 쓴다. status의 COUNTDOWN은 저장된 진행 상태이며 PLAYING/AWAITING_SUBMISSION/기한 만료 표시는 시각으로 계산한다. 입력 원본과 결과의 외부 공개/관리자 재도전은 후속이다. 자세한 상태 전이는 [결과 계약](results.md)을 따른다.
 
@@ -207,7 +207,7 @@ moderation_jobs.manual_retry_count는 기본 0, CHECK 0~3이다. 자동 attempts
 
 users에 mattermost_profile_synced_at nullable DATETIME(6), mattermost_picture_updated_at BIGINT NOT NULL DEFAULT 0 CHECK >=0을 추가한다. 가져온 이름/지역/반은 기존 real_name/region/class_no를 사용한다. 기존 계정을 임의로 동기화 완료 처리하지 않는다. 이미지 원본/직접 URL은 저장하지 않는다. interests.category VARCHAR(16) NOT NULL DEFAULT DOMAIN과 CHECK(DOMAIN/TECH_STACK), 기술 스택 카탈로그를 추가한다. 기존 도메인 ID는 보존한다.
 
-닉네임만 필수 입력이며 bio/링크 nullable, user_interests 0~10개다. 유효한 프로필 저장은 내부 is_public=true다. 레거시 비공개 행을 일괄 공개하지 않으며 동기화 기록과 현재 두 안내 확인까지 공개 필터에 포함한다. 소스 변경은 users 잠금 아래 profile.version도 증가시켜 stale 저장을 막는다. [상세 계약](mattermost-profile.md)을 따른다.
+현재 입력 검증은 닉네임·bio 필수, INDUSTRY/DEVELOPMENT 각각 1~3개이며 링크는 선택이다. bio nullable과 기존 interest 선택 행은 레거시 호환을 위한 저장 스키마이고 현재 API 필수 조건을 뜻하지 않는다. 유효한 프로필 저장은 내부 is_public=true다. 레거시 비공개 행을 일괄 공개하지 않으며 동기화 기록과 현재 두 안내 확인까지 공개 필터에 포함한다. 소스 변경은 users 잠금 아래 profile.version도 증가시켜 stale 저장을 막는다. [상세 계약](mattermost-profile.md)을 따른다.
 
 ## V13 미션 안내·글 길이·기록 갱신
 

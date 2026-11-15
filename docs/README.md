@@ -7,7 +7,8 @@
 | 목적 | 문서 |
 | --- | --- |
 | 서비스와 미션 이해 | [제품 개요](overview.md), [유저 플로우](user-flows.md) |
-| 로컬 실행과 테스트 | [개발 가이드](development.md) |
+| 로컬 실행과 테스트 | [개발 가이드](development.md), [Codex 셋업](codex-setup.md) |
+| 화면 구성·반응형 기준 | [UI 기준](ui-ux.md) |
 | 시스템 구조 파악 | [아키텍처](architecture.md), [데이터 모델](data-model.md), [ERD](erd.md) |
 | 행사·관리자 운영 | [행사 운영](operations.md), [관리자 콘솔](admin-console.md), [운영 배포](github-actions-ec2.md) |
 | 현재 완료 범위 확인 | [구현 상태](progress.md) |
@@ -24,7 +25,7 @@
 | 동료 탐색 | [탐색](discovery.md), [추천 경계](recommendation-design.md) | [discovery.openapi.yaml](discovery.openapi.yaml) |
 | 관리자 | [관리자 콘솔](admin-console.md), [운영 API](operations-admin.md), [지원 조치](support-and-member-controls.md) | [admin.openapi.yaml](admin.openapi.yaml), [operations.openapi.yaml](operations.openapi.yaml) |
 
-전체 경로와 공통 오류 형식은 [API 개요](api.md)를 먼저 봅니다.
+주요 경로와 공통 오류 형식은 [API 개요](api.md)를 먼저 봅니다.
 
 ## 운영 보조 자료
 
