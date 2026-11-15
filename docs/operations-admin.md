@@ -89,7 +89,7 @@ V8 admin_audit_logs는 actor_id, action, target_type/id, reason, before_json/aft
 
 ## 시상 후보 조회 후속
 
-최신 미션 통합 패치 위의 시상 후속은 GET /api/v1/admin/awards와 /admin?tab=awards를 제공한다. 기존 현재 DB ADMIN/credential/no-store를 재사용하고 한 REPEATABLE_READ 안에서 계산한다. 새 테이블·확정/지급/추첨·감사 쓰기는 없다. 위의 과거 ‘시상 후속’ 표현 중 **잠정 후보 조회**만 구현되었으며 확정·정정·배정·영구 snapshot은 여전히 후속이다. [집계 기준](awards-candidates/RULES.md), [검증 한계](awards-candidates/TEST_RESULTS.md)를 따른다.
+GET `/api/v1/admin/awards`와 관리자 시상 후보 화면은 현재 DB ADMIN/credential/no-store를 재사용하고 한 REPEATABLE_READ 안에서 계산한다. 새 테이블·확정/지급/추첨·감사 쓰기는 없다. 잠정 후보 조회만 구현되었으며 확정·정정·배정·영구 snapshot은 제공하지 않는다. 종료 후 확인은 [운영 체크리스트](post-event/OPERATIONS_CHECKLIST.md)를 따른다.
 
 ## 사후 운영 — 조회 전용
 
