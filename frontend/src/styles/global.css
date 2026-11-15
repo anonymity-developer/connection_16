@@ -395,7 +395,6 @@ p { word-break: keep-all; overflow-wrap: anywhere; }
 .comment-list { list-style: none; padding: 0; margin: 12px 0 20px; }
 .comment-list li { padding: 16px 0; border-bottom: 1px solid var(--border); }
 .comment-list .content-body { margin: 6px 0 8px; font-size: 15px; }
-.own-comments { margin-top: 24px; }
 .comment-form { display: grid; gap: 12px; border-top: 1px solid var(--border); padding-top: 20px; margin-top: 20px; }
 .comment-form textarea { width: 100%; min-height: 112px; resize: vertical; border: 1px solid var(--control); border-radius: var(--control-radius); background: var(--surface); color: var(--ink); padding: 12px; font-size: 16px; line-height: 1.5; }
 

@@ -14,10 +14,12 @@ public class ReactionController {
     private final ReactionService service;
     public ReactionController(ReactionService service) { this.service=service; }
     private AuthPrincipal actor(Authentication auth) { if(auth==null||!(auth.getPrincipal() instanceof AuthPrincipal p))throw AuthException.invalid();return p; }
-    @GetMapping("/wishes/{id}/comments") public Comments comments(@PathVariable long id,@RequestParam(required=false) Long cursor) { return service.comments(id,cursor); }
+    @GetMapping("/wishes/{id}/comments") public Comments comments(Authentication auth,@PathVariable long id,@RequestParam(required=false) Long cursor) { return service.comments(actor(auth).userId(),id,cursor); }
     @GetMapping("/wishes/{id}/comments/me") public OwnComments own(Authentication auth,@PathVariable long id,@RequestParam(required=false) Long cursor) { return service.own(actor(auth).userId(),id,cursor); }
     @PostMapping("/wishes/{id}/comments") @ResponseStatus(HttpStatus.ACCEPTED)
     public OwnComment submit(Authentication auth,@PathVariable long id,@RequestHeader("Idempotency-Key") String key,@Valid @RequestBody CommentRequest body,@RequestHeader(value="X-Participation-Generation",defaultValue="0") long generation) { return service.submit(actor(auth),id,key,body,generation); }
+    @DeleteMapping("/wishes/{wish}/comments/{comment}") @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void deleteComment(Authentication auth,@PathVariable long wish,@PathVariable long comment,@RequestHeader(value="X-Participation-Generation",defaultValue="0") long generation) { service.deleteComment(actor(auth),wish,comment,generation); }
     @GetMapping("/cheers/likes") public java.util.Map<Long,LikeState> states(Authentication auth,@RequestParam java.util.List<Long> ids) { return service.states(actor(auth),ids); }
     @GetMapping("/cheers/{id}/like") public LikeState state(Authentication auth,@PathVariable long id) { return service.state(actor(auth),id); }
     @PutMapping("/cheers/{id}/like") public LikeState like(Authentication auth,@PathVariable long id,@RequestHeader(value="X-Participation-Generation",defaultValue="0") long generation) { return service.like(actor(auth),id,true,generation); }

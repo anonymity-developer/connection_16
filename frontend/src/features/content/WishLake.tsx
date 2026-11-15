@@ -5,7 +5,6 @@ export function WishLakeArt() {
     <path className="wish-lake-hill" d="M0 244c92-42 174-36 251 17 107-81 230-78 333 2 49-31 94-42 136-31v105H0Z" />
     <ellipse className="wish-lake-water" cx="360" cy="354" rx="348" ry="174" />
     <g className="wish-lake-ripples"><path d="M62 326c92-42 192-43 297-6 104 37 203 36 299-5" /><path d="M28 382c115-45 229-43 342 5 108 45 217 44 326-3" /><path d="M92 438c81-25 168-21 262 11 91 31 182 29 273-7" /></g>
-    <g className="wish-lake-shore-plants" aria-hidden="true"><path d="M39 364c3-61 14-109 34-143M49 302c-28-15-40-39-34-71 31 13 44 36 34 71Zm15-35c3-35 19-57 49-67 4 33-12 56-49 67Z" /><path d="M681 365c-2-62-15-110-36-145M669 302c28-16 39-40 32-72-31 14-43 38-32 72Zm-15-36c-4-35-20-57-50-66-3 33 14 56 50 66Z" /></g>
     <g className="wish-lake-sparkles" aria-hidden="true"><path d="m116 118 5 14 14 5-14 5-5 14-5-14-14-5 14-5Z" /><path d="m614 91 4 11 11 4-11 4-4 11-4-11-11-4 11-4Z" /><circle cx="168" cy="84" r="4" /><circle cx="581" cy="153" r="3" /></g>
   </svg>;
 }

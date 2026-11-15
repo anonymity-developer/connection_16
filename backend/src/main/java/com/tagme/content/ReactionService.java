@@ -34,7 +34,8 @@ public class ReactionService {
         if(!unlocked(actor.userId(),code))throw error(403,"MISSION_LOCKED","먼저 현장 태그로 미션을 열어주세요.");
         if(!participation.eligible(actor.userId()))throw error(409,"PROFILE_REQUIRED","프로필과 현재 공개 동의를 확인해 주세요.");
     }
-    public Comments comments(long wish,Long cursor) { var item=target(wish,Kind.WISH);visible(item);return repository.comments(wish,cursor(cursor)); }
+    public Comments comments(long wish,Long cursor) { return comments(0,wish,cursor); }
+    public Comments comments(long viewer,long wish,Long cursor) { var item=target(wish,Kind.WISH);visible(item);return repository.comments(wish,cursor(cursor),viewer); }
     // Own statuses remain readable if the parent becomes private; never return its body/author.
     public OwnComments own(long user,long wish,Long cursor) { return repository.own(wish,user,cursor(cursor)); }
     private String hash(long wish,String text,boolean reveal) { try { return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest((wish+"|"+reveal+"|"+text).getBytes(StandardCharsets.UTF_8))); }catch(Exception impossible){throw new IllegalStateException(impossible);} }
@@ -59,6 +60,10 @@ public class ReactionService {
         });
     }
     private OwnComment ownComment(long id,Revision r,String key) { return new OwnComment(id,r.content(),!r.anonymous(),r.status(),r.reason(),r.submittedAt(),key); }
+    public void deleteComment(AuthPrincipal actor,long wish,long comment,long generation) {
+        var target=target(wish,Kind.WISH);
+        tx.executeWithoutResult(s->{lock(actor,target);participation.requireGeneration(actor.userId(),generation);var link=repository.comment(wish,comment);if(link==null||link.authorId()!=actor.userId())throw missing();repository.deleteComment(link.itemId());});
+    }
     public Map<Long,LikeState> states(AuthPrincipal actor,List<Long> ids) {
         if(ids==null||ids.isEmpty()||ids.size()>20||ids.stream().anyMatch(id->id==null||id<1)||ids.stream().distinct().count()!=ids.size())throw error(400,"INVALID_CARD_IDS","한 번에 최대 20개의 서로 다른 카드를 확인해 주세요.");
         return tx.execute(s->{participation.lockPrincipal(actor);var mission=participation.mission(actor.userId(),MissionCode.SAY_SOMETHING);

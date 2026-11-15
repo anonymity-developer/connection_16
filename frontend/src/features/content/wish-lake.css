@@ -15,7 +15,6 @@
 .wish-lake-hill--back { fill:var(--lake-green-back); }
 .wish-lake-water { fill:var(--lake-blue); stroke:#fff; stroke-width:6; }
 .wish-lake-ripples { fill:none; stroke:#fff; stroke-width:4; stroke-linecap:round; opacity:.72; }
-.wish-lake-shore-plants { fill:var(--lake-green); stroke:#79ad91; stroke-width:5; stroke-linecap:round; stroke-linejoin:round; }
 .wish-lake-sparkles { fill:#fff; opacity:.9; animation:lake-sparkle 3.6s ease-in-out infinite; }
 .wish-boats { position:absolute; inset:24% 3% 5%; z-index:1; margin:0; padding:0; list-style:none; }
 .wish-boats li { position:absolute; left:var(--boat-x); top:var(--boat-y); transform:translate(-50%,-50%) rotate(var(--boat-angle)); }
@@ -64,6 +63,8 @@
 .wish-detail-nav { display:grid; grid-template-columns:44px 1fr 44px; align-items:center; gap:8px; margin:-8px 0 20px; }
 .wish-detail-nav .button { min-width:44px; min-height:44px; padding:0; font-size:22px; }
 .wish-detail-nav > span { color:var(--muted); text-align:center; font-size:13px; font-variant-numeric:tabular-nums; }
+.comment-row { position:relative; padding-right:44px !important; }
+.comment-delete.button { position:absolute; top:8px; right:0; width:44px; min-width:44px; height:44px; padding:0; color:var(--muted); font-size:22px; }
 .wish-comments--embedded .comment-thread { margin-top:24px; }
 .wish-launch { position:absolute; inset:0; z-index:4; display:grid; place-items:center; align-content:center; gap:18px; background:rgb(238 248 247 / .9); pointer-events:none; animation:launch-layer 1.8s both; }
 .wish-launch p { margin:0; padding:8px 14px; border-radius:999px; background:#fff; color:var(--lake-ink); font-size:14px; }

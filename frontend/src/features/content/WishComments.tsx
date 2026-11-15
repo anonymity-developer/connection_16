@@ -4,7 +4,6 @@ import { Button } from '../../components/ui';
 import { ApiError } from '../auth/api';
 import { reactionsApi as serverApi } from './reactions-api';
 import type { CommentPage, OwnComment, PublicComment } from './reactions-api';
-const statusLabels: Record<OwnComment['status'], string> = { QUEUED: '확인 중', PROCESSING: '확인 중', APPROVED: '공개됨', REJECTED: '공개되지 않았어요', REVIEW_REQUIRED: '확인 중', SUPERSEDED: '이전 댓글' };
 export function WishComments({ id, api = serverApi, embedded = false }: { id: number; api?: typeof serverApi; embedded?: boolean }) {
   const uid = useId(); const [open, setOpen] = useState(false);
   if (embedded) return <div className="wish-comments wish-comments--embedded"><CommentThread id={id} api={api} /></div>;
@@ -13,7 +12,7 @@ export function WishComments({ id, api = serverApi, embedded = false }: { id: nu
 function CommentThread({ id, api: reactionsApi }: { id: number; api: typeof serverApi }) {
   const uid = useId(); const active = useRef(true); const input = useRef<HTMLTextAreaElement>(null);
   const [comments, setComments] = useState<CommentPage<PublicComment> | null>(null); const [own, setOwn] = useState<CommentPage<OwnComment> | null>(null);
-  const [loading, setLoading] = useState(true); const [busy, setBusy] = useState(false); const [text, setText] = useState(''); const [reveal, setReveal] = useState(false);
+  const [loading, setLoading] = useState(true); const [busy, setBusy] = useState(false); const [deleting, setDeleting] = useState<number | null>(null); const [text, setText] = useState(''); const [reveal, setReveal] = useState(false);
   const [error, setError] = useState(''); const [readError, setReadError] = useState(''); const [uncertain, setUncertain] = useState(false); const [blocked, setBlocked] = useState(false);
   const pending = useRef<{ key: string; text: string; reveal: boolean } | null>(null);
   useEffect(() => { active.current = true; void load(); return () => { active.current = false; }; }, [id]);
@@ -41,12 +40,12 @@ function CommentThread({ id, api: reactionsApi }: { id: number; api: typeof serv
     catch (failure) { if (active.current) { setError(failure instanceof Error ? failure.message : '댓글 응답을 확인하지 못했어요.'); const unknown = !(failure instanceof ApiError) || failure.status >= 500; setUncertain(unknown); if (!unknown) { pending.current = null; setBlocked(true); } } }
     finally { if (active.current) setBusy(false); }
   }
-  return <section className="comment-thread" aria-label="이 소원의 댓글"><div className="content-section-heading"><h3>소원에 건네는 한마디</h3><Button type="button" variant="quiet" disabled={busy || loading} onClick={load}>댓글 상태 새로고침</Button></div>
+  async function remove(comment: number) { if (deleting !== null) return; setDeleting(comment); setError(''); try { await reactionsApi.remove(id,comment); if (active.current) await load(); } catch (failure) { if (active.current) setError(failure instanceof Error ? failure.message : '댓글을 삭제하지 못했어요.'); } finally { if (active.current) setDeleting(null); } }
+  return <section className="comment-thread" aria-label="이 소원의 댓글"><div className="content-section-heading"><h3>소원에 건네는 한마디</h3><Button type="button" variant="quiet" disabled={busy || loading} onClick={load}>새로고침</Button></div>
     {loading && <p role="status">댓글을 확인하고 있어요.</p>}{readError && <p role="alert" className="form-notice is-error">{readError}</p>}
     {comments && !comments.items.length && <p className="result-footnote">아직 공개된 댓글이 없어요. 작성한 댓글이 여기에 모여요.</p>}
-    <ul className="comment-list">{comments?.items.map(item => <li key={item.id}><p className="content-body">{item.content}</p><span className="content-byline">{item.revealProfile ? item.profileId ? <Link href={`/discovery/profiles/${item.profileId}`}>{item.nickname || '동료'}의 프로필 보기</Link> : item.nickname || '동료' : '익명'}</span></li>)}</ul>
+    <ul className="comment-list">{comments?.items.map(item => <li key={item.id} className="comment-row"><p className="content-body">{item.content}</p><span className="content-byline">{item.revealProfile ? item.profileId ? <Link href={`/discovery/profiles/${item.profileId}`}>{item.nickname || '동료'}의 프로필 보기</Link> : item.nickname || '동료' : '익명'}</span>{item.mine && <Button type="button" variant="quiet" className="comment-delete" aria-label="내 댓글 삭제" disabled={deleting !== null} onClick={() => void remove(item.id)}>×</Button>}</li>)}</ul>
     {comments?.nextCursor && <Button type="button" variant="quiet" disabled={loading} onClick={() => more('public')}>이전 공개 댓글 더 보기</Button>}
-    {own && <div className="own-comments"><h3>내 댓글 접수 내역</h3>{!own.items.length && <p className="result-footnote">이 소원에 남긴 댓글이 없어요.</p>}<ul className="comment-list">{own.items.map(item => <li key={item.id}><span className="content-status">{statusLabels[item.status]}</span><p className="content-body">{item.content}</p><span className="content-byline">{item.revealProfile ? '닉네임 표시' : '익명'}</span></li>)}</ul>{own.nextCursor && <Button type="button" variant="quiet" disabled={loading} onClick={() => more('own')}>이전 내 댓글 더 보기</Button>}</div>}
     {own && comments && <form className="comment-form" onSubmit={event => { event.preventDefault(); void submit(); }} aria-busy={busy}><label htmlFor={uid}>동료의 소원에 댓글 남기기</label><textarea id={uid} ref={input} rows={3} maxLength={200} value={text} disabled={busy || uncertain || blocked} aria-invalid={error ? true : undefined} aria-describedby={`${uid}-help`} onChange={event => { setText(event.target.value); setError(''); }} /><p id={`${uid}-help`} className="result-footnote">{text.length}/200 · 연락처·링크와 타인에 대한 모욕은 적지 말아주세요.</p><label className="content-choice"><input type="checkbox" checked={reveal} disabled={busy || uncertain || blocked} onChange={event => setReveal(event.target.checked)} />닉네임 표시하기</label><p className="result-footnote">체크하지 않으면 익명으로 표시돼요. 댓글은 작성하면 바로 공개되며 미션 글자는 추가로 지급되지 않아요.</p><Button type="submit" disabled={busy || blocked || loading}>{busy ? '댓글 보내는 중…' : uncertain ? '같은 댓글 다시 보내기' : '댓글 남기기'}</Button></form>}
     {error && <p role="alert" className="form-notice is-error">{error}</p>}
   </section>;

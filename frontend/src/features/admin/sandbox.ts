@@ -118,7 +118,8 @@ export function createSandbox(definition: PreviewDefinition, interests: Interest
       hearts: async ids => Object.fromEntries(ids.map(id => [id, copy(hearts.get(id) ?? { liked: false, count: 0, canLike: true })])),
       heart: async id => copy(hearts.get(id) ?? { liked: false, count: 0, canLike: true }),
       setHeart: async (id, liked) => { const state = { liked, count: liked ? 1 : 0, canLike: true }; hearts.set(id, state); return copy(state); },
-      comments: async id => ({ items: (comments.get(id) ?? []).filter(c => c.status === 'APPROVED').map(c => ({ id: c.id, content: c.content, revealProfile: c.revealProfile, nickname: c.revealProfile ? '관리자 미리보기' : null, profileId: null })), nextCursor: null }),
+      comments: async id => ({ items: (comments.get(id) ?? []).filter(c => c.status === 'APPROVED').map(c => ({ id: c.id, content: c.content, revealProfile: c.revealProfile, nickname: c.revealProfile ? '관리자 미리보기' : null, profileId: null, mine: true })), nextCursor: null }),
+      remove: async (id, comment) => { comments.set(id,(comments.get(id) ?? []).filter(row => row.id !== comment)); },
       own: async id => ({ items: copy(comments.get(id) ?? []), nextCursor: null }),
       submit: async (id, key, content, revealProfile) => {
         const rows = comments.get(id) ?? [], previous = rows.find(c => c.requestKey === key);

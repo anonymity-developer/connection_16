@@ -55,6 +55,7 @@ export function createExperience(wait:()=>Promise<void> = async()=>{}) {
     hearts:async ids=>Object.fromEntries(ids.map(id=>[id,heart(id)])),heart:async id=>heart(id),
     setHeart:async(id,desired)=>{await ready();likes.set(id,desired);notify();return heart(id);},
     comments:async id=>({items:clone(publicComments.get(id)||[]),nextCursor:null}),own:async id=>({items:clone(ownComments.get(id)||[]),nextCursor:null}),
+    remove:async(id,comment)=>{await ready();publicComments.set(id,(publicComments.get(id)||[]).filter(row=>row.id!==comment));ownComments.set(id,(ownComments.get(id)||[]).filter(row=>row.id!==comment));notify();},
     submit:async(id,key,content,revealProfile)=>{await ready();const rows=ownComments.get(id)||[];const old=rows.find(x=>x.requestKey===key);if(old)return clone(old);const row:OwnComment={id:++counter,content,revealProfile,status:'QUEUED',reason:null,submittedAt:new Date().toISOString(),requestKey:key};ownComments.set(id,[row,...rows]);notify();return clone(row);},
   };
   const results:typeof resultsApi={
@@ -67,7 +68,7 @@ export function createExperience(wait:()=>Promise<void> = async()=>{}) {
     finish:async payload=>{await ready();if(!tap||tap.attemptId!==payload.attemptId)throw new Error('가상 기록 없음');if(tap.status==='VALID')return clone(tap);if(Date.now()<Date.parse(tap.endsAt))throw new Error('가상 게임 시간이 아직 끝나지 않았어요.');if(payload.taps.some(t=>t<0||t>=10000))throw new Error('10초 범위의 가상 입력만 확인해요.');tap={...tap,status:'VALID',tapCount:payload.taps.length};change('FAST_TAP','COMPLETED');return clone(tap);},
   };
   function moderate(kind:ContentKind,status:'APPROVED'|'REJECTED') {
-    for(const [id,rows]of ownComments){ownComments.set(id,rows.map(x=>({...x,status})));publicComments.set(id,status==='APPROVED'?rows.map(x=>({id:x.id,content:x.content,revealProfile:x.revealProfile,nickname:x.revealProfile?'가상 작성자':null,profileId:null})):[]);}
+    for(const [id,rows]of ownComments){ownComments.set(id,rows.map(x=>({...x,status})));publicComments.set(id,status==='APPROVED'?rows.map(x=>({id:x.id,content:x.content,revealProfile:x.revealProfile,nickname:x.revealProfile?'가상 작성자':null,profileId:null,mine:true})):[]);}
     const slot=slots[kind];if(!slot.latestRevision){notify();return;}slot.latestRevision={...slot.latestRevision,status};slot.pendingRevision=null;slot.version++;
     if(status==='APPROVED'){slot.approvedRevision=clone(slot.latestRevision);slot.missionCompleted=true;feeds[kind]=[publicItem(slot.approvedRevision.content,slot.id!,slot.approvedRevision.anonymous),...feeds[kind].filter(x=>x.id!==slot.id)];progress[kind==='wishes'?'MAKE_A_WISH':'SAY_SOMETHING']='COMPLETED';}
     notify();
