@@ -29,6 +29,7 @@ try {
     const method = request.method();
     const reply = (status, data, headers = {}) => route.fulfill({ status, contentType: 'application/json', headers, body: status === 204 ? undefined : JSON.stringify(data) });
       if (method === 'POST' && path === '/missions/show-me/reconcile') { assert.ok(request.headers()['x-xsrf-token']); return reply(200, { newlyCompleted: false }); }
+    if (method === 'GET' && path === '/auth/otp/pending') return reply(200,{username:null,challenge:null,retryAfter:0,limitCode:null,expired:false,inProgress:false});
     if (method === 'GET' && path === '/auth/config') return reply(200, { available: true, passwordMinLength: 8, passwordMaxLength:20 });
     if (method === 'GET' && path === '/users/me') return user ? reply(200, user) : reply(401, { code: 'UNAUTHENTICATED', message: '로그인이 필요합니다.' });
     if (method === 'GET' && path === '/tags/pending') return reply(200, { present: false });
@@ -80,11 +81,11 @@ try {
   releaseOtp(); heldOtp = null;
   await page.getByLabel('인증번호', { exact: true }).waitFor();
   assert.equal(otpCount, 1);
-  assert.deepEqual(lastOtp, { purpose: 'SIGN_UP', username: 'contract-test' });
-  assert.equal(await page.getByRole('button', { name: /초 후 다시 받기/ }).isEnabled(), false);
+  assert.equal(lastOtp.purpose,'SIGN_UP'); assert.equal(lastOtp.resend,false); assert.match(lastOtp.requestId,/^[A-Za-z0-9_-]{16,64}$/); assert.equal(lastOtp.username,'contract-test');
+  assert.equal(await page.getByRole('button', { name: /후 새 인증번호 받기/ }).isEnabled(), false);
   await page.getByLabel('인증번호', { exact: true }).fill('012345');
   await page.clock.fastForward(61_000);
-  await page.getByRole('button', { name: '인증번호 다시 받기', exact: true }).click();
+  await page.getByRole('button', { name: '새 인증번호 받기', exact: true }).click();
   await page.locator('form[aria-busy="false"]').waitFor();
   assert.equal(await page.getByLabel('인증번호', { exact: true }).inputValue(), '');
   await page.getByLabel('인증번호', { exact: true }).fill('012345');
@@ -148,7 +149,7 @@ try {
   assert.equal(await page.locator('input[name="username"]').count(), 0);
   await page.getByRole('button', { name: '인증번호 받기', exact: true }).click();
   await page.getByLabel('인증번호', { exact: true }).waitFor();
-  assert.deepEqual(lastOtp, { purpose: 'PASSWORD_CHANGE' });
+  assert.equal(lastOtp.purpose,'PASSWORD_CHANGE'); assert.equal(lastOtp.resend,false); assert.match(lastOtp.requestId,/^[A-Za-z0-9_-]{16,64}$/); assert.equal(lastOtp.username,undefined);
   await page.getByLabel('인증번호', { exact: true }).fill('012345');
   await page.getByLabel('새 비밀번호', { exact: true }).fill('replacement pwd');
   await page.getByLabel('새 비밀번호 확인', { exact: true }).fill('replacement pwd');
@@ -177,7 +178,7 @@ try {
   await page.getByLabel(/^(Mattermost )?아이디$/, { exact: true }).fill('contract-test');
   await page.getByRole('button', { name: '인증번호 받기', exact: true }).click();
   await page.getByLabel('인증번호', { exact: true }).waitFor();
-  assert.deepEqual(lastOtp, { purpose: 'PASSWORD_RESET', username: 'contract-test' });
+  assert.equal(lastOtp.purpose,'PASSWORD_RESET'); assert.equal(lastOtp.resend,false); assert.match(lastOtp.requestId,/^[A-Za-z0-9_-]{16,64}$/); assert.equal(lastOtp.username,'contract-test');
   await page.getByLabel('인증번호', { exact: true }).fill('012345');
   await page.getByLabel('새 비밀번호', { exact: true }).fill(password);
   await page.getByLabel('새 비밀번호 확인', { exact: true }).fill(password);
@@ -191,7 +192,7 @@ try {
   limited = true;
   await page.getByRole('button', { name: '인증번호 받기', exact: true }).click();
   await page.getByRole('alert').filter({ hasText: '요청이 많아요' }).waitFor();
-  assert.equal(await page.getByRole('button', { name: '인증번호 받기', exact: true }).isEnabled(), false);
+  assert.equal(await page.getByRole('button', { name: /초 후 다시 요청/ }).isEnabled(), false);
   await page.clock.fastForward(3_000); limited = false; unavailable = true;
   await page.getByRole('button', { name: '인증번호 받기', exact: true }).click();
   await page.getByRole('alert').filter({ hasText: '인증 서비스를 사용할 수 없어요' }).waitFor();

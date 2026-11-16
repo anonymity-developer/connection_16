@@ -60,6 +60,7 @@ class AuthSessionLifecycleTest {
     @Autowired MockMvc mvc;
     @Autowired MapSessionRepository repository;
     @MockitoBean AuthService service;
+    @MockitoBean OtpFlowService otpFlows;
     @MockitoBean AuthRepository accounts;
     @MockitoBean AuthProperties properties;
     @MockitoBean ConnectionSessions connections;

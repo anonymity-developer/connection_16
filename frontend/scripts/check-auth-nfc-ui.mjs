@@ -29,6 +29,7 @@ try {
       if (method === 'POST' && path === '/missions/show-me/reconcile') { assert.ok(request.headers()['x-xsrf-token']); return reply(200, { newlyCompleted: false }); }
     try {
       if (method === 'GET') {
+        if (path === '/auth/otp/pending') return reply(200,{username:null,challenge:null,retryAfter:0,limitCode:null,expired:false,inProgress:false});
         if (path === '/auth/config') return reply(200, { available: true, passwordMinLength:8, passwordMaxLength:20 });
         if (path === '/users/me') return signedIn ? reply(200, user()) : reply(401, { code: 'UNAUTHENTICATED', message: '로그인이 필요합니다.' });
         if (path === '/tags/pending') return reply(200, { present: pending !== null });

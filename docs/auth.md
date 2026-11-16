@@ -63,13 +63,24 @@ Redis Hash에는 purpose, 내부 외부 계정 ID, 대상 서비스 사용자 ID
 | 만료 | 180초 |
 | 재발송 | 60초 간격; 계정 전체 cooldown으로 purpose 전환 우회도 방지 |
 | challenge 오답 | 5회 후 폐기 |
-| 발송 | username/외부 내부 ID 기준 각각 15분당 5회, purpose 공통 |
+| 발송 | username/외부 내부 ID 기준 각각 최근 5분당 새 발급 시도 최대 5회, purpose 공통 |
 | 로그인 | username 기준 15분당 10회 |
 | IP | OTP 요청/검증/로그인별 분당 120회 |
 
 잘못된 코드는 외부 통신 전에 원자적으로 검사/횟수 증가한다. 성공한 proof는 즉시 소비한다. 외부 재검증이나 DB 쓰기가 나중에 실패해도 되살리지 않는다. DB 실패는 사용자 생성/비밀번호 변경을 롤백하고 AUTH_RESTART_REQUIRED로 새 코드 요청을 안내한다. 재발송하면 이전 같은 목적의 challenge를 폐기한다. 변경/재설정은 발급 시 version을 검사하므로 다른 비밀번호 작업이 먼저 끝났다면 오래된 코드로 덮어쓰지 못한다.
 
 SIGN_UP의 이미 가입된 ACTIVE 계정은 사용자 요청에 따라 409 ACCOUNT_ALREADY_REGISTERED로 구분한다. 로그인 전 가입 여부를 추측할 수 있는 UX 선택이며 username/외부 ID/IP의 기존 요청 제한은 유지한다. PASSWORD_RESET과 그 밖의 비발송 대상은 기존의 같은 형태 challenge 응답을 유지한다. 실제 발송 대상이 아니면 사용할 수 없는 불투명 ID만 반환한다. 전송이 가능한 경우에만 DM을 보냈다는 식별자는 노출하지 않는다. 발송 성공/계정 존재의 완전한 네트워크 시간 동일성을 보장한다는 뜻은 아니다. 재발송 제한은 외부 조회 전에도 적용한다. 실제 발송 API가 실패하면 저장한 challenge를 폐기하고 503을 반환한다. 발송 완료 후 expiresIn은 Redis에 남은 TTL을 다시 읽어 반환하므로 외부 통신에 쓴 시간을 새 유효시간처럼 더하지 않는다.
+
+### 화면 복귀·재시도와 새 번호 발급
+
+- `GET /auth/otp/pending?purpose=...`는 IP 한도를 먼저 확인한 뒤 15분 유휴 수명의 HttpOnly 익명 브라우저 세션을 준비하고 그 세션·목적에 속한 마지막 인증의 아이디, 불투명 challenge ID와 남은 시간만 반환한다. 다른 브라우저의 인증을 username으로 찾는 API는 없다. 로그인 시 기존 설정의 4시간 유휴 만료를 복원하며 기존 세션 수명을 줄이지 않는다. PASSWORD_CHANGE는 현재 본인 세션 검증도 필요하다.
+- 발급 정보는 Redis의 세션 HMAC·목적별 키에만 저장한다. OTP 원문·입력한 비밀번호를 보관하지 않는다. localStorage/sessionStorage, URL, 로그에도 인증 정보를 추가하지 않는다. 실제 발송 비대상에도 같은 형태의 불투명 인증 메타데이터를 보관해 복원 응답으로 가입 가능 여부를 구분하지 않는다.
+- 초기 요청은 `resend=false`(기본값)다. 같은 세션·목적·아이디의 유효한 인증이 있으면 그대로 반환한다. 화면 이동·새로고침·재진입은 새 DM 발송, 한도 차감, 유효시간/재발송 기한 연장을 하지 않는다. 복원 시 코드·비밀번호 입력란은 비운다.
+- 사용자가 **새 인증번호 받기**를 선택한 `resend=true`만 새 발급을 시도한다. 받아 둔 유효 번호의 검증은 재발송 대기 중에도 가능하다. 새 발급 시 같은 목적의 이전 proof는 기존 규칙대로 폐기한다. 발송 실패를 성공으로 복원하지 않는다.
+- `requestId`는 동일 세션·목적·아이디 요청의 제한된 수명 멱등 키다. 응답 유실 후 같은 키로 재시도하면 발급 결과를 재사용하며 다른 아이디로 같은 키를 재사용하면 거절한다. 같은 세션·목적은 Redis 잠금으로 직렬화하고, 처리 중인 요청은 새 발급 없이 상태를 재조회한다. 메타데이터/영수증은 기본 최대 6분(설정한 OTP 수명이 더 길면 그 수명+1분)에 만료한다.
+- 최근 300초의 수락된 새 발급 처리 시도만 Redis rolling window에 기록한다. 상태 조회·기존 인증 재사용·쿨다운/한도 거절·같은 요청의 재시도는 추가하지 않는다. 한도 확인과 name/account 예약은 한 Lua 실행에서 함께 수행한다. 거절로 재발송 기한이나 한도 창을 연장하지 않는다. IP 남용 제한과 오답 5회/일회용 proof는 유지한다.
+- 오류는 `OTP_RESEND_COOLDOWN`, `OTP_RATE_LIMITED`, `OTP_REQUEST_IN_PROGRESS`로 구분하고 실제 남은 초를 반환한다. 첫 단계와 인증번호 입력 단계 모두 분·초 대기를 표시하고, 대기가 끝나면 새 요청 버튼과 안내를 갱신한다. 대기 초를 매초 screen reader에 반복 알리지 않는다.
+- 배포 시 새 OTP quota namespace `tagme:auth:otp:v2:*`를 사용해 기존 15분 카운터를 재사용하지 않는다. 남아 있는 기존 60초 cooldown만 존중한다. 로그인 제한·세션·이미 받은 challenge 키는 삭제하지 않으며 새 환경변수나 SQL migration은 필요하지 않다. 배포 이전에 발급해 복원 메타데이터가 없는 인증은 원래 화면에 보관한 challenge ID로 계속 검증할 수 있다.
 
 제한 값은 `tagme.auth.*` 설정과 환경변수로 조정한다. 캠퍼스 공유 NAT에서 IP가 겹칠 수 있으므로 현장 사용자 수와 해시 비용을 측정해 IP 한도를 조정한다. 클라이언트가 임의로 보낸 X-Forwarded-For를 인증 코드에서 직접 읽지 않는다. 운영은 외부에 API를 노출하지 않고 Caddy가 정리한 전달 헤더를 기존 Spring proxy 설정으로 처리한다.
 
@@ -94,7 +105,8 @@ SIGN_UP의 이미 가입된 ACTIVE 계정은 사용자 요청에 따라 409 ACCO
 | --- | --- | --- |
 | GET | `/auth/config` | available(설정상 활성 여부), 비밀번호 최소/최대 길이. 실제 외부 접속 성공을 뜻하지 않음 |
 | GET | `/csrf` | headerName/token과 XSRF-TOKEN 쿠키 |
-| POST | `/auth/otp/request` | purpose, username(SIGN_UP/RESET만) → challengeId/expiresIn/resendAfter |
+| GET | `/auth/otp/pending` | purpose → 같은 브라우저의 인증/만료/진행/대기 상태, 발송 없음 |
+| POST | `/auth/otp/request` | purpose, username(SIGN_UP/RESET만), resend, requestId → challengeId/expiresIn/resendAfter/reused |
 | POST | `/auth/signup` | challengeId/code/password → 201, 내 계정 + 세션 |
 | POST | `/auth/login` | username/password → 내 계정 + 세션; OTP 없음 |
 | POST | `/auth/logout` | 세션 + CSRF → 204 |

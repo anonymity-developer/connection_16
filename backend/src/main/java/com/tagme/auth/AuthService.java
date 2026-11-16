@@ -11,20 +11,24 @@ import org.springframework.transaction.support.TransactionTemplate;
 
 @Service
 public class AuthService {
-    public record OtpResponse(String challengeId, int expiresIn, int resendAfter) { }
+    public record OtpResponse(String challengeId,int expiresIn,int resendAfter,boolean reused) {
+        public OtpResponse(String challengeId,int expiresIn,int resendAfter){this(challengeId,expiresIn,resendAfter,false);}
+        @Override public String toString(){return "OtpResponse[redacted]";}
+    }
     private final AuthProperties properties;
     private final AuthRepository accounts;
     private final MattermostClient mattermost;
     private final OtpStore challenges;
     private final AuthCrypto crypto;
     private final AuthRateLimiter limits;
+    private final OtpRequestLimiter otpLimits;
     private final PasswordEncoder passwords;
     private final TransactionTemplate transactions;
     private final String dummyHash;
     public AuthService(AuthProperties properties, AuthRepository accounts, MattermostClient mattermost, OtpStore challenges,
-                       AuthCrypto crypto, AuthRateLimiter limits, PasswordEncoder passwords, org.springframework.transaction.PlatformTransactionManager manager) {
+                       AuthCrypto crypto, AuthRateLimiter limits, OtpRequestLimiter otpLimits, PasswordEncoder passwords, org.springframework.transaction.PlatformTransactionManager manager) {
         this.properties = properties; this.accounts = accounts; this.mattermost = mattermost; this.challenges = challenges;
-        this.crypto = crypto; this.limits = limits; this.passwords = passwords; this.transactions = new TransactionTemplate(manager);
+        this.crypto = crypto; this.limits = limits; this.otpLimits=otpLimits; this.passwords = passwords; this.transactions = new TransactionTemplate(manager);
         dummyHash = passwords.encode(UUID.randomUUID().toString());
     }
     private void ready() { if (!properties.enabled()) throw AuthException.unavailable(); }
@@ -36,42 +40,37 @@ public class AuthService {
     private boolean active(AuthRepository.Account account) { return account != null && "ACTIVE".equals(account.status()); }
     private long version(AuthRepository.Account account) { return account == null || account.version() == null ? 0 : account.version(); }
     public String sessionBinding(String sessionId) { return crypto.digest("session:" + sessionId); }
-    public OtpResponse request(OtpStore.Purpose purpose, String input, AuthPrincipal principal, String sessionId, String ip) {
+    public String otpUsername(OtpStore.Purpose purpose,String input,AuthPrincipal principal,String sessionId) {
         ready();
-        String name;
-        AuthRepository.Account current = null;
-        if (purpose == OtpStore.Purpose.PASSWORD_CHANGE) {
-            if (principal == null || sessionId == null) throw new AuthException(401, "UNAUTHENTICATED", "로그인이 필요합니다.");
-            if (input != null) throw new AuthException(400, "INVALID_INPUT", "변경 대상은 로그인한 본인 계정입니다.");
-            current = accounts.byId(principal.userId()).filter(a -> active(a) && Objects.equals(a.version(), principal.version())).orElseThrow(AuthException::invalid);
-            name = current.username();
-        } else name = username(input);
-        limits.check("otp-ip", ip, properties.ipPerMinute(), 60);
-        // Applied before lookup, including nonexistent/ineligible accounts.
-        limits.check("otp-name", name, properties.otpAccountLimit(), 900);
-        limits.check("otp-resend", name, 1, properties.resendSeconds());
-        var identity = current == null ? mattermost.byUsername(name) : mattermost.byId(current.mattermostId());
-        String id = crypto.identifier();
-        var response = new OtpResponse(id, properties.otpTtlSeconds(), properties.resendSeconds());
-        if (identity.isEmpty()) return response;
-        var target = identity.get();
-        limits.check("otp-account", target.id(), properties.otpAccountLimit(), 900);
-        var account = accounts.byExternalId(target.id()).orElse(null);
-        // Explicit signup UX: report registered participants before issuing a challenge.
-        // Login/reset retain their generic responses; existing request limits still apply.
-        if (purpose == OtpStore.Purpose.SIGN_UP && active(account) && account.hash() != null) throw AuthException.alreadyRegistered();
-        boolean eligible = purpose == OtpStore.Purpose.SIGN_UP ? account == null || active(account) && account.hash() == null
-                : active(account) && account.hash() != null;
-        if (!eligible) return response;
-        var challenge = new OtpStore.Challenge(purpose, target.id(), account == null ? 0 : account.id(), version(account),
-                purpose == OtpStore.Purpose.PASSWORD_CHANGE ? sessionBinding(sessionId) : "");
-        String code = crypto.code();
-        challenges.issue(id, challenge, code);
-        try { mattermost.sendCode(target, purpose, code); }
-        catch (RuntimeException failure) { challenges.invalidate(id); throw failure; }
-        int remaining = challenges.remainingSeconds(id);
-        if (remaining <= 0) { challenges.invalidate(id); throw restart(); }
-        return new OtpResponse(id, remaining, properties.resendSeconds());
+        if(purpose==OtpStore.Purpose.PASSWORD_CHANGE){
+            if(principal==null||sessionId==null)throw new AuthException(401,"UNAUTHENTICATED","로그인이 필요합니다.");
+            if(input!=null)throw new AuthException(400,"INVALID_INPUT","변경 대상은 로그인한 본인 계정입니다.");
+            return accounts.byId(principal.userId()).filter(a->active(a)&&Objects.equals(a.version(),principal.version())).orElseThrow(AuthException::invalid).username();
+        }
+        return username(input);
+    }
+    public OtpResponse request(OtpStore.Purpose purpose,String input,AuthPrincipal principal,String sessionId,String ip) {
+        String name=otpUsername(purpose,input,principal,sessionId);
+        limits.check("otp-ip",ip,properties.ipPerMinute(),60);
+        otpLimits.check(name);
+        var current=purpose==OtpStore.Purpose.PASSWORD_CHANGE?accounts.byId(principal.userId()).orElseThrow(AuthException::invalid):null;
+        var identity=current==null?mattermost.byUsername(name):mattermost.byId(current.mattermostId());
+        String id=crypto.identifier();String external=identity.map(MattermostClient.Identity::id).orElse(null);
+        otpLimits.reserve(name,external,id);
+        // Generic challenges have exactly the same restorable browser metadata as deliverable ones.
+        if(identity.isEmpty())return new OtpResponse(id,properties.otpTtlSeconds(),otpLimits.remaining(name,null).seconds());
+        var target=identity.get();var account=accounts.byExternalId(target.id()).orElse(null);
+        if(purpose==OtpStore.Purpose.SIGN_UP&&active(account)&&account.hash()!=null)throw AuthException.alreadyRegistered();
+        boolean eligible=purpose==OtpStore.Purpose.SIGN_UP?account==null||active(account)&&account.hash()==null:active(account)&&account.hash()!=null;
+        if(!eligible)return new OtpResponse(id,properties.otpTtlSeconds(),otpLimits.remaining(name,external).seconds());
+        var challenge=new OtpStore.Challenge(purpose,target.id(),account==null?0:account.id(),version(account),
+            purpose==OtpStore.Purpose.PASSWORD_CHANGE?sessionBinding(sessionId):"");
+        String code=crypto.code();
+        try{challenges.issue(id,challenge,code);}catch(AuthException failure){if(failure.status()==429)otpLimits.cancel(name,external,id);throw failure;}
+        try{mattermost.sendCode(target,purpose,code);}catch(RuntimeException failure){challenges.invalidate(id);throw failure;}
+        int remaining=challenges.remainingSeconds(id);
+        if(remaining<=0){challenges.invalidate(id);throw restart();}
+        return new OtpResponse(id,remaining,otpLimits.remaining(name,external).seconds());
     }
     public AuthRepository.Account login(String input, String password, String ip) {
         ready();
