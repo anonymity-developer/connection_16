@@ -92,7 +92,7 @@ class AuthIntegrationTest {
             return raw(method, path, body, (String) token.getBody().get("token"));
         }
         String otp(String username, OtpStore.Purpose purpose) {
-            Map<String, Object> body = new HashMap<>(); body.put("purpose", purpose.name()); if (username != null) body.put("username", username);
+            Map<String, Object> body = new HashMap<>(); body.put("purpose", purpose.name()); body.put("resend",true); body.put("requestId",UUID.randomUUID().toString()); if (username != null) body.put("username", username);
             var response = send(HttpMethod.POST, "/auth/otp/request", body);
             assertThat(response.getStatusCode().value()).isEqualTo(200);
             return (String) response.getBody().get("challengeId");
@@ -100,7 +100,7 @@ class AuthIntegrationTest {
         ResponseEntity<Map> login(String username, String password) { return send(HttpMethod.POST, "/auth/login", Map.of("username", username, "password", password)); }
     }
     void allowResend() {
-        for (String pattern : List.of("tagme:auth:cooldown:*", "tagme:auth:limit:otp-resend:*")) {
+        for (String pattern : List.of("tagme:auth:cooldown:*", "tagme:auth:limit:otp-resend:*", "tagme:auth:otp:v2:cooldown:*")) {
             var keys = redis.keys(pattern); if (keys != null && !keys.isEmpty()) redis.delete(keys);
         }
     }
@@ -108,6 +108,128 @@ class AuthIntegrationTest {
         var browser = new Browser(); String id = browser.otp(name, OtpStore.Purpose.SIGN_UP);
         var response = browser.send(HttpMethod.POST, "/auth/signup", Map.of("challengeId", id, "code", sent.getLast().code(), "password", PASSWORD));
         assertThat(response.getStatusCode().value()).isEqualTo(201); return browser;
+    }
+    Map<String,Object> otpBody(String name,boolean resend,String id) { return Map.of("purpose","PASSWORD_RESET","username",name,"resend",resend,"requestId",id); }
+    String window(String name){return "tagme:auth:otp:v2:window:"+crypto.digest("name:"+name);}
+    @Test void pendingOtpSurvivesNavigationAndReusesTheSameChallengeWithoutSendingOrExtendingIt() {
+        signup("alice");allowResend();var browser=new Browser();
+        assertThat(browser.get("/auth/otp/pending?purpose=PASSWORD_RESET").getBody().get("challenge")).isNull();
+        var issued=browser.send(HttpMethod.POST,"/auth/otp/request",otpBody("alice",false,"restore-initial-0001"));
+        String id=(String)issued.getBody().get("challengeId");int messages=sent.size();
+        var original=redis.opsForValue().get(redis.keys("tagme:auth:flow:v2:*:PASSWORD_RESET").iterator().next());
+        for(int i=0;i<3;i++){
+            var pending=browser.get("/auth/otp/pending?purpose=PASSWORD_RESET");
+            assertThat(((Map)pending.getBody().get("challenge")).get("challengeId")).isEqualTo(id);
+        }
+        var reused=browser.send(HttpMethod.POST,"/auth/otp/request",otpBody("alice",false,"restore-reentry-0002"));
+        assertThat(reused.getBody()).containsEntry("challengeId",id).containsEntry("reused",true);
+        assertThat(sent).hasSize(messages);assertThat(redis.opsForZSet().size(window("alice"))).isEqualTo(2);
+        assertThat(redis.opsForValue().get(redis.keys("tagme:auth:flow:v2:*:PASSWORD_RESET").iterator().next())).isEqualTo(original);
+        assertThat(new Browser().get("/auth/otp/pending?purpose=PASSWORD_RESET").getBody().get("challenge")).isNull();
+        assertThat(browser.get("/auth/otp/pending?purpose=SIGN_UP").getBody().get("challenge")).isNull();
+        var done=browser.send(HttpMethod.POST,"/auth/password/reset",Map.of("challengeId",id,"code",sent.getLast().code(),"newPassword",PASSWORD));
+        assertThat(done.getStatusCode().value()).isEqualTo(204);
+        assertThat(browser.get("/auth/otp/pending?purpose=PASSWORD_RESET").getBody().get("challenge")).isNull();
+    }
+    @Test void resendRetriesAreIdempotentAndRejectedCooldownClicksDoNotConsumeQuota() {
+        signup("alice");allowResend();var browser=new Browser();
+        var body=otpBody("alice",true,"idempotent-reset-001");var first=browser.send(HttpMethod.POST,"/auth/otp/request",body);
+        int messages=sent.size();long count=redis.opsForZSet().size(window("alice"));
+        allowResend();var retry=browser.send(HttpMethod.POST,"/auth/otp/request",body);
+        assertThat(retry.getBody()).containsEntry("challengeId",first.getBody().get("challengeId")).containsEntry("reused",true);
+        assertThat(sent).hasSize(messages);assertThat(redis.opsForZSet().size(window("alice"))).isEqualTo(count);
+        // Make this test independent of machine speed and the one-second test resend configuration.
+        String cooldown="tagme:auth:otp:v2:cooldown:"+crypto.digest("name:alice");redis.opsForValue().set(cooldown,"test-owner",Duration.ofSeconds(60));
+        for(int i=0;i<6;i++){
+            var blocked=browser.send(HttpMethod.POST,"/auth/otp/request",otpBody("alice",true,"blocked-reset-click-"+i));
+            assertThat(blocked.getStatusCode().value()).isEqualTo(429);assertThat(blocked.getBody()).containsEntry("code","OTP_RESEND_COOLDOWN");
+        }
+        assertThat(redis.opsForZSet().size(window("alice"))).isEqualTo(count);assertThat(sent).hasSize(messages);
+        var restored=(Map)browser.get("/auth/otp/pending?purpose=PASSWORD_RESET").getBody().get("challenge");
+        assertThat(restored.get("challengeId")).isEqualTo(first.getBody().get("challengeId"));
+        assertThat(browser.send(HttpMethod.POST,"/auth/otp/request",otpBody("bob",true,"idempotent-reset-001")).getStatusCode().value()).isEqualTo(409);
+        assertThat(redis.opsForZSet().size(window("bob"))).isZero();
+    }
+    @Test void lateRetriesUseTheCurrentExplicitResendAndNeverRestoreSupersededOrFailedProofs() {
+        signup("alice");allowResend();var browser=new Browser();
+        var original=otpBody("alice",true,"late-retry-original-01");var first=browser.send(HttpMethod.POST,"/auth/otp/request",original);
+        allowResend();var second=browser.send(HttpMethod.POST,"/auth/otp/request",otpBody("alice",true,"late-retry-new-send-02"));
+        assertThat(second.getBody().get("challengeId")).isNotEqualTo(first.getBody().get("challengeId"));int messages=sent.size();
+        var retry=browser.send(HttpMethod.POST,"/auth/otp/request",original);
+        assertThat(retry.getBody()).containsEntry("challengeId",second.getBody().get("challengeId")).containsEntry("reused",true);assertThat(sent).hasSize(messages);
+        allowResend();doThrow(AuthException.unavailable()).when(mattermost).sendCode(any(),any(),anyString());
+        assertThat(browser.send(HttpMethod.POST,"/auth/otp/request",otpBody("alice",true,"late-retry-failed-send")).getStatusCode().value()).isEqualTo(503);
+        assertThat(browser.send(HttpMethod.POST,"/auth/otp/request",original).getStatusCode().value()).isEqualTo(409);
+        assertThat(browser.get("/auth/otp/pending?purpose=PASSWORD_RESET").getBody().get("challenge")).isNull();
+    }
+    @Test void issuanceUsesARollingFiveMinuteWindowAndIgnoresOldFifteenMinuteCounters() {
+        var browser=new Browser();String name="unknown-reset-fixture";
+        redis.opsForValue().set("tagme:auth:limit:otp-name:"+crypto.digest(name),"99",Duration.ofMinutes(15));
+        for(int i=0;i<5;i++){
+            allowResend();assertThat(browser.send(HttpMethod.POST,"/auth/otp/request",otpBody(name,true,"quota-fixture-send-"+i)).getStatusCode().value()).isEqualTo(200);
+        }
+        allowResend();long ttl=redis.getExpire(window(name));
+        for(int i=0;i<3;i++){
+            var blocked=browser.send(HttpMethod.POST,"/auth/otp/request",otpBody(name,true,"quota-fixture-block-"+i));
+            assertThat(blocked.getStatusCode().value()).isEqualTo(429);assertThat(blocked.getBody()).containsEntry("code","OTP_RATE_LIMITED");
+            assertThat(((Number)blocked.getBody().get("retryAfter")).intValue()).isBetween(1,300);
+        }
+        assertThat(redis.opsForZSet().size(window(name))).isEqualTo(5);assertThat(redis.getExpire(window(name))).isLessThanOrEqualTo(ttl);
+        var first=redis.opsForZSet().range(window(name),0,0).iterator().next();
+        redis.opsForZSet().add(window(name),first,System.currentTimeMillis()-301000);
+        assertThat(browser.send(HttpMethod.POST,"/auth/otp/request",otpBody(name,true,"quota-fixture-next-01")).getStatusCode().value()).isEqualTo(200);
+        assertThat(redis.opsForZSet().size(window(name))).isEqualTo(5);assertThat(sent).isEmpty();
+        assertThat(browser.get("/auth/otp/pending?purpose=PASSWORD_RESET").getBody().get("challenge")).isNotNull();
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM users",Integer.class)).isZero();
+    }
+    @Test void failedDeliveryNeverRestoresAFakeSuccessAndRetryingTheSameRequestDoesNotSendAgain() {
+        signup("alice");allowResend();clearInvocations(mattermost);
+        doThrow(AuthException.unavailable()).when(mattermost).sendCode(any(),any(),anyString());
+        var browser=new Browser();var body=otpBody("alice",true,"failed-delivery-reset-01");
+        assertThat(browser.send(HttpMethod.POST,"/auth/otp/request",body).getStatusCode().value()).isEqualTo(503);
+        assertThat(browser.send(HttpMethod.POST,"/auth/otp/request",body).getStatusCode().value()).isEqualTo(503);
+        assertThat(browser.get("/auth/otp/pending?purpose=PASSWORD_RESET").getBody().get("challenge")).isNull();
+        verify(mattermost,times(1)).sendCode(any(),any(),anyString());
+        assertThat(redis.opsForZSet().size(window("alice"))).isEqualTo(2);
+        assertThat(redis.keys("tagme:auth:challenge:*")).isEmpty();
+    }
+    @Test void restoringPasswordChangeRequiresTheOriginalSignedInBrowserAndNeverBypassesDmVerification() {
+        var browser=signup("alice");allowResend();String id=browser.otp(null,OtpStore.Purpose.PASSWORD_CHANGE);
+        var pending=browser.get("/auth/otp/pending?purpose=PASSWORD_CHANGE");
+        assertThat(((Map)pending.getBody().get("challenge")).get("challengeId")).isEqualTo(id);
+        var other=new Browser();assertThat(other.get("/auth/otp/pending?purpose=PASSWORD_CHANGE").getStatusCode().value()).isEqualTo(401);
+        assertThat(other.login("alice",PASSWORD).getStatusCode().value()).isEqualTo(200);
+        assertThat(other.get("/auth/otp/pending?purpose=PASSWORD_CHANGE").getBody().get("challenge")).isNull();
+        assertThat(other.send(HttpMethod.PUT,"/users/me/password",Map.of("challengeId",id,"code",sent.getLast().code(),"newPassword",PASSWORD)).getStatusCode().value()).isEqualTo(401);
+        assertThat(accounts.byExternalId(ALICE).orElseThrow().version()).isEqualTo(1);
+    }
+    @Test void concurrentTabsShareAnInFlightRequestAndNeverSendTwoCodes() throws Exception {
+        signup("alice");allowResend();var browser=new Browser();browser.get("/auth/otp/pending?purpose=PASSWORD_RESET");
+        String csrf=(String)browser.get("/csrf").getBody().get("token");int messages=sent.size();
+        var started=new CountDownLatch(1);var finish=new CountDownLatch(1);
+        doAnswer(i->{started.countDown();assertThat(finish.await(15,TimeUnit.SECONDS)).isTrue();sent.add(new Sent(((MattermostClient.Identity)i.getArgument(0)).id(),i.getArgument(1),i.getArgument(2)));return null;}).when(mattermost).sendCode(any(),any(),anyString());
+        try(var pool=Executors.newFixedThreadPool(2)){
+            var first=pool.submit(()->browser.raw(HttpMethod.POST,"/auth/otp/request",otpBody("alice",false,"parallel-reset-first"),csrf));
+            try{
+                assertThat(started.await(10,TimeUnit.SECONDS)).isTrue();
+                assertThat(browser.get("/auth/otp/pending?purpose=PASSWORD_RESET").getBody()).containsEntry("inProgress",true);
+                var second=browser.raw(HttpMethod.POST,"/auth/otp/request",otpBody("alice",false,"parallel-reset-other"),csrf);
+                assertThat(second.getStatusCode().value()).isEqualTo(409);assertThat(second.getBody()).containsEntry("code","OTP_REQUEST_IN_PROGRESS");
+            } finally{finish.countDown();}
+            assertThat(first.get(15,TimeUnit.SECONDS).getStatusCode().value()).isEqualTo(200);
+        }
+        assertThat(sent).hasSize(messages+1);assertThat(redis.opsForZSet().size(window("alice"))).isEqualTo(2);
+    }
+    @Test void anonymousRecoverySessionsHaveABoundedIdleLifetimeAndRateRejectedReadsCreateNoNewSessions() {
+        var browser=new Browser();browser.get("/auth/otp/pending?purpose=PASSWORD_RESET");
+        String sessionId=new String(Base64.getDecoder().decode(browser.cookies.get("TAGME_SESSION")),java.nio.charset.StandardCharsets.UTF_8);
+        assertThat(redisSessions.findById(sessionId).getMaxInactiveInterval()).isEqualTo(Duration.ofMinutes(15));
+        for(int i=1;i<120;i++)assertThat(browser.get("/auth/otp/pending?purpose=PASSWORD_RESET").getStatusCode().value()).isEqualTo(200);
+        var keys=redis.keys("spring:session:sessions:*");
+        var blocked=new Browser().get("/auth/otp/pending?purpose=PASSWORD_RESET");
+        assertThat(blocked.getStatusCode().value()).isEqualTo(429);
+        assertThat(blocked.getHeaders().getOrEmpty(HttpHeaders.SET_COOKIE)).noneMatch(cookie->cookie.startsWith("TAGME_SESSION="));
+        assertThat(redis.keys("spring:session:sessions:*")).isEqualTo(keys);
     }
     @Test void redisSessionUsesFourHourIdleTimeoutAndLogoutDeletesOnlyCurrentDevice() {
         var first = signup("alice"); var second = new Browser();

@@ -21,14 +21,17 @@ public class AuthSessions {
     private final CsrfTokenRepository csrf;
     private final FindByIndexNameSessionRepository<? extends Session> sessions;
     private final ConnectionSessions connections;
-    public AuthSessions(SecurityContextRepository contexts, CsrfTokenRepository csrf, FindByIndexNameSessionRepository<? extends Session> sessions, ConnectionSessions connections) {
+    private final int idleSeconds;
+    public AuthSessions(SecurityContextRepository contexts, CsrfTokenRepository csrf, FindByIndexNameSessionRepository<? extends Session> sessions, ConnectionSessions connections,
+        @org.springframework.beans.factory.annotation.Value("${spring.session.timeout:4h}") String idleTimeout) {
         this.contexts = contexts; this.csrf = csrf; this.sessions = sessions; this.connections=connections;
+        idleSeconds=Math.toIntExact(org.springframework.boot.convert.DurationStyle.detectAndParse(idleTimeout,java.time.temporal.ChronoUnit.SECONDS).getSeconds());
     }
     public void login(AuthRepository.Account account, HttpServletRequest request, HttpServletResponse response) {
         connections.close(request.getSession(false),"REPLACED");
         var principal = account.principal();
         var authentication = UsernamePasswordAuthenticationToken.authenticated(principal, null, List.of(new SimpleGrantedAuthority("ROLE_" + account.role())));
-        request.getSession(true);
+        request.getSession(true).setMaxInactiveInterval(idleSeconds);
         new ChangeSessionIdAuthenticationStrategy().onAuthentication(authentication, request, response);
         new CsrfAuthenticationStrategy(csrf).onAuthentication(authentication, request, response);
         connections.open(account,request.getSession());

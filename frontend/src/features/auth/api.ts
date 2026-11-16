@@ -1,6 +1,7 @@
 export interface SessionUser { id: number; username: string; nickname: string | null; onboardingRequired: boolean; admin?: boolean }
 export interface AuthConfig { available: boolean; passwordMinLength: number; passwordMaxLength: number; participantAvailable?: boolean; adminAvailable?: boolean }
-export interface OtpChallenge { challengeId: string; expiresIn: number; resendAfter: number }
+export interface OtpChallenge { challengeId: string; expiresIn: number; resendAfter: number; reused?: boolean }
+export interface OtpPending { username: string | null; challenge: OtpChallenge | null; retryAfter: number; limitCode: string | null; expired: boolean; inProgress: boolean }
 export type OtpPurpose = 'SIGN_UP' | 'PASSWORD_CHANGE' | 'PASSWORD_RESET';
 export class ApiError extends Error {
   status: number;
@@ -46,7 +47,8 @@ export const authApi = {
   me: () => request<SessionUser>('/users/me'),
   async login(username: string, password: string) { const user = await request<SessionUser>('/auth/login', 'POST', { username, password }); resetSession(); return user; },
   async signup(challengeId: string, code: string, password: string) { const user = await request<SessionUser>('/auth/signup', 'POST', { challengeId, code, password }); resetSession(); return user; },
-  otp: (purpose: OtpPurpose, username?: string) => request<OtpChallenge>('/auth/otp/request', 'POST', { purpose, ...(username === undefined ? {} : { username }) }),
+  pendingOtp: (purpose: OtpPurpose) => request<OtpPending>(`/auth/otp/pending?purpose=${purpose}`),
+  otp: (purpose: OtpPurpose, username: string | undefined, resend: boolean, requestId: string) => request<OtpChallenge>('/auth/otp/request', 'POST', { purpose, ...(username === undefined ? {} : { username }), resend, requestId }),
   async password(mode: 'reset' | 'change', challengeId: string, code: string, newPassword: string) {
     await request<void>(mode === 'change' ? '/users/me/password' : '/auth/password/reset', mode === 'change' ? 'PUT' : 'POST', { challengeId, code, newPassword }); resetSession();
   },

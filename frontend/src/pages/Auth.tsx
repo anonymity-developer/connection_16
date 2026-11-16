@@ -11,6 +11,8 @@ import { useAuth } from '../features/auth/context';
 import { validateAuth } from '../features/auth/validation';
 import type { AuthErrors, AuthMode, AuthValues } from '../features/auth/validation';
 
+const waitLabel = (seconds: number) => seconds >= 60 ? `${Math.floor(seconds / 60)}분 ${seconds % 60}초` : `${seconds}초`;
+
 const copy = {
   login: { title: '로그인', description: '반가워요! 내 계정으로 다섯 미션을 이어가요.', submit: '로그인하기' },
   signup: { title: '회원가입', description: '우리의 연결을 시작해요. DM 인증 후 TAG ME 비밀번호를 만들어요.', submit: '가입하기' },
@@ -22,6 +24,12 @@ export function Auth({ mode, preview }: { mode: AuthMode; preview: boolean }) {
   const auth = useAuth();
   const { setFlash } = auth;
   const [busy, setBusy] = useState(false);
+  const [restoring, setRestoring] = useState(mode !== 'login' && !preview);
+  const [restoreVersion, setRestoreVersion] = useState(0);
+  const [limitCode, setLimitCode] = useState<string | null>(null);
+  const requestAttempt = useRef<{ username: string; resend: boolean; id: string } | null>(null);
+  const restoreExpected = useRef<string | undefined>(undefined);
+  const restoreRevision = useRef(0);
   const [challenge, setChallenge] = useState<OtpChallenge | null>(null);
   const [expiresAt, setExpiresAt] = useState(0);
   const [resendAt, setResendAt] = useState(0);
@@ -40,7 +48,7 @@ export function Auth({ mode, preview }: { mode: AuthMode; preview: boolean }) {
   const current = copy[mode];
   const showPassword = mode === 'login' || step === 'verify';
   const passwordLabel = mode === 'login' || mode === 'signup' ? '비밀번호' : '새 비밀번호';
-  const set = (name: keyof AuthValues, value: string) => { setValues((previous) => ({ ...previous, [name]: value })); setErrors((previous) => ({ ...previous, [name]: undefined })); setNotice(''); setFailed(false); auth.setFlash(''); };
+  const set = (name: keyof AuthValues, value: string) => { if (name === 'username' && value.trim().toLowerCase() !== values.username.trim().toLowerCase()) { restoreRevision.current++; requestAttempt.current = null; setResendAt(0); setLimitCode(null); } setValues((previous) => ({ ...previous, [name]: value })); setErrors((previous) => ({ ...previous, [name]: undefined })); setNotice(''); setFailed(false); auth.setFlash(''); };
 
   useEffect(() => {
     if (mode === 'change') setFlash('');
@@ -59,29 +67,66 @@ export function Auth({ mode, preview }: { mode: AuthMode; preview: boolean }) {
     return () => window.clearInterval(timer);
   }, [challenge, resendAt]);
 
-  async function requestCode() {
-    if (busy) return;
+  useEffect(() => {
+    if (mode === 'login' || preview) { setRestoring(false); return; }
+    if (!auth.ready) return;
+    if (!(auth.config.participantAvailable ?? auth.config.available)) { setRestoring(false); return; }
+    let active = true, timer: number | undefined, polls = 0;
+    const revision = ++restoreRevision.current, expected = restoreExpected.current;
+    setRestoring(true);
+    async function restore() {
+      try {
+        timer = undefined;
+        const next = await authApi.pendingOtp(purpose);
+        if (!active || revision !== restoreRevision.current) return;
+        if (expected && next.username && next.username !== expected) { setNotice('다른 인증 요청이 처리 중이에요. 잠시 후 다시 요청해 주세요.'); setRestoring(false); return; }
+        if (next.inProgress && polls++ < 60) { timer = window.setTimeout(() => void restore(), 1000); return; }
+        const received = Date.now(); setNow(received); setResendAt(received + (next.retryAfter ?? 0) * 1000); setLimitCode(next.limitCode);
+        const resumedUsername = next.username;
+        if (resumedUsername) setValues(previous => ({ ...previous, username: resumedUsername, code: '', password: '', confirmation: '' }));
+        if (next.challenge) {
+          requestAttempt.current = null;
+          setChallenge(next.challenge); setExpiresAt(received + next.challenge.expiresIn * 1000); setStep('verify'); setFailed(false);
+          setNotice('진행 중인 인증을 이어서 할 수 있어요. 받은 번호를 입력해 주세요.');
+        } else if (next.expired) { setNotice('인증 시간이 지났어요. 인증번호를 새로 받아주세요.'); }
+        else if (next.retryAfter > 0) { setFailed(true); setNotice('새 인증번호를 받으려면 잠시 기다려 주세요.'); }
+        else if (next.inProgress) { setNotice('인증 요청 처리가 지연되고 있어요. 잠시 후 다시 확인해 주세요.'); }
+      } catch { if (active && revision === restoreRevision.current) setNotice('진행 중인 인증을 확인하지 못했어요. 아이디를 입력하면 다시 확인해요.'); }
+      finally { if (active && revision === restoreRevision.current && timer === undefined) setRestoring(false); }
+    }
+    void restore();
+    return () => { active = false; if (timer !== undefined) window.clearTimeout(timer); };
+  }, [mode, purpose, preview, auth.ready, auth.config.available, auth.config.participantAvailable, restoreVersion]);
+
+  async function requestCode(resend = false) {
+    if (busy || restoring) return;
     if (preview) { setStep('verify'); setNotice('개발용 미리보기예요. 실제 DM은 발송되지 않았어요.'); return; }
     if (!(auth.config.participantAvailable ?? auth.config.available)) { setNotice('참가자 인증 서비스를 준비하고 있어요. 입력값은 전송되지 않았어요.'); return; }
-    setBusy(true); setNotice(''); setFailed(false);
+    setBusy(true); setNotice(''); setFailed(false); setLimitCode(null);
+    const username = mode === 'change' ? '' : values.username.trim().toLowerCase();
+    if (!requestAttempt.current || requestAttempt.current.username !== username || requestAttempt.current.resend !== resend) requestAttempt.current = { username, resend, id: crypto.randomUUID() };
     try {
-      const next = await authApi.otp(purpose, mode === 'change' ? undefined : values.username.trim());
+      const next = await authApi.otp(purpose, mode === 'change' ? undefined : username, resend, requestAttempt.current.id);
+      requestAttempt.current = null;
       const received = Date.now();
       setChallenge(next); setExpiresAt(received + next.expiresIn * 1000); setResendAt(received + next.resendAfter * 1000); setNow(received);
       setValues((previous) => ({ ...previous, code: '' })); setStep('verify');
-      setNotice('발송 가능한 계정이면 Mattermost DM으로 번호가 도착해요. DM을 확인해 주세요.');
+      setNotice(next.reused ? '진행 중인 인증을 이어서 할 수 있어요. 받은 번호를 입력해 주세요.' : '발송 가능한 계정이면 Mattermost DM으로 번호가 도착해요. DM을 확인해 주세요.');
     } catch (failure) { showFailure(failure); }
     finally { setBusy(false); }
   }
   function showFailure(failure: unknown) {
     setFailed(true);
+    setLimitCode(failure instanceof ApiError ? failure.code : null);
+    if (!(failure instanceof ApiError) || !['NETWORK_ERROR', 'OTP_REQUEST_IN_PROGRESS'].includes(failure.code)) requestAttempt.current = null;
+    if (failure instanceof ApiError && failure.code === 'OTP_REQUEST_IN_PROGRESS') { restoreExpected.current = mode === 'change' ? undefined : values.username.trim().toLowerCase(); setRestoring(true); setRestoreVersion(previous => previous + 1); }
     if (failure instanceof ApiError && failure.retryAfter > 0) { setResendAt(Date.now() + failure.retryAfter * 1000); setNow(Date.now()); }
     if (failure instanceof ApiError && ['AUTH_RESTART_REQUIRED', 'ACCOUNT_ALREADY_REGISTERED', 'ACCOUNT_CONFLICT'].includes(failure.code)) { setChallenge(null); setStep('account'); setValues((previous) => ({ ...previous, code: '', password: '', confirmation: '' })); }
     setNotice(failure instanceof Error ? failure.message : '요청을 처리하지 못했어요.');
   }
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (busy) return;
+    if (busy || restoring) return;
     const nextErrors = validateAuth(mode, step, values, auth.config);
     focusInvalid.current = Object.keys(nextErrors).length > 0;
     setErrors(nextErrors); setFailed(focusInvalid.current);
@@ -106,25 +151,27 @@ export function Auth({ mode, preview }: { mode: AuthMode; preview: boolean }) {
     finally { setBusy(false); }
   }
   function changeAccount() {
+    restoreRevision.current++; requestAttempt.current = null; setLimitCode(null);
     setValues((previous) => ({ ...previous, password: '', confirmation: '', code: '' }));
     setErrors({}); setNotice(''); setFailed(false); setStep('account'); setChallenge(null); setExpiresAt(0); setResendAt(0);
     requestAnimationFrame(() => form.current?.querySelector<HTMLInputElement>('[name="username"]')?.focus());
   }
 
+  const limitExpired = resendAt > 0 && resendRemaining === 0 && ['OTP_RATE_LIMITED', 'OTP_RESEND_COOLDOWN', 'RATE_LIMITED'].includes(limitCode ?? '');
   return <div className="page auth-page account-theme participant-page">
     <div className="auth-grid"><section className="auth-form-panel" aria-labelledby="auth-heading"><div className="auth-form-heading"><p className="context-label">SSAFY 16기 · TAG ME</p><h1 id="auth-heading">{current.title}</h1><p>{current.description}</p></div>
       <div className="form-boundary"><Icon name={auth.config.available && !preview ? 'lock' : 'clock'} size={17} /><p>{preview ? '개발용 화면 미리보기예요. 실제 인증과 DM 발송은 실행되지 않아요.' : !auth.ready ? '인증 서비스 연결을 확인하고 있어요.' : auth.config.available ? '아이디는 Mattermost와 같아요. 비밀번호는 TAG ME 전용이에요.' : '인증 서비스를 준비하고 있어요. 지금은 화면을 둘러볼 수 있어요.'}</p></div>
       {mode !== 'login' && <ol className="auth-steps" aria-label="본인 확인 단계"><li aria-current={step === 'account' ? 'step' : undefined}>계정 입력<span>Mattermost 아이디</span></li><li aria-current={step === 'verify' ? 'step' : undefined}>DM 인증 · 비밀번호<span>6자리 번호와 새 비밀번호</span></li></ol>}
-      <form ref={form} onSubmit={submit} noValidate aria-busy={busy}>
-        {mode !== 'change' && <Field label={mode === 'login' ? '아이디' : 'Mattermost 아이디'} name="username" maxLength={64} autoComplete="username" autoCapitalize="none" spellCheck={false} placeholder={mode === 'login' ? 'Mattermost 또는 관리자 아이디' : 'Mattermost에서 사용하는 아이디'} value={values.username} error={errors.username} disabled={busy || step === 'verify'} onChange={(event) => set('username', event.target.value)} />}
-        {step === 'verify' && <><div className="verify-heading"><p>DM으로 받은 번호를 입력해 주세요.</p>{mode !== 'change' && <button type="button" className="text-button" disabled={busy} onClick={changeAccount}>아이디 변경</button>}</div><Field className="otp-input" label="인증번호" name="code" inputMode="numeric" autoComplete="one-time-code" maxLength={6} placeholder="000000" value={values.code} error={errors.code} disabled={busy} hint={challenge ? expiresRemaining > 0 ? `남은 시간 ${Math.floor(expiresRemaining / 60)}:${String(expiresRemaining % 60).padStart(2, '0')} · 앞자리 0도 그대로 입력해 주세요.` : '인증 시간이 지났어요. 번호를 새로 받아주세요.' : '숫자 6자리 · 앞자리 0도 그대로 입력해 주세요.'} onChange={(event) => set('code', event.target.value)} /></>}
+      <form ref={form} onSubmit={submit} noValidate aria-busy={busy || restoring}>
+        {mode !== 'change' && <Field label={mode === 'login' ? '아이디' : 'Mattermost 아이디'} name="username" maxLength={64} autoComplete="username" autoCapitalize="none" spellCheck={false} placeholder={mode === 'login' ? 'Mattermost 또는 관리자 아이디' : 'Mattermost에서 사용하는 아이디'} value={values.username} error={errors.username} disabled={busy || restoring || step === 'verify'} onChange={(event) => set('username', event.target.value)} />}
+        {step === 'verify' && <><div className="verify-heading"><p>DM으로 받은 번호를 입력해 주세요.</p>{mode !== 'change' && <button type="button" className="text-button" disabled={busy || restoring} onClick={changeAccount}>아이디 변경</button>}</div><Field className="otp-input" label="인증번호" name="code" inputMode="numeric" autoComplete="one-time-code" maxLength={6} placeholder="000000" value={values.code} error={errors.code} disabled={busy || restoring} hint={challenge ? expiresRemaining > 0 ? `남은 시간 ${Math.floor(expiresRemaining / 60)}:${String(expiresRemaining % 60).padStart(2, '0')} · 앞자리 0도 그대로 입력해 주세요.` : '인증 시간이 지났어요. 번호를 새로 받아주세요.' : '숫자 6자리 · 앞자리 0도 그대로 입력해 주세요.'} onChange={(event) => set('code', event.target.value)} /></>}
         {step === 'verify' && <div className="auth-password-heading"><h2>TAG ME 비밀번호 설정</h2><p>인증번호와 함께 확인해요.</p></div>}
-        {showPassword && <Field label={passwordLabel} name="password" password disabled={busy} maxLength={mode === 'login' ? 128 : auth.config.passwordMaxLength * 2} hint={mode === 'login' ? undefined : `공백을 포함해 ${auth.config.passwordMinLength}~${auth.config.passwordMaxLength}자. 입력한 값을 그대로 사용해요.`} autoComplete={mode === 'login' ? 'current-password' : 'new-password'} placeholder={mode === 'login' ? 'TAG ME 가입 시 설정한 비밀번호' : 'TAG ME에서 사용할 비밀번호'} value={values.password} error={errors.password} onChange={(event) => set('password', event.target.value)} />}
-        {showPassword && mode !== 'login' && <Field label={`${passwordLabel} 확인`} name="confirmation" password disabled={busy} maxLength={auth.config.passwordMaxLength * 2} autoComplete="new-password" placeholder="비밀번호를 한 번 더 입력해 주세요" value={values.confirmation} error={errors.confirmation} onChange={(event) => set('confirmation', event.target.value)} />}
+        {showPassword && <Field label={passwordLabel} name="password" password disabled={busy || restoring} maxLength={mode === 'login' ? 128 : auth.config.passwordMaxLength * 2} hint={mode === 'login' ? undefined : `공백을 포함해 ${auth.config.passwordMinLength}~${auth.config.passwordMaxLength}자. 입력한 값을 그대로 사용해요.`} autoComplete={mode === 'login' ? 'current-password' : 'new-password'} placeholder={mode === 'login' ? 'TAG ME 가입 시 설정한 비밀번호' : 'TAG ME에서 사용할 비밀번호'} value={values.password} error={errors.password} onChange={(event) => set('password', event.target.value)} />}
+        {showPassword && mode !== 'login' && <Field label={`${passwordLabel} 확인`} name="confirmation" password disabled={busy || restoring} maxLength={auth.config.passwordMaxLength * 2} autoComplete="new-password" placeholder="비밀번호를 한 번 더 입력해 주세요" value={values.confirmation} error={errors.confirmation} onChange={(event) => set('confirmation', event.target.value)} />}
         {mode === 'login' && <div className="auth-extra"><Link href="/auth/password-reset">비밀번호를 잊으셨나요?</Link></div>}
-        <div className={`form-notice ${failed ? 'is-error' : ''}`} role={failed ? 'alert' : 'status'}>{notice || (mode === 'change' ? '' : auth.flash)}</div>
-        <Button type="submit" className="full-width" disabled={busy || !auth.ready || !preview && mode !== 'login' && step === 'account' && resendRemaining > 0}>{busy ? '처리 중…' : mode !== 'login' && step === 'account' ? '인증번호 받기' : current.submit}<Icon name="arrow" size={18} /></Button>
-        {step === 'verify' && <Button className="full-width resend-button" variant="quiet" type="button" disabled={busy || resendRemaining > 0} onClick={() => preview ? setNotice('개발용 미리보기에서는 DM을 발송하지 않아요.') : requestCode()}>{resendRemaining > 0 ? `${resendRemaining}초 후 다시 받기` : '인증번호 다시 받기'}</Button>}
+        <div className={`form-notice ${failed && !limitExpired ? 'is-error' : ''}`} role={failed && !limitExpired ? 'alert' : 'status'}>{limitCode === 'OTP_RATE_LIMITED' && resendRemaining > 0 ? <>최근 5분간 요청 한도에 도달했어요. <span aria-live="off">{waitLabel(resendRemaining)} 후 다시 요청할 수 있어요.</span></> : limitExpired ? '다시 요청할 수 있어요.' : notice || (mode === 'change' ? '' : auth.flash)}</div>
+        <Button type="submit" className="full-width" disabled={busy || restoring || !auth.ready || !preview && mode !== 'login' && step === 'account' && resendRemaining > 0}>{restoring ? '진행 중인 인증 확인 중…' : busy ? '처리 중…' : mode !== 'login' && step === 'account' ? resendRemaining > 0 ? `${waitLabel(resendRemaining)} 후 다시 요청` : '인증번호 받기' : current.submit}<Icon name="arrow" size={18} /></Button>
+        {step === 'verify' && <Button className="full-width resend-button" variant="quiet" type="button" disabled={busy || restoring || resendRemaining > 0} onClick={() => preview ? setNotice('개발용 미리보기에서는 DM을 발송하지 않아요.') : requestCode(true)}>{resendRemaining > 0 ? `${waitLabel(resendRemaining)} 후 새 인증번호 받기` : '새 인증번호 받기'}</Button>}
       </form>
       {mode === 'login' ? <p className="auth-switch account-card-footer">처음 오셨나요? <Link href="/auth/signup">회원가입</Link></p> : mode === 'change' ? <p className="auth-switch account-card-footer"><Link href="/me">변경을 취소하고 돌아가기</Link></p> : <p className="auth-switch account-card-footer"><Link href="/auth">로그인으로 돌아가기</Link></p>}
     </section><aside className="auth-guide" aria-labelledby="account-guide"><ConnectionStickers className="auth-stickers" /><h2 id="account-guide">NFC 태그로 미션을 찾아보세요</h2><p>로그인하고 프로필을 등록하면 태그한 미션을 이어서 할 수 있어요.</p><dl><div><dt>아이디</dt><dd>Mattermost에서 사용하는 아이디</dd></div><div><dt>비밀번호</dt><dd>TAG ME에 처음 가입할 때 설정한 값</dd></div><div><dt>6자리 인증</dt><dd>가입과 비밀번호 변경·재설정에만 필요해요.</dd></div></dl><p className="auth-footnote"><Icon name="lock" size={16} />Mattermost 비밀번호를 입력하지 마세요.</p></aside></div>
