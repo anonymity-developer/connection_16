@@ -18,7 +18,7 @@ public final class ParticipationModels {
     public record ProfileState(Identity identity,OwnProfile profile, Policies consents, boolean profileComplete, boolean participationReady) { }
     public record Mission(long id, MissionCode code, String letter, String title, String hint, boolean active,
                           String state, Instant unlockedAt, Instant completedAt) { }
-    public record Completion(boolean complete, Instant completedAt, Long completionOrder, boolean awardConfirmed) { }
+    public record Completion(boolean complete, Instant completedAt, Long completionOrder, Long completionRank, boolean awardConfirmed) { }
     public record Collection(List<Mission> missions, int completedCount, Completion completion,long resetGeneration) { }
     public record TagResult(MissionCode missionCode, String state, String route, boolean newlyUnlocked, boolean newlyCompleted) { }
     public record TagInspection(MissionCode missionCode,String letter,String title) { }

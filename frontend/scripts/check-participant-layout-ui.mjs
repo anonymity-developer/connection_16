@@ -14,7 +14,7 @@ try {
   const json=path==='/users/me'?account===null?null:{id:account,username:'layout-fixture',nickname:'화면 검사',onboardingRequired:false}
     :path==='/auth/config'?{available:true,passwordMinLength:8,passwordMaxLength:20}
     :path==='/tags/pending'?{present:false}:path==='/event'?{status:'CLOSED'}
-    :path==='/missions/collection'?{missions:codes.map((code,i)=>({code,state:i<completed?'COMPLETED':'LOCKED',active:true})),completedCount:completed,resetGeneration:0,completion:{complete:completed===5,completionOrder:completed===5?7:null,awardConfirmed:false}}
+    :path==='/missions/collection'?{missions:codes.map((code,i)=>({code,state:i<completed?'COMPLETED':'LOCKED',active:true})),completedCount:completed,resetGeneration:0,completion:{complete:completed===5,completionOrder:completed===5?7:null,completionRank:completed===5?1:null,awardConfirmed:false}}
     :path==='/discovery/recommendations/batch'?{batchId:'layout-fixture',items:[]}:path==='/discovery/stats'?{visitedCount:0,visitorCount:0,mutualCount:0}:path==='/interests'?[]:undefined;
   if(path==='/users/me'&&json===null)return route.fulfill({status:401,json:{code:'UNAUTHENTICATED',message:'로그인이 필요해요.'}});
   if(json===undefined){unexpected.push(`${req.method()} ${path}`);return route.fulfill({status:500,json:{message:'Unexpected layout fixture request'}});}
@@ -54,7 +54,7 @@ try {
  }
  record('one participant page and sign-in card share width, shape, type and spacing across guest/member states at eleven widths');
  record('collection heading matches the mission section outside the board; guest/collecting/complete positions stay stable without fake guest counts');
- completed=5;account=999;await visit('/complete');await page.getByRole('heading',{name:'다섯 글자를 모두 모았어요',exact:true}).waitFor();await page.getByText('운영상 완료 순번 7번으로 기록됐어요.',{exact:true}).waitFor();assert.equal(await page.getByText('수상 순위는 아직 확정되지 않았어요.',{exact:false}).count(),0);
- record('completion record retains the actual completion order and removes the unconfirmed-award sentence');
+ completed=5;account=999;await visit('/complete');await page.getByRole('heading',{name:'다섯 글자를 모두 모았어요',exact:true}).waitFor();await page.getByText('현재 완료자 중 1번째예요.',{exact:true}).waitFor();assert.equal(await page.getByText('수상 순위는 아직 확정되지 않았어요.',{exact:false}).count(),0);
+ record('completion record displays the current rank instead of the durable allocation number');
  assert.deepEqual(errors,[]);assert.deepEqual(unexpected,[]);assert.deepEqual(writes,[]);await writeFile(resolve(output,'participant-layout-checks.json'),JSON.stringify({kind:'production build with explicit API fixtures; no live participation',checks,errors,unexpected,writes},null,2));
 }finally{await browser?.close();await server.httpServer.close();}

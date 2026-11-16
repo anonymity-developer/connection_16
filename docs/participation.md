@@ -63,7 +63,9 @@ MissionCompletionService는 클라이언트용 범용 완료 API가 아니다. �
 
 submission_receipts는 프로필 버전 또는 최초 해금별 서버 접수 시각을 보존한다. 네 NFC 미션 evidence의 accepted_received_at은 수행/해금 조건을 모두 만족한 접수 시각의 최댓값이다. SHOW ME는 지급 직전 DB `UTC_TIMESTAMP(6)` 한 표본으로 `[opens_at, submit_closes_at)`을 검증하고 그 값을 인정·완료 시각에 함께 저장한다. 프로필 접수·자동 해금도 DB 시계를 쓰며 사전 등록 시각으로 보상을 소급하지 않는다. 처리 중 마감에 도달하면 동일 트랜잭션의 저장/해금/근거를 롤백한다. profile.version은 사용자별 값이므로 PROFILE source_id도 사용자 범위로 유일하다.
 
-전체 완료는 정확히 SHOW_ME/SYNC_ME/MAKE_A_WISH/FAST_TAP/SAY_SOMETHING 다섯 code가 완료됐을 때만 기록한다. 사용자 PK/완료 순번 UNIQUE와 sequence 행 잠금으로 중복을 막는다. sequence 증가 후 실패도 같은 트랜잭션에서 롤백한다. completionOrder는 **운영상 처리 완료 순번**이며 awardConfirmed=false로 반환한다. 검수 지연 보정 시상 순위나 수상 확정으로 표시하지 않는다.
+전체 완료는 정확히 SHOW_ME/SYNC_ME/MAKE_A_WISH/FAST_TAP/SAY_SOMETHING 다섯 code가 완료됐을 때만 기록한다. 사용자 PK/완료 순번 UNIQUE와 sequence 행 잠금으로 중복을 막는다. sequence 증가 후 실패도 같은 트랜잭션에서 롤백한다. completionOrder는 **변경하지 않는 내부 누적 완료 번호**이며 awardConfirmed=false로 반환한다. 별도 `completionRank`는 현재 ACTIVE·USER이며 가입 자격증명이 있고 독립 운영자가 아닌 계정의 현재 event_completions를 번호 순으로 정렬해 1부터 계산한다. 비활성화·완료 취소·게임 초기화로 앞 기록이 제외되면 뒤 참가자의 표시 순위가 당겨지고, 재완료는 새 내부 번호를 받아 마지막에 배치된다. 원래 번호·시각·보관 이력과 전역 sequence는 재작성하지 않는다.
+
+참가자 팝업·완성 기록과 관리자 완료 목록/상세는 같은 조회 기준의 `completionRank`를 표시한다. 문구는 **현재 완료자 중 N번째예요.**이며 번호가 없거나 유효하지 않으면 내부 번호로 대체하지 않는다. 순위는 조회 시점에 따라 변동하며 최종 시상 순위가 아니다. 검색·페이지 범위를 적용하기 전에 전역 순위를 계산한다. 완료 팝업의 식별자는 내부 완료 번호, 확인 이력은 계정/초기화 세대 기준이라 다른 사람의 순위 변동으로 재생하거나 열린 팝업을 닫지 않는다.
 
 ## 현재 API
 

@@ -33,9 +33,12 @@ export function Collection({ data, celebrations, completion }: { data: ScreenDat
   const complete = completed === missions.length;
   const [earned, setEarned] = useState<MissionCode[]>([]);
   const order = !data.preview && data.serverLoaded && complete && completion?.complete
+    && Number.isSafeInteger(completion.completionRank) && (completion.completionRank ?? 0) > 0
+    ? completion.completionRank : null;
+  // A changing display rank must not identify a new completion or close an open dialog.
+  const completionKey = data.preview ? 'preview' : complete && completion?.complete
     && Number.isSafeInteger(completion.completionOrder) && (completion.completionOrder ?? 0) > 0
     ? completion.completionOrder : null;
-  const completionKey = data.preview ? 'preview' : order;
   const [openCompletion, setOpenCompletion] = useState<number | 'preview' | null>(null);
 
   useEffect(() => {
@@ -52,12 +55,12 @@ export function Collection({ data, celebrations, completion }: { data: ScreenDat
   }, [earned]);
 
   useEffect(() => {
-    if (!complete || !celebrations || completionKey === null) return;
+    if (!complete || !celebrations || completionKey === null || !data.preview && order === null) return;
     const timer = window.setTimeout(() => {
       if (celebrations.takeCompletion()) setOpenCompletion(completionKey);
     }, 620);
     return () => window.clearTimeout(timer);
-  }, [celebrations, complete, completionKey]);
+  }, [celebrations, complete, completionKey, data.preview, order]);
 
   const newLetters = missions.filter(mission => earned.includes(mission.code)).map(mission => mission.letter);
   const notice = !newLetters.length ? '' : newLetters.length === 1 ? `${newLetters[0]}를 획득했어요!` : `${newLetters.join(' · ')} 글자를 획득했어요!`;
@@ -78,7 +81,7 @@ export function Collection({ data, celebrations, completion }: { data: ScreenDat
     </div>
     {celebrations && <Dialog open={complete && completionKey !== null && openCompletion === completionKey} title="SSAFY 글자를 모두 수집했어요!" hideTitle onClose={() => setOpenCompletion(null)}>
       <p className="collection-completion-message">SSAFY 글자를 모두 수집했어요!</p>
-      {order !== null && <p className="collection-completion-order"><strong>{order.toLocaleString('ko-KR')}</strong>번째로 수집을 완료했어요.</p>}
+      {order !== null && <p className="collection-completion-order">현재 완료자 중 <strong>{order.toLocaleString('ko-KR')}</strong>번째예요.</p>}
       <Button type="button" onClick={() => setOpenCompletion(null)}>확인했어요</Button>
     </Dialog>}
   </section>;

@@ -27,7 +27,7 @@ class AdminConsoleIntegrationTest {
     @Container static final MySQLContainer<?> MYSQL=new MySQLContainer<>("mysql:8.4");
     @Container static final GenericContainer<?> REDIS=new GenericContainer<>(DockerImageName.parse("redis:7.4-alpine")).withExposedPorts(6379);
     @DynamicPropertySource static void properties(DynamicPropertyRegistry r){r.add("spring.datasource.url",MYSQL::getJdbcUrl);r.add("spring.datasource.username",MYSQL::getUsername);r.add("spring.datasource.password",MYSQL::getPassword);r.add("spring.data.redis.host",REDIS::getHost);r.add("spring.data.redis.port",()->REDIS.getMappedPort(6379));r.add("tagme.auth.hmac-key",()->Base64.getEncoder().encodeToString(new byte[32]));}
-    @Autowired JdbcTemplate db;@Autowired AuthRepository accounts;@Autowired LocalAdminService admins;@Autowired AdminAnalytics analytics;@Autowired PasswordEncoder passwords;@Autowired TestRestTemplate http;@Autowired ObjectMapper json;@Autowired org.springframework.data.redis.core.StringRedisTemplate redis;
+    @Autowired com.tagme.participation.ParticipationRepository participation;@Autowired JdbcTemplate db;@Autowired AuthRepository accounts;@Autowired LocalAdminService admins;@Autowired AdminAnalytics analytics;@Autowired PasswordEncoder passwords;@Autowired TestRestTemplate http;@Autowired ObjectMapper json;@Autowired org.springframework.data.redis.core.StringRedisTemplate redis;
     @MockitoBean MattermostClient mattermost;
     AuthPrincipal admin;String hash;
     @BeforeEach void setup(){
@@ -57,6 +57,18 @@ class AdminConsoleIntegrationTest {
         var search=analytics.members(admin,0,25,"beta",false);assertThat(search.items().getFirst().signupOrder()).isEqualTo(2);assertThat(analytics.members(admin,0,25,"%",false).items()).isEmpty();
         assertThat(analytics.members(admin,0,25,null,true).items().getFirst().completionOrder()).isEqualTo(7);assertThat(analytics.overview(admin).members()).isEqualTo(2);assertThat(analytics.detail(admin,second).missions()).hasSize(5);
         assertThatThrownBy(()->analytics.overview(accounts.byId(first).orElseThrow().principal())).isInstanceOf(AuthException.class).satisfies(e->assertThat(((AuthException)e).status()).isEqualTo(403));
+    }
+    @Test void completionRanksExcludeInactiveAdministratorsAndUnregisteredRowsAndDoNotRestartAtSearchOrPageBoundaries(){
+        long first=participant("rank-first"),second=participant("rank-second"),suspended=participant("rank-suspended"),withdrawn=participant("rank-withdrawn"),promoted=participant("rank-admin");
+        long legacy=accounts.insertUser("rank-legacy-external","rank-legacy");
+        db.update("UPDATE users SET status='SUSPENDED' WHERE id=?",suspended);db.update("UPDATE users SET status='WITHDRAWN' WHERE id=?",withdrawn);db.update("UPDATE users SET role='ADMIN' WHERE id=?",promoted);
+        long order=1;for(long id:List.of(admin.userId(),legacy,suspended,withdrawn,promoted,first,second))db.update("INSERT INTO event_completions(user_id,completion_order,completed_at) VALUES(?,?,UTC_TIMESTAMP(6))",id,order++);
+        assertThat(participation.completion(first).completionOrder()).isEqualTo(6);assertThat(participation.completion(first).completionRank()).isEqualTo(1);
+        assertThat(participation.completion(second).completionRank()).isEqualTo(2);
+        for(long id:List.of(admin.userId(),legacy,suspended,withdrawn,promoted))assertThat(participation.completion(id).completionRank()).isNull();
+        var page=analytics.members(admin,1,1,null,true);assertThat(page.total()).isEqualTo(2);assertThat(page.items().getFirst().id()).isEqualTo(second);assertThat(page.items().getFirst().completionRank()).isEqualTo(2);
+        assertThat(analytics.members(admin,0,25,"rank-second",false).items().getFirst().completionRank()).isEqualTo(2);
+        assertThat(analytics.overview(admin).completeMembers()).isEqualTo(2);
     }
     @Test void overviewRetainsAllFiveMissionsWhenOnlyNonParticipantsHaveProgress(){
         long imported=accounts.insertUser("imported-only-integration-fixture","imported");

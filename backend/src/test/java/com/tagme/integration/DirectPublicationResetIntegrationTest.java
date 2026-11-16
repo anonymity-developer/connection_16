@@ -527,6 +527,43 @@ class DirectPublicationResetIntegrationTest {
         participationService.save(alice,new ParticipationController.ProfileRequest(p.nickname(),p.bio(),p.githubUrl(),p.blogUrl(),p.interestIds(),List.of(),p.version()));
         assertThat(participation.mission(alice.userId(),SHOW_ME).state()).isEqualTo("COMPLETED");
     }
+    void finishCollectionForRank(AuthPrincipal actor,long generation) {
+        var questions=results.questions(actor);
+        results.submit(actor,new ResultsController.SyncRequest(questions.version(),questions.questions().stream().map(q->new ResultsController.Answer(q.id(),q.options().getFirst().id())).toList()),generation);
+        var attempt=results.start(actor,UUID.randomUUID().toString(),generation);time=attempt.endsAt().plusMillis(100);
+        results.finish(actor,new ResultsController.FinishRequest(attempt.attemptId(),List.of(1,2,3),List.of()),generation);
+        content.submit(actor,WISH,UUID.randomUUID().toString(),text("rank integration wish",null),false,generation);
+        content.submit(actor,CHEER,UUID.randomUUID().toString(),text("rank integration cheer",null),false,generation);
+    }
+    @Test void deactivationBeforeNextCompletionLeavesRawSequenceIntactButNextParticipantRanksFirst() {
+        db.update("UPDATE event_completion_sequence SET next_value=1 WHERE id=1");
+        finishCollectionForRank(alice,0);
+        assertThat(participationService.collection(alice.userId()).completion().completionRank()).isEqualTo(1);
+        controls.change(admin,alice.userId(),null,"rank-deactivate-before-next",change("DEACTIVATE",0));
+        finishCollectionForRank(bob,0);
+        var record=participationService.collection(bob.userId()).completion();
+        assertThat(record.completionOrder()).isEqualTo(2);assertThat(record.completionRank()).isEqualTo(1);
+        assertThat(db.queryForObject("SELECT next_value FROM event_completion_sequence WHERE id=1",Long.class)).isEqualTo(3);
+        assertThat(db.queryForObject("SELECT status FROM users WHERE id=?",String.class,alice.userId())).isEqualTo("WITHDRAWN");
+        assertThat(participation.completion(alice.userId()).complete()).isFalse();
+        assertThat(analytics.members(admin,0,25,null,true).items()).singleElement().satisfies(m->{assertThat(m.id()).isEqualTo(bob.userId());assertThat(m.completionOrder()).isEqualTo(2);assertThat(m.completionRank()).isEqualTo(1);});
+        assertThat(analytics.overview(admin).completeMembers()).isEqualTo(1);
+    }
+    @Test void cancellingEarlierCompletionMovesExistingRankAndRecompletionAppendsWithoutRenumberingHistory() {
+        db.update("UPDATE event_completion_sequence SET next_value=1 WHERE id=1");
+        finishCollectionForRank(alice,0);finishCollectionForRank(bob,0);
+        var before=participation.completion(bob.userId());assertThat(before.completionRank()).isEqualTo(2);
+        controls.change(admin,alice.userId(),"SAY_SOMETHING","rank-revoke-earlier-final",change("REVOKE",0));
+        var after=participationService.collection(bob.userId()).completion();
+        assertThat(after.completionOrder()).isEqualTo(before.completionOrder());assertThat(after.completedAt()).isEqualTo(before.completedAt());assertThat(after.completionRank()).isEqualTo(1);
+        assertThat(participation.completion(alice.userId()).completionRank()).isNull();
+        content.submit(alice,CHEER,"rank-recomplete-after-revoke",text("new rank integration cheer",null),false,1);
+        var replay=participation.completion(alice.userId());assertThat(replay.completionOrder()).isEqualTo(3);assertThat(replay.completionRank()).isEqualTo(2);
+        assertThat(analytics.detail(admin,bob.userId()).member().completionRank()).isEqualTo(1);
+        var page=analytics.members(admin,1,1,null,true);assertThat(page.total()).isEqualTo(2);assertThat(page.items().getFirst().id()).isEqualTo(alice.userId());assertThat(page.items().getFirst().completionRank()).isEqualTo(2);
+        assertThat(analytics.members(admin,0,25,"reset-alice",false).items().getFirst().completionRank()).isEqualTo(2);
+        assertThat(db.queryForObject("SELECT next_value FROM event_completion_sequence WHERE id=1",Long.class)).isEqualTo(4);
+    }
     @Test void deactivationRevokesSessionsAndRelationshipsAndSameMattermostSignupStartsFresh() {
         var wish=content.submit(alice,WISH,"deactivate-wish-1",text("이전 계정 소원",null),false);
         var cheer=content.submit(bob,CHEER,"deactivate-cheer1",text("다른 참가자 응원",null),false);reactions.like(alice,cheer.id(),true);
