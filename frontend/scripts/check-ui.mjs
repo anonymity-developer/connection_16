@@ -225,7 +225,7 @@ try {
   await check('new letters animate once and first full collection is dismissible without replay', async () => {
     const codes = ['SHOW_ME', 'SYNC_ME', 'MAKE_A_WISH', 'FAST_TAP', 'SAY_SOMETHING'];
     const completed = new Set(['SHOW_ME', 'MAKE_A_WISH', 'FAST_TAP']);
-    let userId = 71, completionOrder = null, resetGeneration = 0;
+    let userId = 71, completionOrder = null, completionRank = null, resetGeneration = 0;
     await page.route('**/api/v1/**', route => {
       const path = new URL(route.request().url()).pathname.slice(7);
       const data = path === '/users/me' ? { id: userId, nickname: '수집 검증', onboardingRequired: true }
@@ -235,7 +235,7 @@ try {
         : path === '/missions/collection' ? {
           missions: codes.map(code => ({ code, active: true, state: completed.has(code) ? 'COMPLETED' : resetGeneration ? 'UNLOCKED' : code === 'SYNC_ME' ? 'IN_PROGRESS' : 'LOCKED' })),
           completedCount: completed.size,
-          completion: { complete: completed.size === codes.length, completionOrder, awardConfirmed: false }, resetGeneration,
+          completion: { complete: completed.size === codes.length, completionOrder, completionRank, awardConfirmed: false }, resetGeneration,
         } : undefined;
       return data === undefined ? route.fallback() : route.fulfill({ json: data });
     });
@@ -272,11 +272,11 @@ try {
     const dialog = page.getByRole('dialog', { name: 'SSAFY 글자를 모두 수집했어요!', exact: true });
     await page.clock.fastForward(900);
     assert.equal(await dialog.count(),0,'missing server order does not invent a rank or consume the achievement');
-    completionOrder=7;await page.reload();
+    completionOrder=7;completionRank=2;await page.reload();
     await dialog.waitFor();
     assert.equal(await dialog.getByRole('heading').count(),0,'no separate title');
     await dialog.getByText('SSAFY 글자를 모두 수집했어요!',{exact:true}).waitFor();
-    await dialog.getByText('7번째로 수집을 완료했어요.',{exact:true}).waitFor();
+    await dialog.getByText('현재 완료자 중 2번째예요.',{exact:true}).waitFor();
     assert.equal(await dialog.getByRole('button',{name:'확인했어요',exact:true}).count(),1);
     for(const width of [360,390,430,768,1440]) {
       await page.setViewportSize({width,height:720});
@@ -284,9 +284,22 @@ try {
       assert.ok(box.x>0&&box.x+box.width<width&&box.y+box.height<650,'compact achievement clears bottom navigation');
       await page.screenshot({path:resolve(output,`collection-celebration-${width}.png`)});
     }
+    // A predecessor is cancelled while this same completion dialog remains mounted.
+    completionRank=1;
+    await page.evaluate(()=>{window.history.pushState(null,'','/?rank=1');window.dispatchEvent(new Event('tagme:navigation'));});
+    await dialog.getByText('현재 완료자 중 1번째예요.',{exact:true}).waitFor();
+    assert.equal(await dialog.isVisible(),true,'a rank change keeps the same achievement open');
     await dialog.getByRole('button', { name: '확인했어요', exact: true }).click();
     await dialog.waitFor({ state: 'hidden' });
 
+    completionRank=2;
+    await page.evaluate(()=>{window.history.pushState(null,'','/?rank=2');window.dispatchEvent(new Event('tagme:navigation'));});
+    await page.clock.fastForward(900);
+    assert.equal(await dialog.count(),0,'rank-only changes never replay an acknowledged completion');
+    await page.getByRole('link',{name:'완성 기록 보기',exact:true}).click();
+    await page.getByText('현재 완료자 중 2번째예요.',{exact:true}).waitFor();
+    assert.equal(await page.getByText('운영상 완료 순번 7번으로 기록됐어요.',{exact:true}).count(),0);
+    await page.getByRole('link',{name:'수집판 돌아가기',exact:true}).click();
     for (const account of [71, 72]) {
       userId = account;
       await page.reload();
@@ -297,7 +310,7 @@ try {
       await page.getByRole('link', { name: '완성 기록 보기' }).waitFor();
     }
 
-    userId=73;completed.delete('SAY_SOMETHING');completionOrder=0;await page.reload();
+    userId=73;completed.delete('SAY_SOMETHING');completionOrder=8;completionRank=0;await page.reload();
     await page.getByRole('progressbar',{name:'나의 글자 수집'}).waitFor();
     await visit(`${productionUrl}/missions/show-me`);
     await page.locator('.show-me-record-name').getByText('수집 검증',{exact:true}).waitFor();
@@ -305,19 +318,19 @@ try {
     await page.getByRole('link',{name:'TAG ME 홈',exact:true}).click();
     await page.getByText('Y를 획득했어요!',{exact:true}).waitFor();
     for(const invalid of [0,-1,Number.MAX_SAFE_INTEGER+1]) {
-      completionOrder=invalid;await page.reload();await page.getByRole('progressbar').waitFor();await page.clock.fastForward(900);
+      completionRank=invalid;await page.reload();await page.getByRole('progressbar').waitFor();await page.clock.fastForward(900);
       assert.equal(await dialog.count(),0,'invalid order cannot be displayed as an achievement rank');
     }
-    completionOrder=1234;await page.reload();await dialog.waitFor();
-    await dialog.getByText('1,234번째로 수집을 완료했어요.',{exact:true}).waitFor();
+    completionOrder=1234;completionRank=1;await page.reload();await dialog.waitFor();
+    await dialog.getByText('현재 완료자 중 1번째예요.',{exact:true}).waitFor();
     // Same mounted Home receives a reset round from the server on navigation refresh.
-    resetGeneration=1;completed.clear();completed.add('SHOW_ME');completionOrder=null;
+    resetGeneration=1;completed.clear();completed.add('SHOW_ME');completionOrder=null;completionRank=null;
     await page.evaluate(()=>{window.history.pushState(null,'','/?round=1');window.dispatchEvent(new Event('tagme:navigation'));});
     await page.waitForFunction(()=>document.querySelector('[role="progressbar"]')?.getAttribute('aria-valuenow')==='1');
     await dialog.waitFor({state:'hidden'});
-    for(const code of codes)completed.add(code);completionOrder=1500;
+    for(const code of codes)completed.add(code);completionOrder=1500;completionRank=2;
     await page.evaluate(()=>{window.history.pushState(null,'','/?round=1&done=1');window.dispatchEvent(new Event('tagme:navigation'));});
-    await dialog.waitFor();await dialog.getByText('1,500번째로 수집을 완료했어요.',{exact:true}).waitFor();
+    await dialog.waitFor();await dialog.getByText('현재 완료자 중 2번째예요.',{exact:true}).waitFor();
     await page.keyboard.press('Escape');await dialog.waitFor({state:'hidden'});
   });
   assert.deepEqual(failures, [], 'browser page errors');

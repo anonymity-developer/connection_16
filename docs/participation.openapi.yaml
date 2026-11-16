@@ -532,15 +532,24 @@ components:
           - 'null'
           format: date-time
         completionOrder:
+          description: 변경하지 않는 내부 누적 완료 번호. 화면 표시 순위가 아님.
           type:
           - integer
           - 'null'
+        completionRank:
+          description: 현재 ACTIVE 참가자의 유효 완료 기록 중 내부 완료 번호 순으로 계산한 1부터 시작하는 순위. 취소 시 변동하며 최종 시상 순위가 아님.
+          type:
+          - integer
+          - 'null'
+          format: int64
+          minimum: 1
         awardConfirmed:
           const: false
       required:
       - complete
       - completedAt
       - completionOrder
+      - completionRank
       - awardConfirmed
     Collection:
       type: object

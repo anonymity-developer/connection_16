@@ -30,7 +30,7 @@
 | `/admin/members` | `/admin/members?offset=0&limit=25&q=...` | 가입 순서, 이름/닉네임/아이디/지역·반, 시각, 미션 수, 접속 시간 |
 | `/admin/members/{id}` | `/admin/members/{id}` | 상세 프로필·관심사·링크, 미션별 결과와 최근 접속 30건 |
 | `/admin/rankings` | `/admin/rankings/{mission}?offset=0&limit=25` | 미션별 현재 유효 순위와 계산 기준 |
-| `/admin/completions` | `/admin/completions?offset=0&limit=25` | 기존 운영상 전체 완료 순서 |
+| `/admin/completions` | `/admin/completions?offset=0&limit=25` | 현재 유효 완료자의 표시 순위 |
 | `/admin/preview` | `/admin/preview/sync` | 미리보기용 문항 정의와 EXAMPLE/CONFIGURED 구분 |
 | `/admin/moderation` | 기존 검수/콘텐츠/감사 API | 기존 승인·거절·재처리·숨김·복구·감사 |
 | `/admin/moderation?tab=awards` | 기존 시상 후보 API | 잠정 후보·동점·중복 후보 검토 |
@@ -53,7 +53,7 @@ SHOW ME는 NFC 없이 소개·관심사와 자격을 갖춘 프로필에 자동 
 
 해당 미션을 완료한 현재 ACTIVE·가져오기 완료·공개 프로필·두 정책 동의 계정만 포함한다. 소원/응원은 공개 가능한 승인본이 필요하다. 숨김·보류 글, 비유효 게임, 자기 댓글/하트, 비적격 반응 사용자는 제외한다. 소원 지표는 받은 댓글 수이며 댓글 활동상 후보 집계와 다르다.
 
-현재 기록의 관리자 확인용 순위다. 시상 snapshot/중복 수상/최종 확정은 하지 않는다. 전체 완료 화면은 기존 `completion_order`이며 검수 지연을 보정하는 유효 원접수 기반 수상 순위로 표시하지 않는다.
+현재 기록의 관리자 확인용 순위다. 시상 snapshot/중복 수상/최종 확정은 하지 않는다. 전체 완료 화면·참가자 목록/상세는 현재 유효 완료자의 `completionRank`를 표시한다. ACTIVE·USER·가입 자격증명 보유·독립 운영자 제외 조건과 완료 번호 순서가 참가자 화면과 같으며, 비활성화/완료 취소에 따라 변동한다. 내부 `completionOrder`는 보존하며 최종 시상 순위와 구분한다.
 
 ## 접속 시간
 

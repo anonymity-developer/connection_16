@@ -1,5 +1,7 @@
 # 데이터 모델과 마이그레이션
 
+`event_completions.completion_order`는 내부 누적 완료 번호이며 UNIQUE와 전역 sequence를 유지한다. API의 `completionRank`는 현재 ACTIVE·USER·가입 자격증명 보유·독립 운영자 제외 완료자를 번호 순으로 조회해 계산하는 값으로, DB 컬럼/테이블은 추가하지 않는다. 취소 시 빈 번호를 재작성하지 않고 표시 순위만 당긴다. [완료 표시 계약](participation.md).
+
 2026-11-13 응원 후속: `R__cheer_palette_and_feed_index.sql`은 revision의 기존 데이터/형태를 보존하면서 10색 CHECK와 `content_items(kind,visibility_status,archived_at,id)` 인덱스를 추가한다. 별도 카운터/캐시 테이블은 만들지 않는다. [현재 콘텐츠 계약](content.md).
 
 2026-11-13 V20: `tap_attempts (id,user_id) 1 — 0..1 tap_message_permissions (attempt_id,user_id)`로 상위 10위 한마디 권한/작성시각/멱등 키를 보관한다. 기존 `tap_record_achievements`의 갱신 이력과 분리하고 이전 소감을 복사한다. 저장소는 레거시 100자를 보존하고 신규 API 쓰기는 50자로 제한한다. 현재 슬롯·보관 여부로 공개/작성 대상을 제한하며 [미션 규칙](mission-rules.md)을 따른다.
