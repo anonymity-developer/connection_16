@@ -86,7 +86,7 @@ try {
   const record = name => { checks.push(name); console.log(`PASS ${name}`); };
   async function fill() {
     await page.getByLabel('닉네임', { exact: true }).fill('테스트별명');
-    await page.getByLabel('한 줄 소개 (필수)', { exact: true }).fill('함께 배우고 만드는 걸 좋아해요.');
+    await page.getByLabel('한 줄 소개', { exact: true }).fill('함께 배우고 만드는 걸 좋아해요.');
     await page.getByRole('checkbox', { name: '백엔드', exact: true }).check();
     await page.getByRole('checkbox', { name: '금융·핀테크', exact: true }).check();
     await page.getByRole('checkbox', { name: 'IT·플랫폼', exact: true }).check();
