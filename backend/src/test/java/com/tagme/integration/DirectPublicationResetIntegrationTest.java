@@ -117,12 +117,32 @@ class DirectPublicationResetIntegrationTest {
         assertThat(resultRows.current(alice.userId()).submittedAt()).isEqualTo(old.submittedAt());
         assertThat(resultRows.events(old.id()).taps()).containsExactly(100,100,230);
         assertThat(rankings.board(alice).own().tapCount()).isEqualTo(3);
+        var visible=tapSupport.list(admin,0,25,"RECOVERED",null).items().getFirst();
+        assertThat(visible.recordAccepted()).isTrue();assertThat(visible.letterEarned()).isTrue();assertThat(visible.rank()).isEqualTo(2);
+        assertThat(visible.signals().codes()).isEmpty();
+        assertThat(visible.recovery().originalStatus()).isEqualTo("EXPIRED");
+        assertThat(visible.recovery().originalReason()).isEqualTo("SUBMISSION_EXPIRED");
+        assertThat(visible.recovery().recognizedAt()).isEqualTo(old.submittedAt());
+        assertThat(visible.recovery().originalDeadline()).isEqualTo(old.deadline());
+        assertThat(visible.recovery().operatorId()).isEqualTo("admin:reset-test");
+        assertThat(tapSupport.list(admin,0,25,"FAILED",null).items()).isEmpty();
         assertThat(db.queryForObject("SELECT original_status FROM tap_recoveries WHERE attempt_id=?",String.class,old.id())).isEqualTo("EXPIRED");
         assertThat(db.queryForObject("SELECT COUNT(*) FROM admin_audit_logs WHERE target_id=? AND action='MISSION_ADJUSTED'",Integer.class,alice.userId())).isEqualTo(1);
         // A later fourth letter, rather than F, determines the overall completion instant.
         db.update("UPDATE mission_completion_evidence e JOIN missions m ON m.id=e.mission_id SET e.accepted_received_at=? WHERE e.user_id=? AND m.code='SAY_SOMETHING'",java.sql.Timestamp.from(base.plusSeconds(55)),alice.userId());
         assertThat(participation.completion(alice.userId()).completionRank()).isEqualTo(2);
         assertThat(participation.completion(bob.userId()).completionRank()).isEqualTo(1);
+    }
+    @Test void acceptedTapRetainsPatternSignalsAndDoesNotInventHistoricalRejection() {
+        var accepted=score(alice,300);
+        var visible=tapSupport.list(admin,0,25,"ALL","reset-alice").items().getFirst();
+        assertThat(visible.attemptId()).isEqualTo(accepted.attemptId());
+        assertThat(visible.signals().codes()).contains("REGULAR_INTERVALS","HIGH_VOLUME");
+        assertThat(visible.recordAccepted()).isTrue();assertThat(visible.letterEarned()).isTrue();assertThat(visible.rank()).isEqualTo(1);
+        assertThat(visible.recovery()).isNull();assertThat(visible.retryAllowed()).isFalse();
+        assertThat(tapSupport.list(admin,0,25,"RECOVERED",null).items()).isEmpty();
+        assertThat(tapSupport.list(admin,0,25,"FAILED",null).items()).isEmpty();
+        assertThat(rankings.board(alice).own().tapCount()).isEqualTo(300);
     }
     @Test void recoveryRefusesTamperedAndTooLateRecordsAndAuditFailureRollsBackEverything()throws Exception {
         var old=legacyTapRecord(alice,"INVALID",1);
@@ -176,6 +196,8 @@ class DirectPublicationResetIntegrationTest {
         assertThat(tapSupport.list(admin,0,25,"FAILED",null).items().getFirst().status()).isEqualTo("EXPIRED");
         controls.change(admin,alice.userId(),"FAST_TAP","tap-support-manual-grant",new MemberControlService.ChangeRequest(0,"운영 지급 보호","APPLY","GRANT"));
         assertThat(tapSupport.list(admin,0,25,"FAILED",null).items().getFirst().retryAllowed()).isFalse();
+        var granted=tapSupport.list(admin,0,25,"ALL",null).items().getFirst();
+        assertThat(granted.recordAccepted()).isFalse();assertThat(granted.letterEarned()).isTrue();assertThat(granted.rank()).isNull();
         assertThatThrownBy(()->tapSupport.retry(admin,alice.userId(),"tap-support-grant-reject",new AdminTapSupportService.RetryRequest(attempt.attemptId(),1,"이미 지급한 F 보호","RETRY"))).isInstanceOf(AuthException.class);
         assertThat(participation.mission(alice.userId(),FAST_TAP).state()).isEqualTo("COMPLETED");
     }

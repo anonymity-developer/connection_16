@@ -13,7 +13,7 @@ public class AdminTapSupportController {
     private AuthPrincipal actor(Authentication auth){if(auth==null||!(auth.getPrincipal() instanceof AuthPrincipal p))throw AuthException.invalid();return p;}
     @GetMapping public AdminAnalytics.Page<AdminTapSupportService.Attempt> list(Authentication auth,
         @RequestParam(defaultValue="0") int offset,@RequestParam(defaultValue="25") int limit,
-        @RequestParam(defaultValue="FAILED") String filter,@RequestParam(required=false) String q) {
+        @RequestParam(defaultValue="ALL") String filter,@RequestParam(required=false) String q) {
         return service.list(actor(auth),offset,limit,filter,q);
     }
     @PostMapping("/members/{id}/retry") public ParticipationResetService.ResetRecord retry(Authentication auth,

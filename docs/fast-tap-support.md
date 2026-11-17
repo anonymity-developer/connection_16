@@ -21,6 +21,14 @@
 
 복구는 실제 원본 기록을 VALID로 재분류하고 기존 점수와 서버 접수 시각으로 GAME_ATTEMPT 완료 근거를 만든다. 가상 점수나 ADMIN_ADJUSTMENT 지급으로 대체하지 않는다. 원래 입력·접수·기한은 덮어쓰지 않고 V21 `tap_recoveries`에 기존 판정/기한, 새 인정 기한, 원래 인정 시각, 운영자·사유·처리 시각·요청 키를 보관한다. 감사 실패 시 지급·복구 이력도 함께 롤백한다.
 
+### 인정·관찰·과거 이력은 별도 표시
+
+기본 목록은 정상 기록을 포함한 **전체 현재 도전**이며 실패/복구된 현재 도전으로 필터링한다. 복구 후에도 `정상 인정 · 기존 반려 복구`와 당시 판정·사유를 표시하고, 펼친 이력에서 원래 인정 시각·복구 처리 시각·운영자·사유·적용 기한을 조회한다. 조회를 위해 판정/입력을 다시 변경하지 않는다.
+
+현재 입력 신호는 원본 이벤트로 계속 계산한다. 과거에 동일 밀리초로 반려됐다는 사실과 현재 기준에서 참고 신호가 있는지는 별개다. 따라서 `현재 신호 없음`과 `과거 반려 복구`가 함께 표시될 수 있다. 별도 복구 행이 없으면 `저장된 복구 이력 없음`으로 표시하며 과거 반려가 절대 없었다고 추정하지 않는다. 보관된 이전 회차는 기존 감사·참가자 지원 이력으로 확인하며 이 목록은 현재 슬롯을 다룬다.
+
+점수 인정·현재 F 획득·게임 순위 포함을 각각 반환한다. 게임 순위는 실제 참가자 리더보드와 같은 읽기 전용 SQL 조건을 공유하고 지원 조회로 한마디 권한을 부여하지 않는다. 정상 인정된 점수에 참고 신호가 있어도 점수/F/순위를 취소하지 않는다. 수동 F 지급처럼 글자는 있지만 공식 점수와 순위는 없는 경우도 구분한다. 이번 조회 보완에는 새 migration을 추가하지 않는다.
+
 ## 이미 다 모은 사람의 순위도 보정
 
 현재 유효 완료자의 다섯 `accepted_received_at` 중 **최댓값**을 전체 수집 인정 시각으로 사용한다. 이를 오름차순 정렬하고 동점은 기존 내부 완료 번호·사용자 ID로 결정한다. 이미 다 모은 사람도 같은 비교에 포함되어 표시 순위가 바뀔 수 있다.
@@ -50,7 +58,7 @@
 
 | API | 요청·동작 |
 | --- | --- |
-| `GET /api/v1/admin/tap-attempts?filter=FAILED&offset=0&limit=25&q=...` | 실패/전체 현재 도전, 아이디·이름·닉네임 검색. 실제 제출 없이 기한만 지난 슬롯도 EXPIRED로 표시. 다음 페이지와 복구/재도전 가능 여부 제공 |
+| `GET /api/v1/admin/tap-attempts?filter=ALL&offset=0&limit=25&q=...` | 기본 ALL, FAILED/RECOVERED 필터와 아이디·이름·닉네임 검색. 무제출 기한 초과도 EXPIRED 표시. `recordAccepted`·`letterEarned`·nullable `rank`, nullable `recovery`(과거 판정/기한·인정/처리 시각·운영자/사유), 현재 `signals`와 복구/재도전 가능 여부 반환 |
 | `POST /api/v1/admin/tap-attempts/members/{id}/restore` | `{attemptId,expectedGeneration,reason,confirmation:"RESTORE"}` → `{attemptId,userId,recognizedAt,restoredAt}` |
 | `POST /api/v1/admin/tap-attempts/members/{id}/retry` | `{attemptId,expectedGeneration,reason,confirmation:"RETRY"}` → 기존 미션 조정 이력 |
 
