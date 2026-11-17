@@ -1,5 +1,11 @@
 # 전체 도메인 ERD와 관계 규칙
 
+## FAST TAP 원본 복구 — V21
+
+`tap_attempts (id,user_id) 1 — 0..1 tap_recoveries (attempt_id,user_id)`이며 복구 수행자는 `users.id`를 참조한다. 원래 판정·사유·기한, 새 유효 기한·당시 인정 시각, 수행자/사유·처리 시각과 요청 키/expected generation을 보존한다. 원본 이벤트·접수 시각·기한은 변경하지 않는다. 복구 요청은 `(actor_id,request_key)`로 유일하다.
+
+전체 수집의 현재 표시 순위는 다섯 완료 근거의 최종 인정 시각으로 계산하고 기존 `event_completions.completion_order`·처리 시각은 보존한다. 기존 완료자도 함께 보정하며 [판정 복구·순위·재도전](fast-tap-support.md)을 따른다.
+
 2026-11-13 응원 후속: `R__cheer_palette_and_feed_index.sql`은 revision의 기존 데이터/형태를 보존하면서 10색 CHECK와 `content_items(kind,visibility_status,archived_at,id)` 인덱스를 추가한다. 별도 카운터/캐시 테이블은 만들지 않는다. [현재 콘텐츠 계약](content.md).
 
 2026-11-13 V20: `tap_attempts (id,user_id) 1 — 0..1 tap_message_permissions (attempt_id,user_id)`로 상위 10위 한마디 권한/작성시각/멱등 키를 보관한다. 기존 `tap_record_achievements`의 갱신 이력과 분리하고 이전 소감을 복사한다. 저장소는 레거시 100자를 보존하고 신규 API 쓰기는 50자로 제한한다. 현재 슬롯·보관 여부로 공개/작성 대상을 제한하며 [미션 규칙](mission-rules.md)을 따른다.

@@ -128,7 +128,8 @@ class DirectPublicationResetIntegrationTest {
         var old=legacyTapRecord(alice,"INVALID",1);
         var request=new TapRecoveryService.Request(old.id(),0,"동일 시각 오탐 복구","RESTORE");
         doThrow(new IllegalStateException("audit unavailable")).when(audit).record(eq(admin.userId()),eq("MISSION_ADJUSTED"),eq("USER"),eq(alice.userId()),anyString(),any(),any());
-        assertThatThrownBy(()->tapRecovery.restore(admin,alice.userId(),"restore-rollback-test-key",request)).isInstanceOf(IllegalStateException.class);
+        assertThatThrownBy(()->tapRecovery.restore(admin,alice.userId(),"restore-rollback-test-key",request))
+            .hasRootCauseInstanceOf(IllegalStateException.class).hasRootCauseMessage("audit unavailable");
         assertThat(resultRows.current(alice.userId()).status()).isEqualTo("INVALID");
         assertThat(participation.mission(alice.userId(),FAST_TAP).state()).isEqualTo("UNLOCKED");
         assertThat(db.queryForObject("SELECT COUNT(*) FROM tap_recoveries",Integer.class)).isZero();
@@ -672,6 +673,10 @@ class DirectPublicationResetIntegrationTest {
         assertThat(after.completionOrder()).isEqualTo(before.completionOrder());assertThat(after.completedAt()).isEqualTo(before.completedAt());assertThat(after.completionRank()).isEqualTo(1);
         assertThat(participation.completion(alice.userId()).completionRank()).isNull();
         content.submit(alice,CHEER,"rank-recomplete-after-revoke",text("new rank integration cheer",null),false,1);
+        // TAP's test clock advances into the future while content uses the real DB clock.
+        // Model this new letter's recognition after Bob instead of comparing mismatched clocks.
+        db.update("UPDATE mission_completion_evidence e JOIN missions m ON m.id=e.mission_id SET e.accepted_received_at=? WHERE e.user_id=? AND m.code='SAY_SOMETHING'",
+            java.sql.Timestamp.from(before.completedAt().plusMillis(1)),alice.userId());
         var replay=participation.completion(alice.userId());assertThat(replay.completionOrder()).isEqualTo(3);assertThat(replay.completionRank()).isEqualTo(2);
         assertThat(analytics.detail(admin,bob.userId()).member().completionRank()).isEqualTo(1);
         var page=analytics.members(admin,1,1,null,true);assertThat(page.total()).isEqualTo(2);assertThat(page.items().getFirst().id()).isEqualTo(alice.userId());assertThat(page.items().getFirst().completionRank()).isEqualTo(2);
