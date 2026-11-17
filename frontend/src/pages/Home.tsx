@@ -80,7 +80,7 @@ export function Collection({ data, celebrations, completion }: { data: ScreenDat
     <div className="collection-record-action">{complete && <Link className="text-link collection-complete-link" href="/complete">완성 기록 보기<Icon name="arrow" size={16} /></Link>}</div></div>
     </div>
     {celebrations && <Dialog open={complete && completionKey !== null && openCompletion === completionKey} title="SSAFY 글자를 모두 수집했어요!" hideTitle onClose={() => setOpenCompletion(null)}>
-      <p className="collection-completion-message">SSAFY 글자를 모두 수집했어요!</p>
+      <p data-analytics-screen="COLLECTION_REWARD" className="collection-completion-message">SSAFY 글자를 모두 수집했어요!</p>
       {order !== null && <p className="collection-completion-order">현재 완료자 중 <strong>{order.toLocaleString('ko-KR')}</strong>번째예요.</p>}
       <Button type="button" onClick={() => setOpenCompletion(null)}>확인했어요</Button>
     </Dialog>}

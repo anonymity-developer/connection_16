@@ -158,7 +158,7 @@ export function Auth({ mode, preview }: { mode: AuthMode; preview: boolean }) {
   }
 
   const limitExpired = resendAt > 0 && resendRemaining === 0 && ['OTP_RATE_LIMITED', 'OTP_RESEND_COOLDOWN', 'RATE_LIMITED'].includes(limitCode ?? '');
-  return <div className="page auth-page account-theme participant-page">
+  return <div data-analytics-screen={step === "verify" ? mode === "signup" ? "SIGNUP_CODE" : mode === "change" ? "CHANGE_CODE" : "RESET_CODE" : undefined} className="page auth-page account-theme participant-page">
     <div className="auth-grid"><section className="auth-form-panel" aria-labelledby="auth-heading"><div className="auth-form-heading"><p className="context-label">SSAFY 16기 · TAG ME</p><h1 id="auth-heading">{current.title}</h1><p>{current.description}</p></div>
       <div className="form-boundary"><Icon name={auth.config.available && !preview ? 'lock' : 'clock'} size={17} /><p>{preview ? '개발용 화면 미리보기예요. 실제 인증과 DM 발송은 실행되지 않아요.' : !auth.ready ? '인증 서비스 연결을 확인하고 있어요.' : auth.config.available ? '아이디는 Mattermost와 같아요. 비밀번호는 TAG ME 전용이에요.' : '인증 서비스를 준비하고 있어요. 지금은 화면을 둘러볼 수 있어요.'}</p></div>
       {mode !== 'login' && <ol className="auth-steps" aria-label="본인 확인 단계"><li aria-current={step === 'account' ? 'step' : undefined}>계정 입력<span>Mattermost 아이디</span></li><li aria-current={step === 'verify' ? 'step' : undefined}>DM 인증 · 비밀번호<span>6자리 번호와 새 비밀번호</span></li></ol>}

@@ -1,5 +1,7 @@
 # 전체 도메인 ERD와 관계 규칙
 
+V24(격리 페이지 분석 후보): `users 1 — N page_events`, `(user_id,source,event_key)` UNIQUE. `page_event_collection`은 id=1 수집 경계/누적 상한 행이다. V23 행에 선택 세션 digest를 추가하지만 관계/결과를 소급 생성하지 않는다. 원본 세션 자격 증명은 저장하지 않는다. [상세 계약](all-page-events.md).
+
 V23(격리 퍼널 후보): `users 1 — N mission_funnel_events`, `(user_id,event_key)` UNIQUE, `funnel_collection`은 id=1의 수집 경계다. 이벤트는 답변·IP를 담지 않으며 SYNC 단계와 문항 버전/reset generation으로 구분한다. [퍼널 계약](funnel-analytics.md).
 
 ## FAST TAP 원본 복구 — V21/V22

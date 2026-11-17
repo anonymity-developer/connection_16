@@ -47,6 +47,9 @@ tasks.withType(Test).configureEach {
     systemProperty "tagme.content.worker-enabled", "false"
     // Match production/MySQL UTC and keep timestamp snapshots independent of the host timezone.
     systemProperty "user.timezone", "UTC"
+    // Legacy suites own/clear their databases synchronously. The dedicated analytics
+    // suite opts in to the asynchronous AFTER_COMMIT observer through DynamicPropertySource.
+    systemProperty "tagme.analytics.completion-recording-enabled", "false"
     jvmArgumentProviders.add({
         ["-javaagent:${configurations.mockitoAgent.asPath}"]
     } as org.gradle.process.CommandLineArgumentProvider)

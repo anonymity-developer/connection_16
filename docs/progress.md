@@ -6,6 +6,14 @@
 
 `review/pr37-v23-isolated-20261117`에서만 main `f244e3c`와 #37 `1f565dc`를 통합해 퍼널 V21을 내용 변경 없이 V23 후보로 배치했다. 원본 #37/#39/P0/P1/main은 그대로이며 Push·PR 병합·배포·유지 DB 변경은 하지 않았다. 일회용 MySQL/Redis에서 빈 DB V1→V23, V20→V21→V22→V23, Flyway validate·기존 행/이력/체크섬 보존과 잘못된 옛 V21/중복 V21 거절 검사를 통과했다. 최종 단위 102개 통과·통합 221개 통과/선택형 1개 건너뜀/실패 0개·bootJar, 프론트 lint/114개 단위/빌드/관리자·게임·NFC 흐름도 통과했다. 기존 공통 시트 여백 WARN 1개는 유지한다. 첫 추가 테스트의 JDBC 예외 분류 실패와 보정 후 전체 재실행은 [격리 검증 결과](pr37-v23-isolated-verification.md)에 구분해 기록했다. 외부 유지 DB 적용 여부가 미확인이라 실제 재번호·일반 Push에는 별도 승인이 필요하다.
 
+## 작업 브랜치 · 전체 페이지 이벤트 P0 + 관리자 조회 API (2026-11-17)
+
+`feat/all-page-event-analytics`는 #37의 `1f565dc`에서 분리했다. 참가자 화면/단계 관측, 기존 SYNC 질문 재사용, 실제 미션 커밋 이후 완료 수집, ADMIN 원시 행·필터·페이지네이션·방문/이동/다섯 미션 단계 집계 API를 구현했다. 관리자 `/admin/events` 화면은 정확한 문구·화면안 검토 규칙에 따라 **승인 대기 중이며 아직 구현/시각 검증하지 않았다**. 따라서 전체 목표 완료나 PR 준비 상태가 아니다. [실제 화면 목록·수집 계약·한계](all-page-events.md), [OpenAPI](page-events.openapi.yaml)를 따른다.
+
+UTC/Java 21/MySQL·Redis 전체 실행에서 단위 100개와 통합 220개 통과·선택형 장애 주입 1개 건너뜀, bootJar 성공을 확인했다. 이후 화면 목록·추가 완료 경로/업그레이드 검사를 보완하고 신규 마이그레이션을 V23으로 옮긴 최종 상태에서 단위 100개·분석 통합 14개·V21 기록을 가진 DB의 V23 업그레이드 1개·bootJar를 재검증해 통과했다. 최종 V23 상태에서 변경 없는 전체 통합 수트를 다시 실행한 결과로 표시하지 않는다. 프론트 lint·단위 117개·운영 빌드·실제 NFC/미션 수집 브라우저 검사·기존 결과/게임 브라우저 검사도 통과했다. 전체 검사에서 건너뛴 것은 `EventRehearsalIntegrationTest.pausedEphemeralDependenciesFailClosedAndRecoverWithoutDeletingData`이며 `TAGME_REHEARSAL_FAULTS=1` 선택형 검사다.
+
+작업 중 원격 main에 #38이 병합되어 `f244e3c`와 TAP 복구 V21/V22가 생겼다. 기존 #37 V21과 충돌하므로 **현재 최신 main 통합/배포 불가**이며 #37 변경 금지 범위 밖의 조정이 필요하다. 이번 새 SQL만 임시 V23으로 두었고 #37·#39 브랜치/본문/코드, 로컬 main을 수정하지 않았다. #37의 재번호 방식에 따라 이번 V23도 다시 정해야 한다. 자동 병합·리베이스·운영 접속·배포·push/PR 생성은 수행하지 않았다. 최신 main의 TAP 복구까지 통합 검증한 결과가 아니다.
+
 ## 작업 브랜치 · SYNC ME 퍼널 P0 (2026-11-17)
 
 `feat/admin-funnel-analytics`에서 화면/질문 이동의 제한된 best-effort 수집, 서버 저장 결과 기반 완료 집계, ADMIN 전용 `/admin/funnel`, additive V21을 구현했다. main 병합·운영 배포 전이며 [집계 의미·수집 범위·롤백·로컬 검증](funnel-analytics.md)을 따른다. P1 추가 미션은 포함하지 않는다.

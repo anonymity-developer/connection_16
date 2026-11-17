@@ -6,6 +6,7 @@ import { chromium } from 'playwright';
 import { preview } from 'vite';
 
 // Synthetic browser/API contracts only: no real tags, accounts or game records.
+const pageEvents = []; let failTelemetry = false;
 const output = resolve('../output/playwright'); await mkdir(output, { recursive: true });
 const server = await preview({ preview: { host: '127.0.0.1', port: 4277, strictPort: true } });
 let browser;
@@ -24,6 +25,7 @@ try {
     const request = route.request(), path = new URL(request.url()).pathname.slice(7), method = request.method();
     const reply = (status, json) => route.fulfill({ status, json });
     try {
+      if(path === '/analytics/events') { const event=request.postDataJSON(); assert.ok(signedIn); assert.deepEqual(Object.keys(event).filter(k=>!['eventKey','screen','type','step','parentPageKey'].includes(k)),[]); pageEvents.push(event); return route.fulfill({status:failTelemetry ? 503 : 204}); }
       if(method === 'GET') {
         if(path === '/auth/config')return reply(200,{available:true,passwordMinLength:8,passwordMaxLength:20});
         if(path === '/users/me')return signedIn ? reply(200,{id:73,username:'flow-contract',nickname:'검사용 참가자',onboardingRequired:false}) : reply(401,{code:'UNAUTHENTICATED'});
@@ -100,7 +102,13 @@ try {
   releaseInspection();heldInspection=null;await oldResponse;await page.waitForLoadState('networkidle');
   assert.equal(await page.getByRole('heading',{name:'F 미션을 찾았어요',exact:true}).count(),1);
   console.log('PASS a delayed previous tag response cannot replace the current NFC identity');
-  signedIn=true;await page.setViewportSize({width:390,height:900});
+  assert.equal(pageEvents.length,0);
+  signedIn=true;await visit('/');await page.waitForLoadState('networkidle');assert.equal(pageEvents.length,0);
+  // Only this intercepted fixture simulates a non-automated browser. Production
+  // has no bypass flag, and ordinary automation above must stay excluded.
+  await page.addInitScript(() => Object.defineProperty(navigator, 'webdriver', { get: () => false }));
+  await page.reload();await page.waitForLoadState('networkidle');assert.ok(pageEvents.some(e=>e.screen==='HOME'));
+  await page.setViewportSize({width:390,height:900});
   await visit(`/t/${tokens[2]}`);await page.getByRole('button',{name:'소원 남기기',exact:true}).click();
   await page.waitForURL('**/missions/make-a-wish');await page.getByRole('button',{name:'내 소원 띄우기',exact:true}).waitFor();
   assert.equal(await page.locator('.mission-detail-heading .context-label').count(),0);
@@ -133,5 +141,18 @@ try {
   await visit('/missions/make-a-wish');await page.getByRole('button',{name:'내 소원 띄우기',exact:true}).click();await page.locator('#content-text').fill('초기화 후 새 회차 검사');await page.getByRole('button',{name:'종이배 띄우기',exact:true}).click();
   dialog=page.getByRole('dialog',{name:'A를 획득했어요',exact:true});await dialog.waitFor();await dialog.getByRole('link',{name:'수집판 보기',exact:true}).click();await page.waitForURL('http://127.0.0.1:4277/');assert.equal(await page.getByRole('dialog').count(),0);
   await visit('/t/'+ 'Z'.repeat(43));await page.getByRole('alert').waitFor();assert.equal(await page.locator('.tag-discovery-artwork').count(),0);
+  // StrictMode/rerenders keep a single page event; same-route, back and reload are new visits.
+  await visit('/missions');await page.waitForLoadState('networkidle');
+  const before=pageEvents.length;await page.setViewportSize({width:430,height:900});await page.waitForLoadState('networkidle');assert.equal(pageEvents.length,before);
+  const repeated=page.waitForResponse(r=>r.url().endsWith('/analytics/events'));
+  await page.evaluate(()=>{history.pushState(null,'','/missions');dispatchEvent(new Event('tagme:navigation'));});await repeated;
+  assert.ok(pageEvents.length>before);
+  const prior=pageEvents.at(-1).eventKey;await page.reload();await page.waitForLoadState('networkidle');assert.notEqual(pageEvents.at(-1).eventKey,prior);
+  assert.equal(new Set(pageEvents.map(e=>e.eventKey)).size,pageEvents.length);
+  assert.ok(pageEvents.some(e=>e.type==='MISSION_STEP_VIEW'&&e.step==='COMPOSE'));
+  assert.ok(pageEvents.some(e=>e.type==='MISSION_STEP_VIEW'&&e.step==='EDIT'));
+  assert.ok(pageEvents.some(e=>e.screen==='MISSION_REWARD'));
+  assert.ok(pageEvents.every(e=>e.type!=='MISSION_SUBMIT_SUCCESS'&&!JSON.stringify(e).includes(tokens[2])));
+  failTelemetry=true;await visit('/missions/sync-me');await page.locator('.sync-result').waitFor();await page.waitForLoadState('networkidle');assert.ok(signedIn&&sync);
   assert.deepEqual(errors,[]);console.log('PASS reset generation can celebrate again, collection navigation is optional and invalid NFC never shows a discovery');
 }finally{await browser?.close();await new Promise(done=>server.httpServer.close(done));}

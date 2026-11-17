@@ -25,7 +25,7 @@ export function MissionRewardFeedback({ path }: { path: string }) {
   const title = rewards.length === 1 ? `${letter}를 획득했어요` : '새로운 글자를 획득했어요';
   const close = () => setEarned([]);
   return <Dialog open={rewards.length > 0} title={title} onClose={close}>
-    <div className="mission-earned-artwork">{rewards.map(m => <LetterSticker key={m.code} code={m.code} collectionState="collected" celebrate />)}</div>
+    <div data-analytics-screen="MISSION_REWARD" className="mission-earned-artwork">{rewards.map(m => <LetterSticker key={m.code} code={m.code} collectionState="collected" celebrate />)}</div>
     <p className="mission-earned-names">{rewards.map(m => m.name).join(' · ')}</p>
     <div className="mission-earned-actions"><Button onClick={close}>계속 참여하기</Button><Link href="/" className="button button--secondary" onClick={close}>수집판 보기</Link></div>
   </Dialog>;

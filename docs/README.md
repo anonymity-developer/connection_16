@@ -30,6 +30,7 @@
 
 ## 운영 보조 자료
 
+- [전체 페이지 이벤트 수집·분석 작업 브랜치](all-page-events.md), [페이지 이벤트 API](page-events.openapi.yaml)
 - [SYNC ME 퍼널 수집·집계·롤백](funnel-analytics.md), [퍼널 API](funnel.openapi.yaml)
 
 - [OTP 안내 문구](auth/otp-message.md)
