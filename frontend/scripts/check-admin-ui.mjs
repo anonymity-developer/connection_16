@@ -55,6 +55,7 @@ try {
     if (path === '/admin/members') return reply(200, slice(members.filter(m => !url.searchParams.get('q') || m.nickname.includes(url.searchParams.get('q'))), url.searchParams));
     if (path === '/admin/completions') return reply(200, slice(members.filter(m => m.completionOrder !== null), url.searchParams));
     if (path.startsWith('/admin/members/')) return reply(200, { member: members.find(m => m.id === Number(path.split('/').at(-1))), bio: '화면 검증용 합성 프로필입니다.', interests: ['백엔드', 'Java'], githubUrl: null, blogUrl: null, missions: codes.map(code => ({ code, title: code.replaceAll('_', ' '), state: 'COMPLETED', unlockedAt: now, completedAt: now, participated: true, resultStatus: code === 'FAST_TAP' ? 'VALID' : null, tapCount: code === 'FAST_TAP' ? 25 : null, syncType: null, moderationStatus: null })), connections: [{ startedAt: now, lastSeenAt: now, expiresAt: now, endedAt: now, status: 'LOGOUT', seconds: 3600 }] });
+    if (path === '/admin/tap-attempts') return reply(200, { items: [], total: 0, offset: 0, nextOffset: null });
     if (path.startsWith('/admin/rankings/')) return reply(200, { mission: path.split('/').at(-1), basis: '브라우저 검증용 합성 순위', ...slice(members.map((m, i) => ({ rank: i + 1, userId: m.id, nickname: m.nickname, realName: m.realName, region: m.region, classNo: m.classNo, metric: 30 - i * 5, completedAt: now })), url.searchParams) });
     if (path === '/admin/preview/sync') { previewReads++; return reply(200, definition); }
     if (path === '/interests') return reply(200, catalog);

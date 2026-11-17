@@ -14,6 +14,7 @@
 | 댓글·하트 | 소원 댓글, 응원 하트 하위 경로 | [reactions.openapi.yaml](reactions.openapi.yaml) |
 | 동료 탐색 | `/discovery/**` | [discovery.openapi.yaml](discovery.openapi.yaml) |
 | 오류 신고 | `/error-reports`, `/admin/error-reports` | [지원 계약](support-and-member-controls.md) |
+| FAST TAP 운영 지원 | `/admin/tap-attempts/**` | [복구·재도전 HTTP 계약](fast-tap-support.md) |
 | 관리자 | `/admin/**` | [admin.openapi.yaml](admin.openapi.yaml), [operations.openapi.yaml](operations.openapi.yaml) |
 | SYNC 퍼널 | `/sync/funnel-events`, `/admin/funnel` | [funnel.openapi.yaml](funnel.openapi.yaml), [집계 의미](funnel-analytics.md) |
 

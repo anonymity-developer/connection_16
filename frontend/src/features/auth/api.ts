@@ -36,7 +36,7 @@ export async function postTelemetry(path: '/sync/funnel-events', body: object): 
 }
 function resetSession() { clearCsrf(); participationGeneration = 0; sessionRevision++; }
 
-export async function request<T>(path: string, method = 'GET', body?: object, options: { headers?: Record<string, string>; keepalive?: boolean } = {}): Promise<T> {
+export async function request<T>(path: string, method = 'GET', body?: object, options: { headers?: Record<string, string>; keepalive?: boolean; signal?: AbortSignal } = {}): Promise<T> {
   const revision = sessionRevision;
   const headers: Record<string, string> = { ...options.headers };
   if (method !== 'GET') {
@@ -46,7 +46,7 @@ export async function request<T>(path: string, method = 'GET', body?: object, op
     if (/^\/(tap|sync|wishes|cheers)(?:\/|$)/.test(path)) headers['X-Participation-Generation'] = String(participationGeneration);
   }
   let response: Response;
-  try { response = await fetch(`/api/v1${path}`, { method, credentials: 'same-origin', cache: 'no-store', keepalive: options.keepalive, headers, body: body === undefined ? undefined : JSON.stringify(body) }); }
+  try { response = await fetch(`/api/v1${path}`, { method, credentials: 'same-origin', cache: 'no-store', keepalive: options.keepalive, signal: options.signal, headers, body: body === undefined ? undefined : JSON.stringify(body) }); }
   catch { throw new ApiError(503, 'NETWORK_ERROR', '서버에 연결하지 못했어요. 잠시 후 다시 시도해 주세요.'); }
   if (response.status === 204 || response.status === 202 && path === '/tags/pending') return undefined as T;
   let data;

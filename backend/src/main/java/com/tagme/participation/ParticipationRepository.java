@@ -178,7 +178,7 @@ public class ParticipationRepository {
         return db.query("SELECT * FROM submission_receipts WHERE user_id=? AND source_kind='PROFILE' AND source_id=?",this::mapReceipt,userId,version).stream().findFirst().orElse(null);
     }
     public Completion completion(long id) {
-        return db.query("SELECT e.*,r.completion_rank FROM event_completions e LEFT JOIN ("+CompletionRanking.RANKED+") r ON r.user_id=e.user_id WHERE e.user_id=?",(row,n) -> new Completion(true,instant(row,"completed_at"),row.getLong("completion_order"),row.getObject("completion_rank",Long.class),false),id)
+        return db.query("SELECT e.*,r.completion_rank,COALESCE(r.recognized_completed_at,e.completed_at) recognized_at FROM event_completions e LEFT JOIN ("+CompletionRanking.RANKED+") r ON r.user_id=e.user_id WHERE e.user_id=?",(row,n) -> new Completion(true,instant(row,"recognized_at"),row.getLong("completion_order"),row.getObject("completion_rank",Long.class),false),id)
                 .stream().findFirst().orElse(new Completion(false,null,null,null,false));
     }
     public void requireModeratedReceipt(Receipt receipt) {

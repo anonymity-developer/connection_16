@@ -18,5 +18,5 @@ export const resultsApi = {
   tap: () => request<TapState>('/tap/me'),
   start: (key: string) => request<TapAttempt>('/tap/start', 'POST', undefined, { headers: { 'Idempotency-Key': key } }),
   cancel: (attemptId: number) => request<TapAttempt>('/tap/cancel', 'POST', { attemptId }, { keepalive: true }),
-  finish: (payload: TapPayload) => request<TapAttempt>('/tap/finish', 'POST', payload),
+  finish: (payload: TapPayload, signal?: AbortSignal) => request<TapAttempt>('/tap/finish', 'POST', payload, { signal }),
 };

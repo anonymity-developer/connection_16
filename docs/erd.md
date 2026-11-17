@@ -1,6 +1,12 @@
 # 전체 도메인 ERD와 관계 규칙
 
-V21(퍼널 작업 브랜치): `users 1 — N mission_funnel_events`, `(user_id,event_key)` UNIQUE, `funnel_collection`은 id=1의 수집 경계다. 이벤트는 답변·IP를 담지 않으며 SYNC 단계와 문항 버전/reset generation으로 구분한다. [퍼널 계약](funnel-analytics.md).
+V23(격리 퍼널 후보): `users 1 — N mission_funnel_events`, `(user_id,event_key)` UNIQUE, `funnel_collection`은 id=1의 수집 경계다. 이벤트는 답변·IP를 담지 않으며 SYNC 단계와 문항 버전/reset generation으로 구분한다. [퍼널 계약](funnel-analytics.md).
+
+## FAST TAP 원본 복구 — V21/V22
+
+`tap_attempts (id,user_id) 1 — 0..1 tap_recoveries (attempt_id,user_id)`이며 복구 수행자는 `users.id`를 참조한다. 원래 판정·사유·기한, 새 유효 기한·당시 인정 시각, 수행자/사유·처리 시각과 요청 키/expected generation을 보존한다. 원본 이벤트·접수 시각·기한은 변경하지 않는다. 복구 요청은 `(actor_id,request_key)`로 유일하다.
+
+전체 수집의 현재 표시 순위는 다섯 완료 근거의 최종 인정 시각으로 계산하고 기존 `event_completions.completion_order`·처리 시각은 보존한다. 기존 완료자도 함께 보정하며 [판정 복구·순위·재도전](fast-tap-support.md)을 따른다.
 
 2026-11-13 응원 후속: `R__cheer_palette_and_feed_index.sql`은 revision의 기존 데이터/형태를 보존하면서 10색 CHECK와 `content_items(kind,visibility_status,archived_at,id)` 인덱스를 추가한다. 별도 카운터/캐시 테이블은 만들지 않는다. [현재 콘텐츠 계약](content.md).
 

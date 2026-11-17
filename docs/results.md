@@ -44,7 +44,7 @@ V19 migration이 승인된 아홉 문항·여덟 유형을 불변 버전으로 �
 
 POST /tap/start는 16~64자 `[A-Za-z0-9_-]` Idempotency-Key를 요구한다. 같은 사용자/key는 같은 attempt를 반환한다. 다른 key로 현재 공식 기회를 우회하지 못한다. 준비 중 취소된 key를 재사용하면 그 취소 이력을 반환하며 새 도전에는 새 key를 쓴다.
 
-서버 MySQL UTC 시각으로 startsAt=현재+5초, endsAt=startsAt+10초, submitDeadline=endsAt+5초를 발급한다. event_settings.game_duration은 이번 공식 규칙에서 정확히 10이어야 하며 다르면 503으로 막는다. 제출 유예까지 행사 신규 제출 마감 안에 들어와야 새로 시작한다.
+서버 MySQL UTC 시각으로 startsAt=현재+5초, endsAt=startsAt+10초, submitDeadline=endsAt+60초를 발급한다. event_settings.game_duration은 이번 공식 규칙에서 정확히 10이어야 하며 다르면 503으로 막는다. 제출 유예까지 행사 신규 제출 마감 안에 들어와야 새로 시작한다.
 
 준비 시작 후 startsAt **이전** 취소만 CANCELLED로 남기고 슬롯을 복구한다. 시작 이후 취소/이탈은 INTERRUPTED, 제출 기한 후 중단 확인은 EXPIRED이며 기회를 복구하지 않는다. 이전 시도를 삭제하거나 참가자가 임의로 새 공식 도전을 만들 수 없다. 관리자는 참가자 게임 초기화 또는 해당 글자 획득 취소로 이전 회차를 보관하고 재참여를 허용할 수 있다. 일반 참가자가 기회를 임의로 복구할 수는 없다.
 
@@ -60,10 +60,10 @@ finish는 attemptId, taps(상대 밀리초 배열), interruptions(type/atMs)을 
 | interruption 최대 20개, HIDDEN/PAGE_HIDE, -5000~15000ms | 존재하면 INTERRUPTED, 글자 미지급 |
 | 서버 접수 시각 < endsAt | 409 TAP_TOO_EARLY |
 | 서버 접수 시각 > submitDeadline | EXPIRED, 글자 미지급 |
-| 한 번이라도 1ms 미만 간격 (정수 ms 기록에서 같은 시각의 입력) | INVALID / DUPLICATE_MILLISECOND 자동 판정, 글자 미지급 |
+| 같은 정수 밀리초 입력 | 허용. 전체 기록 무효 사유로 사용하지 않음 |
 | 그 밖의 허용된 기록 | VALID 잠정 점수, 공통 완료 호출 |
 
-입력 간격은 1ms 이상을 허용하며 200회 초과 조건은 없다. 현재는 관리자 검토 없이 서버가 정상/무효를 바로 판정한다. 기존 REVIEW_REQUIRED 기록은 원본 이벤트·해시·횟수·기한으로 자동 재판정하며, 자격이 충족된 경우만 원래 접수 근거로 공통 완료를 호출한다. [현재 정책과 소프트리셋](direct-publication-and-reset.md).
+입력 간격 하한과 200회 초과 무효 조건은 없다. 기존 오판정 재분류·인정 시각 순위·F 전용 재도전은 [FAST TAP 지원](fast-tap-support.md)을 따른다. 현재는 관리자 검토 없이 서버가 정상/무효를 바로 판정한다. 기존 REVIEW_REQUIRED 기록은 원본 이벤트·해시·횟수·기한으로 자동 재판정하며, 자격이 충족된 경우만 원래 접수 근거로 공통 완료를 호출한다. [현재 정책과 소프트리셋](direct-publication-and-reset.md).
 
 의심 기준은 검토 분류이며 부정행위 확정 판정이 아니다. 0회도 10초 도전을 끝낸 유효 점수로 저장할 수 있다. 웹 이벤트를 조작하거나 자동 생성하는 행위를 완전히 막는다고 주장하지 않는다. 시상 확정은 별도이며 잠정 기록을 수상으로 표시하지 않는다.
 
@@ -77,7 +77,7 @@ finish는 attemptId, taps(상대 밀리초 배열), interruptions(type/atMs)을 
 
 준비/플레이 중 visibilitychange/pagehide/내부 이동은 중단 처리를 요청한다. keepalive 요청도 전달 보장이 아니므로 서버 슬롯/기한이 최종 기준이다. 새로고침 후 이전 탭 배열을 복원했다고 꾸미거나 0회로 자동 제출하지 않는다. 진행 중인 기록은 중단 확인/서버 조회를 제공한다.
 
-시작 응답이 불명확할 때 같은 idempotency key를 보존한다. 종료 응답이 실패하면 메모리의 동일 payload만 재전송할 수 있다. 새로고침 후 이 임시 payload는 없어지고 서버의 확정 상태만 복구한다. 자격증명/탭 원본은 localStorage/sessionStorage에 저장하지 않는다.
+시작 응답이 불명확할 때 같은 idempotency key를 보존한다. 종료 응답이 실패하면 유예 안에서 메모리의 동일 payload를 최대 3회 자동 재전송하며 이후 수동 재전송을 제공한다. 인가/회차/요청 제한 실패는 자동 재시도하지 않는다. 새로고침 후 이 임시 payload는 없어지고 서버의 확정 상태만 복구한다. 자격증명/탭 원본은 localStorage/sessionStorage에 저장하지 않는다.
 
 ## 구현 API와 검증 경계
 
