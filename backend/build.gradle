@@ -45,6 +45,8 @@ dependencies {
 tasks.withType(Test).configureEach {
     // Tests drive processOne explicitly; cached contexts outlive per-class containers.
     systemProperty "tagme.content.worker-enabled", "false"
+    // Match production/MySQL UTC and keep timestamp snapshots independent of the host timezone.
+    systemProperty "user.timezone", "UTC"
     jvmArgumentProviders.add({
         ["-javaagent:${configurations.mockitoAgent.asPath}"]
     } as org.gradle.process.CommandLineArgumentProvider)

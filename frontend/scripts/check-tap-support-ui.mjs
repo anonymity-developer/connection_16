@@ -26,7 +26,7 @@ try {
       queries.push(url.search); let items = rows.filter(row => !applied || row.userId !== 2).map(row => mode === 'restore' && row.userId === 2 ? { ...row, canRestore: true, retryAllowed: false } : row);
       if (restored) items = items.map(row => row.userId !== 2 ? row : { ...row, status: 'VALID', reason: null, canRestore: false, retryAllowed: false, recordAccepted: true, letterEarned: true, rank: 2,
         signals: { ...row.signals, codes: [], sameTimestampPairs: 1, intervalSharePermille: 500 },
-        recovery: { originalStatus: 'INVALID', originalReason: 'DUPLICATE_MILLISECOND', originalDeadline: now, effectiveDeadline: now, recognizedAt: now, restoredAt: now, actorId: 1, operatorId: 'admin:contract', reason: '원래 기록과 수집 순위 복구' } });
+        recovery: { originalStatus: 'INVALID', originalReason: 'DUPLICATE_MILLISECOND', originalDeadline: now, effectiveDeadline: now, recognizedAt: now, restoredAt: now, actorId: null, operatorId: null, reason: '원래 기록과 수집 순위 복구' } });
       if (url.searchParams.get('filter') === 'FAILED') items = items.filter(row => row.status !== 'VALID');
       if (url.searchParams.get('filter') === 'RECOVERED') items = items.filter(row => row.recovery);
       if (url.searchParams.get('q')) items = items.filter(row => row.username.includes(url.searchParams.get('q')));
@@ -47,14 +47,14 @@ try {
   await visit(); await page.getByRole('button', { name: '재도전 허용', exact: true }).first().waitFor();
   assert.match(queries.at(-1), /filter=ALL/); assert.equal(await page.locator('.tap-support tbody tr').count(), 3);
   const normal = page.locator('.tap-support tbody tr').filter({ hasText: 'fixture-tap-4' });
-  await normal.getByText('일정 간격 반복', { exact: true }).waitFor(); await normal.getByText('점수: 인정', { exact: true }).waitFor(); await normal.getByText('F: 획득', { exact: true }).waitFor(); await normal.getByText('게임 순위: 1위', { exact: true }).waitFor();
+  await normal.getByText('일정 간격 반복', { exact: true }).waitFor(); await normal.getByText('1위', { exact: true }).waitFor(); assert.equal(await normal.getByRole('button').count(), 0); assert.equal(await page.getByRole('link', { name: 'FAST TAP 지원', exact: true }).count(), 0);
   await page.getByRole('button', { name: '실패한 도전', exact: true }).click(); await page.waitForFunction(() => document.querySelectorAll('.tap-support tbody tr').length === 2);
   for (const width of [360, 390, 430, 768, 1440]) {
     await page.setViewportSize({ width, height: 900 }); assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth), false);
     await page.screenshot({ path: resolve(output, `queue-${width}.png`), fullPage: true });
   }
   await page.getByRole('button', { name: '전체 현재 도전', exact: true }).click(); await page.locator('.tap-support tbody tr').nth(2).waitFor();
-  assert.equal(await page.locator('.tap-support tbody tr').last().getByRole('button', { name: '재도전 허용', exact: true }).isDisabled(), true);
+  assert.equal(await page.locator('.tap-support tbody tr').last().getByRole('button', { name: '재도전 허용', exact: true }).count(), 0);
   await page.getByLabel('아이디·이름·닉네임').fill('fixture-tap-2'); await page.getByRole('button', { name: '검색', exact: true }).click();
   await page.waitForURL(url => url.searchParams.get('q') === 'fixture-tap-2'); await page.waitForFunction(() => document.querySelectorAll('.tap-support tbody tr').length === 1);
   await page.getByRole('button', { name: '재도전 허용', exact: true }).click(); const dialog = page.getByRole('dialog'); await dialog.waitFor();
@@ -67,22 +67,19 @@ try {
   await dialog.getByRole('button', { name: '같은 요청 다시 확인' }).click(); await dialog.waitFor({ state: 'hidden' });
   assert.equal(writes.length, 2); assert.deepEqual(writes[0], writes[1]); await page.getByText('F 재도전을 허용했어요. 참가자는 게임 화면을 새로고침해 주세요.', { exact: true }).waitFor();
   assert.equal(writes[0].body.attemptId, 20); assert.equal(writes[0].body.expectedGeneration, 0); assert.equal(writes[0].body.confirmation, 'RETRY');
-  applied = false; mode = 'restore'; await visit(); await page.getByRole('button', { name: '기존 기록 복구', exact: true }).click();
-  await page.getByLabel('복구 사유', { exact: true }).fill('원래 기록과 수집 순위 복구'); await page.getByLabel('확인란에 ‘복구’를 입력해 주세요').fill('복구');
-  await page.getByRole('button', { name: '기존 기록 복구하기', exact: true }).click(); await page.getByRole('dialog').waitFor({ state: 'hidden' });
-  await page.getByText('원래 기록으로 F를 복구했어요. 전체 수집 순위도 인정 시각으로 다시 계산돼요.', { exact: true }).waitFor();
+  applied = false; restored = true; await visit();
   await page.getByRole('button', { name: '복구된 도전', exact: true }).click(); await page.waitForFunction(() => document.querySelectorAll('.tap-support tbody tr').length === 1);
   await page.reload(); const history = page.locator('.tap-support tbody tr').filter({ hasText: 'fixture-tap-2' });
-  await history.getByText('기존 반려 복구', { exact: true }).waitFor(); await history.getByText('같은 밀리초 입력으로 무효 처리됨', { exact: true }).waitFor(); await history.getByText('현재 신호 없음', { exact: true }).waitFor();
-  await history.getByText('점수: 인정', { exact: true }).waitFor(); await history.getByText('F: 획득', { exact: true }).waitFor(); await history.getByText('게임 순위: 2위', { exact: true }).waitFor();
-  assert.equal(await history.getByRole('button', { name: '재도전 허용', exact: true }).isDisabled(), true);
-  await history.locator('summary').click(); await history.getByText('admin:contract', { exact: true }).waitFor(); await history.getByText('원래 기록과 수집 순위 복구', { exact: true }).waitFor();
+  await history.getByText('과거 반려·복구 이력', { exact: true }).waitFor(); await history.getByText('현재 신호 없음', { exact: true }).waitFor();
+  await history.getByText('2위', { exact: true }).waitFor();
+  assert.equal(await history.getByRole('button', { name: '재도전 허용', exact: true }).count(), 0);
+  await history.locator('summary').click(); await history.getByText(/자동 복구/).waitFor(); assert.match(await history.innerText(), /같은 밀리초 입력으로 무효 처리됨/); await history.getByText('원래 기록과 수집 순위 복구', { exact: true }).waitFor();
   for (const width of [360,390,430,768,1440]) { await page.setViewportSize({width,height:900}); assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth), false); await page.screenshot({path:resolve(output,`recovered-history-${width}.png`),fullPage:true}); }
   restored = false; applied = false; saved = null; mode = 'conflict'; await visit(); await page.getByRole('button', { name: '재도전 허용', exact: true }).first().click();
   await page.getByLabel('재도전 사유', { exact: true }).fill('경합 검사'); await page.getByLabel('확인란에 ‘재도전’을 입력해 주세요').fill('재도전'); await page.getByRole('button', { name: '재도전 허용하기' }).click();
   await page.getByRole('button', { name: '목록 다시 확인', exact: true }).click(); await page.getByRole('dialog').waitFor({ state: 'hidden' });
   mode = 'denied'; await page.getByRole('button', { name: '재도전 허용', exact: true }).first().click();
   await page.getByLabel('재도전 사유', { exact: true }).fill('권한 회수 검사'); await page.getByLabel('확인란에 ‘재도전’을 입력해 주세요').fill('재도전'); await page.getByRole('button', { name: '재도전 허용하기' }).click();
-  await page.getByRole('heading', { name: 'FAST TAP 지원', exact: true, level: 1 }).waitFor(); await page.waitForFunction(() => !document.querySelector('.tap-support'));
-  assert.deepEqual(errors, []); console.log('PASS accepted scores retain signals; recovered records retain past reason/operator/time after reload; separate score/F/rank; five widths; validated/idempotent retry and authorization revocation');
+  await page.getByRole('heading', { name: '미션별 순위', exact: true, level: 1 }).waitFor(); await page.waitForFunction(() => !document.querySelector('.tap-support'));
+  assert.deepEqual(errors, []); console.log('PASS integrated mission rankings with signals, automatic history, five widths, idempotent retry and authorization revocation');
 } finally { await browser?.close(); await server.httpServer?.close(); }

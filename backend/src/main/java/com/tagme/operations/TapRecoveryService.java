@@ -39,6 +39,18 @@ public class TapRecoveryService {
                 throw error(409,"IDEMPOTENCY_CONFLICT","같은 요청의 복구 대상이나 사유가 바뀌었어요.");
             return read(input.attemptId());
         }
+        return apply(actor.userId(),user,key,input);
+    }
+    /** Internal worker entry point, never exposed as an unauthenticated HTTP operation. */
+    @Transactional(isolation=Isolation.READ_COMMITTED)
+    public Recovery restoreAutomatically(long user) {
+        accounts.lockUser(user);
+        var current=results.current(user);
+        if(current==null||!TapRecoveryRules.inspect(current,results.events(current.id()),json).recoverable())return null;
+        return apply(null,user,"auto-tap-recovery-"+current.id(),new Request(current.id(),participation.generation(user),
+            "기존 FAST TAP 판정 기준 변경에 따른 원본 기록 자동 인정","RESTORE"));
+    }
+    private Recovery apply(Long actorId,long user,String key,Request input) {
         participation.requireGeneration(user,input.expectedGeneration());
         var account=accounts.byId(user).orElseThrow(AuthException::invalid);
         if(!"USER".equals(account.role())||!"ACTIVE".equals(account.status()))throw error(409,"MEMBER_INACTIVE","현재 참가 계정을 확인해 주세요.");
@@ -53,14 +65,14 @@ public class TapRecoveryService {
             db.update("""
                 INSERT INTO tap_recoveries(attempt_id,user_id,actor_id,request_key,expected_generation,reason,original_status,original_reason,original_deadline,effective_deadline,recognized_at)
                 VALUES(?,?,?,?,?,?,?,?,?,?,?)
-                """,current.id(),user,actor.userId(),key,input.expectedGeneration(),input.reason().strip(),current.status(),current.reason(),Timestamp.from(current.deadline()),Timestamp.from(current.endsAt().plusSeconds(60)),Timestamp.from(current.submittedAt()));
+                """,current.id(),user,actorId,key,input.expectedGeneration(),input.reason().strip(),current.status(),current.reason(),Timestamp.from(current.deadline()),Timestamp.from(current.endsAt().plusSeconds(60)),Timestamp.from(current.submittedAt()));
             results.reclassify(current.id(),new TapValidation.Verdict("VALID",null,current.count()));
             var existing=db.queryForList("SELECT id FROM submission_receipts WHERE user_id=? AND source_kind='GAME_ATTEMPT' AND source_id=?",Long.class,user,current.id());
             var receipt=existing.isEmpty()?participation.receipt(user,"GAME_ATTEMPT",current.id(),current.submittedAt()):participation.receipt(existing.getFirst());
             if(!receipt.receivedAt().equals(current.submittedAt()))throw error(409,"INVALID_RECOVERY_RECEIPT","원본 접수 근거가 일치하지 않아요.");
             completion.complete(user,MissionCode.FAST_TAP,receipt.id());
             db.update("UPDATE mission_progress SET completed_at=? WHERE user_id=? AND mission_id=?",Timestamp.from(current.submittedAt()),user,mission.id());
-            audit.record(actor.userId(),"MISSION_ADJUSTED","USER",user,input.reason(),
+            if(actorId!=null)audit.record(actorId,"MISSION_ADJUSTED","USER",user,input.reason(),
                 Map.of("operation","RESTORE_TAP","attemptId",current.id(),"status",current.status(),"reason",Objects.toString(current.reason(),""),"deadline",current.deadline().toString()),
                 Map.of("status","VALID","attemptId",current.id(),"recognizedAt",current.submittedAt().toString()));
         });

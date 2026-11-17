@@ -69,7 +69,7 @@ V10 `connection_sessions`는 로그인마다 임의 UUID, 사용자/credential v
 
 ## FAST TAP 지원
 
-`/admin/tap-support`에서 기존 오판정의 원본 복구를 우선하고 나머지 실패자만 태그 해금을 유지한 F 재도전을 허용한다. 이미 전체 완료한 사람도 인정 시각 순위가 보정된다. 조건·보관·API는 [FAST TAP 지원](fast-tap-support.md)을 따른다.
+`/admin/rankings?mission=FAST_TAP`에서 기존 오판정의 원본 복구를 우선하고 나머지 실패자만 태그 해금을 유지한 F 재도전을 허용한다. 이미 전체 완료한 사람도 인정 시각 순위가 보정된다. 조건·보관·API는 [FAST TAP 지원](fast-tap-support.md)을 따른다.
 
 기본 전체 현재 도전과 복구 필터에서 정상 인정 여부, 현재 입력 신호, 과거 판정/복구 이력을 따로 확인한다. 점수·F·게임 순위 반영도 각각 표시한다. 복구돼도 이력/참고 신호를 숨기거나 그 신호로 지급을 취소하지 않는다.
 

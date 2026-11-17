@@ -94,6 +94,38 @@ class DirectPublicationResetIntegrationTest {
     void completeOtherMissions(AuthPrincipal actor) {
         results.submit(actor,answers());content.submit(actor,WISH,UUID.randomUUID().toString(),text("소원 보존",null),false);content.submit(actor,CHEER,UUID.randomUUID().toString(),text("응원 보존",null),false);
     }
+    @Test void automaticRecoveryRecognizesOriginalRecordsAndKeepsSignalsAndHistoricalRank()throws Exception {
+        var old=legacyTapRecord(alice,"INVALID",2);completeOtherMissions(alice);completeOtherMissions(bob);score(bob,320);
+        db.update("UPDATE mission_completion_evidence SET accepted_received_at=? WHERE user_id=?",java.sql.Timestamp.from(old.startsAt().plusSeconds(5)),alice.userId());
+        db.update("UPDATE mission_completion_evidence SET accepted_received_at=? WHERE user_id=?",java.sql.Timestamp.from(old.startsAt().plusSeconds(50)),bob.userId());
+        assertThat(participation.completion(bob.userId()).completionRank()).isEqualTo(1);
+        var worker=new AutomaticTapRecovery(db,tapRecovery);worker.runBatch();worker.runBatch();
+        assertThat(resultRows.current(alice.userId()).status()).isEqualTo("VALID");
+        assertThat(resultRows.current(alice.userId()).submittedAt()).isEqualTo(old.submittedAt());
+        assertThat(resultRows.current(alice.userId()).deadline()).isEqualTo(old.deadline());
+        assertThat(resultRows.events(old.id()).taps()).containsExactly(100,100,230);
+        assertThat(participation.completion(alice.userId()).completionRank()).isEqualTo(1);
+        assertThat(participation.completion(bob.userId()).completionRank()).isEqualTo(2);
+        var rows=tapSupport.list(admin,0,25,"ALL",null).items();
+        assertThat(rows).extracting(AdminTapSupportService.Attempt::userId).containsExactly(bob.userId(),alice.userId());
+        assertThat(rows.getLast().recordAccepted()).isTrue();assertThat(rows.getLast().letterEarned()).isTrue();
+        assertThat(rows.getLast().recovery().originalReason()).isEqualTo("DUPLICATE_MILLISECOND");
+        assertThat(rows.getLast().recovery().actorId()).isNull();
+        assertThat(rows.getFirst().signals().codes()).contains("REGULAR_INTERVALS","HIGH_VOLUME");
+        assertThat(rows.getFirst().rank()).isEqualTo(1);
+        assertThat(db.queryForObject("SELECT COUNT(*) FROM tap_recoveries",Integer.class)).isEqualTo(1);
+    }
+    @Test void automaticRecoveryLeavesUnprovableAndInterruptedFailuresForRetry()throws Exception {
+        var old=legacyTapRecord(alice,"EXPIRED",61);
+        var waiting=results.start(bob,"automatic-no-record-key");
+        db.update("UPDATE tap_attempts SET status='EXPIRED' WHERE id=?",waiting.attemptId());
+        new AutomaticTapRecovery(db,tapRecovery).runBatch();
+        assertThat(resultRows.current(alice.userId()).status()).isEqualTo("EXPIRED");
+        assertThat(resultRows.current(bob.userId()).status()).isEqualTo("EXPIRED");
+        assertThat(tapSupport.list(admin,0,25,"FAILED",null).items()).allMatch(AdminTapSupportService.Attempt::retryAllowed);
+        assertThat(db.queryForObject("SELECT COUNT(*) FROM tap_recoveries",Integer.class)).isZero();
+        assertThat(resultRows.events(old.id()).taps()).containsExactly(100,100,230);
+    }
     @Test void restoredEvidenceReordersAlreadyCompletedParticipantsWithoutRenumberingHistory()throws Exception {
         var old=legacyTapRecord(alice,"EXPIRED",20);completeOtherMissions(alice);completeOtherMissions(bob);score(bob,20);
         var base=old.startsAt();

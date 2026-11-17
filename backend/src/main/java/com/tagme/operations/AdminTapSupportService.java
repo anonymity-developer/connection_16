@@ -18,7 +18,7 @@ public class AdminTapSupportService {
     public record RetryRequest(@Positive long attemptId,@PositiveOrZero long expectedGeneration,
         @NotBlank @Size(max=300) String reason,@NotNull @Pattern(regexp="RETRY") String confirmation) { }
     public record Restoration(String originalStatus,String originalReason,Instant originalDeadline,Instant effectiveDeadline,
-        Instant recognizedAt,Instant restoredAt,long actorId,String operatorId,String reason) { }
+        Instant recognizedAt,Instant restoredAt,Long actorId,String operatorId,String reason) { }
     public record Attempt(long userId,String username,String nickname,String realName,String region,Integer classNo,
         long attemptId,String status,String reason,Integer tapCount,Instant startsAt,Instant submitDeadline,
         Instant submittedAt,long resetGeneration,boolean retryAllowed,boolean canRestore,String recoveryReason,TapSignals.Summary signals,
@@ -36,6 +36,9 @@ public class AdminTapSupportService {
         JOIN users u ON u.id=s.user_id LEFT JOIN profiles p ON p.user_id=u.id
         LEFT JOIN tap_recoveries recovery ON recovery.attempt_id=a.id AND recovery.user_id=a.user_id
         LEFT JOIN local_admin_accounts restore_actor ON restore_actor.user_id=recovery.actor_id
+        LEFT JOIN (
+        """+TapRankingService.rankedSql()+"""
+        ) score_rank ON score_rank.id=a.id
         WHERE a.archived_at IS NULL AND u.status='ACTIVE' AND u.role='USER'
           AND NOT EXISTS(SELECT 1 FROM local_admin_accounts la WHERE la.user_id=u.id)
         """;
@@ -55,7 +58,7 @@ public class AdminTapSupportService {
     private static Restoration recovery(ResultSet row)throws SQLException {
         if(row.getTimestamp("restored_at")==null)return null;
         return new Restoration(row.getString("original_status"),row.getString("original_reason"),time(row,"original_deadline"),time(row,"effective_deadline"),
-            time(row,"recognized_at"),time(row,"restored_at"),row.getLong("restore_actor_id"),row.getString("restore_operator_id"),row.getString("restore_reason"));
+            time(row,"recognized_at"),time(row,"restored_at"),row.getObject("restore_actor_id",Long.class),row.getString("restore_operator_id"),row.getString("restore_reason"));
     }
     @Transactional
     public AdminAnalytics.Page<Attempt> list(AuthPrincipal actor,int offset,int limit,String filter,String search) {
@@ -81,7 +84,7 @@ public class AdminTapSupportService {
               (SELECT COALESCE(MAX(generation),0) FROM game_participation_resets g WHERE g.user_id=u.id) reset_generation,
               EXISTS(SELECT 1 FROM mission_progress mp JOIN missions m ON m.id=mp.mission_id
                 WHERE mp.user_id=u.id AND m.code='FAST_TAP' AND mp.status='COMPLETED') completed,
-            """+STATE+" effective_status "+condition+" ORDER BY a.id DESC LIMIT ? OFFSET ?",(r,n)->new Attempt(
+            """+STATE+" effective_status "+condition+" ORDER BY score_rank.rank_no IS NULL,score_rank.rank_no,a.id DESC LIMIT ? OFFSET ?",(r,n)->new Attempt(
                 r.getLong("user_id"),r.getString("mattermost_username"),r.getString("nickname"),r.getString("real_name"),r.getString("region"),r.getObject("class_no",Integer.class),
                 r.getLong("attempt_id"),r.getString("effective_status"),r.getString("review_reason"),r.getObject("tap_count",Integer.class),time(r,"starts_at"),time(r,"submit_deadline"),time(r,"submitted_at"),
                 r.getLong("reset_generation"),FAILED.contains(r.getString("effective_status"))&&!r.getBoolean("completed"),false,null,null,

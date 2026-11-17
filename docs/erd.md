@@ -1,6 +1,6 @@
 # 전체 도메인 ERD와 관계 규칙
 
-## FAST TAP 원본 복구 — V21
+## FAST TAP 원본 복구 — V21/V22
 
 `tap_attempts (id,user_id) 1 — 0..1 tap_recoveries (attempt_id,user_id)`이며 복구 수행자는 `users.id`를 참조한다. 원래 판정·사유·기한, 새 유효 기한·당시 인정 시각, 수행자/사유·처리 시각과 요청 키/expected generation을 보존한다. 원본 이벤트·접수 시각·기한은 변경하지 않는다. 복구 요청은 `(actor_id,request_key)`로 유일하다.
 
