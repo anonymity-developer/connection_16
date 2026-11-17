@@ -532,9 +532,12 @@ class DirectPublicationResetIntegrationTest {
         db.update("DELETE FROM submission_receipts WHERE user_id=? AND source_kind='GAME_ATTEMPT'",alice.userId());
         db.update("UPDATE mission_progress SET status='UNLOCKED',completed_at=NULL WHERE user_id=? AND mission_id=(SELECT id FROM missions WHERE code='FAST_TAP')",alice.userId());
         db.update("UPDATE tap_attempts SET status='REVIEW_REQUIRED',review_reason='UNUSUAL_RATE' WHERE id=?",attempt.attemptId());
-        settlement.processBatch();settlement.processBatch();
+        var worker=new AutomaticTapRecovery(db,tapRecovery);worker.runBatch();worker.runBatch();
         assertThat(results.tap(alice.userId()).attempt().status()).isEqualTo("VALID");assertThat(participation.mission(alice.userId(),FAST_TAP).state()).isEqualTo("COMPLETED");
         assertThat(db.queryForObject("SELECT COUNT(*) FROM tap_attempt_events",Integer.class)).isEqualTo(3);verifyNoInteractions(provider);
+        var history=tapSupport.list(admin,0,25,"RECOVERED",null).items().getFirst().recovery();
+        assertThat(history.originalStatus()).isEqualTo("REVIEW_REQUIRED");
+        assertThat(history.originalReason()).isEqualTo("UNUSUAL_RATE");assertThat(history.actorId()).isNull();
     }
     @Test void legacyPendingContentBecomesPublicWithoutInvokingAProvider() {
         var wish=content.submit(alice,WISH,"legacy-wish-key-001",text("기존 대기 소원",null),false);

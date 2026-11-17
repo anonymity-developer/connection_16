@@ -86,31 +86,6 @@ public class ResultsService {
         repository.cancel(attempt,now.isAfter(attempt.deadline())?"EXPIRED":now.isBefore(attempt.startsAt())?"CANCELLED":"INTERRUPTED");return view(owned(actor.userId(),id),now);
     });}
     private record TapPayload(List<Integer> taps,List<TapValidation.Interruption> interruptions) { }
-    /** Re-evaluate persisted legacy review records using their original events and receipt time. */
-    public void settleReview(long user,long id) {
-        transactions.executeWithoutResult(s->{
-            participation.lockUser(user);var attempt=owned(user,id);
-            if(!"REVIEW_REQUIRED".equals(attempt.status()))return;
-            participation.requireOpen(false);
-            var mission=participation.mission(user,MissionCode.FAST_TAP);
-            if(!mission.active()||"LOCKED".equals(mission.state())||!participation.eligible(user))return;
-            var events=repository.events(id);TapValidation.Verdict verdict;
-            try {
-                verdict=TapValidation.inspect(events.taps(),events.interruptions(),10000);
-                if(attempt.hash()==null||!attempt.hash().equals(digest(encode(new TapPayload(events.taps(),events.interruptions()))))||!Objects.equals(attempt.count(),events.taps().size())||attempt.submittedAt()==null||attempt.submittedAt().isBefore(attempt.endsAt()))
-                    verdict=new TapValidation.Verdict("INVALID","INVALID_STORED_EVENTS",events.taps().size());
-                else if(attempt.submittedAt().isAfter(attempt.deadline()))verdict=new TapValidation.Verdict("EXPIRED","SUBMISSION_EXPIRED",events.taps().size());
-            } catch(IllegalArgumentException invalid){verdict=new TapValidation.Verdict("INVALID","INVALID_STORED_EVENTS",events.taps().size());}
-            if("VALID".equals(verdict.status())) {
-                var accepted=verdict;
-                rankings.complete(user,id,verdict.count(),attempt.submittedAt(),()->{
-                    repository.reclassify(id,accepted);
-                    var receipt=participation.receipt(user,"GAME_ATTEMPT",id,attempt.submittedAt());
-                    completion.complete(user,MissionCode.FAST_TAP,receipt.id());
-                });
-            } else repository.reclassify(id,verdict);
-        });
-    }
     public TapAttempt finish(AuthPrincipal actor,FinishRequest body){
         return finish(actor,body,0);
     }
