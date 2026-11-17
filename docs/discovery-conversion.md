@@ -1,6 +1,6 @@
 # 동료 탐색 전환 분석 MVP
 
-`feat/admin-discovery-conversion`의 별도 작업이다. 최신 확인한 main `8b2d655`에서 시작하며, 열린 PR #37의 SYNC 질문 이벤트·V21에 의존하거나 해당 PR을 수정하지 않는다. main 병합·배포된 기능으로 해석하지 않는다.
+`feat/admin-discovery-conversion`의 별도 작업이다. main `8b2d655`에서 시작했고 2026-11-17 충돌 해결에서 최신 `origin/main=f244e3c`를 병합했다. 열린 PR #37의 SYNC 질문 이벤트·퍼널 V21 및 전체 페이지 분석 P0/P1을 포함하거나 수정하지 않는다. main의 FAST TAP 복구 V21/V22와 지원 기능은 그대로 보존하며 이 분석 자체의 main 병합·운영 배포와 구분한다.
 
 관리자 화면은 `/admin/discovery-conversion`, 읽기 API는 `GET /api/v1/admin/discovery-conversion`이다. [OpenAPI](discovery-conversion.openapi.yaml)와 [집계 SQL](../backend/src/main/java/com/tagme/operations/DiscoveryConversionAnalytics.java)을 기준으로 한다.
 
@@ -46,9 +46,9 @@
 
 ## 로컬 검증 (2026-11-17)
 
-- Java 21/UTC JVM과 실제 MySQL/Redis Testcontainers를 사용했다. `test integrationTest bootJar` 전체 실행의 기존 통합 201개는 **200개 통과·선택형 1개 건너뜀**이었다. 신규 6개 중 HTTP 테스트의 Mattermost 로그인 대역 누락으로 1개가 실패했다. 테스트 대역만 보완한 뒤 `test bootJar integrationTest --tests com.tagme.integration.DiscoveryConversionIntegrationTest`를 재실행해 **단위 97개·신규 통합 6개 통과, bootJar 성공**을 확인했다. 변경 없는 기존 수트는 반복하지 않았으며 최종 전체 수트 일괄 통과로 표시하지 않는다.
+- main `f244e3c` 병합 후 Java 21/UTC와 실제 MySQL/Redis Testcontainers에서 `test integrationTest bootJar` 전체를 새로 실행했다. 단위 **100개 통과**, 통합 **216개 중 215개 통과·선택형 1개 건너뜀·실패/오류 0개**, bootJar 성공이다. Gradle `BUILD SUCCESSFUL`과 JUnit XML을 대조했다. 이전 main `8b2d655` 기반 검증 기록은 기존 `c723e45` 커밋과 백업 ref에 보존하며 새 전체 실행 결과와 구분한다.
 - 신규 6개는 마이크로초 선후/동시각 제외, 여러 상대·문항 버전 중복 제거, 같은 상대의 상호 형성과 선행 답방, 양 끝의 ADMIN/독립 운영자/비활성/미가입 제외, 실제 초기화와 재제출/무관한 세대 변경, 수동 글자와 빈 데이터/분모 0, HTTP 401/403·현재 역할/credential version·no-store·집계 전용 DTO를 확인한다. 건너뛴 기존 검사는 `TAGME_REHEARSAL_FAULTS=1`이 필요한 의존성 중단/복구 검사다.
-- `npm run lint`, `npm run test:unit` **108개**, `npm run build`, `npm run test:admin-ui`를 실행했다. 기존 관리자/초기화 브라우저 검사는 통과했고, 신규 `check-discovery-conversion-ui.mjs`는 실제 화면을 측정하도록 정적 DOM 경로 검증을 보완한 뒤 해당 검사만 다시 통과했다. 마지막 모바일 단어 줄바꿈 조정 후 lint·빌드·신규 브라우저 검사를 재실행해 통과했다.
+- `npm run lint`, `npm run test:unit` **111개**, `npm run build`, `npm run test:admin-ui`, `npm run test:results-ui`를 실행해 통과했다. 관리자 검사 목록은 기존 관리자/초기화, main의 TAP 지원, 동료 전환 검사를 모두 포함한다. 컴포넌트·집계 로직이나 문구를 재구현하지 않았다.
 - 운영 빌드와 합성 API 대역으로 360/390/430/768/1440px, 로딩 중 기존 값 유지·중복 새로고침 차단, 실제 0과 분모 0·오류 구분, 재시도, 권한 거절 시 값 제거와 ADMIN 확인 전 API 차단, 참가자 쓰기 없음, 기존 메뉴 동작을 검증했다. 실물 NFC/실제 외부 연동/운영 DB 검증은 아니다. 테스트 숫자는 검사 스크립트에만 있다.
 - Taste 소스 검사 **FAIL/WARN 0개**, 실제 전환 화면 inspector **FAIL 0개·WARN 2개**다. `hero-void`와 `panel-void`는 같은 기존 전체 높이 관리자 sheet의 여백을 가리키며, 승인한 공통 틀을 유지하고 불필요한 데이터를 채우지 않기 위해 허용한다. 5개 폭의 최종 실제 스크린샷을 직접 검토했다.
-- 스킬 원본 무결성, 문서 상대 링크 93개, 새 OpenAPI YAML 파싱/경로, `git diff --check`를 확인했다. `codex-doctor`의 Windows npm 감지 경고는 남지만 실제 `npm.cmd` 명령은 통과했다. 생성 JAR에 PR #37 클래스·V21이 없고 신규 통합 테스트가 v20 스키마에서 실행됨도 확인했다. DB 마이그레이션과 참가자 행동 수집 코드는 변경하지 않았다.
+- 스킬 원본 무결성, 변경 문서 상대 링크, `git diff --check`를 확인했다. `codex-doctor`의 기본 Java 8·Windows npm 감지 경고와 실제 JDK 21/`npm.cmd` 검사 성공을 구분한다. 생성 JAR에는 main의 TAP 복구 V21/V22가 있고 #37 퍼널·P0 페이지 이벤트 클래스/마이그레이션은 없다. 신규 통합 6개도 main의 v22 스키마에서 통과했다. main 대비 마이그레이션 파일과 lockfile 차이는 없으며 운영 DB에는 접속하지 않았다.

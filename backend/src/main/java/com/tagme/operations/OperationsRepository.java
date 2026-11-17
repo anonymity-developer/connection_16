@@ -86,7 +86,8 @@ public class OperationsRepository {
                WHEN 'FAST_TAP' THEN e.source_kind='GAME_ATTEMPT' AND tap.id IS NOT NULL AND slot.current_attempt_id=tap.id
                  AND tap.status='VALID' AND CHAR_LENGTH(tap.payload_hash)=64 AND tap.review_reason IS NULL AND tap.tap_count>=0
                  AND tap.tap_count<=1000 AND tap.archived_at IS NULL
-                 AND tap.starts_at>=p.unlocked_at AND tap.submitted_at>=tap.ends_at AND tap.submitted_at<=tap.submit_deadline
+                 AND tap.starts_at>=p.unlocked_at AND tap.submitted_at>=tap.ends_at
+                 AND tap.submitted_at<=COALESCE((SELECT recovery.effective_deadline FROM tap_recoveries recovery WHERE recovery.attempt_id=tap.id),tap.submit_deadline)
                  AND tap.ends_at<ev.submit_closes_at AND tap.submitted_at=receipt.received_at
                  AND tap.tap_count=(SELECT COUNT(*) FROM tap_attempt_events t WHERE t.attempt_id=tap.id AND t.event_type='TAP')
                  AND NOT EXISTS (SELECT 1 FROM tap_attempt_events t WHERE t.attempt_id=tap.id AND (t.event_type<>'TAP' OR t.relative_time_ms<0 OR t.relative_time_ms>=TIMESTAMPDIFF(MICROSECOND,tap.starts_at,tap.ends_at)/1000))

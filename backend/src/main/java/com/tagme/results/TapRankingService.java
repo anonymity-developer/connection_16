@@ -61,6 +61,8 @@ public class TapRankingService {
         AND EXISTS(SELECT 1 FROM mission_completion_evidence e WHERE e.user_id=u.id AND e.mission_id=m.id
           AND e.source_kind='GAME_ATTEMPT' AND e.source_id=a.id)
       """;
+    /** Shared read-only projection for operator visibility; does not grant message permissions. */
+    public static String rankedSql(){return RANKED;}
     // User -> global TAP lock order. READ_COMMITTED observes the preceding serialized finish
     // without taking locks on other participants' user/profile rows.
     private void grantMessage(long user) {

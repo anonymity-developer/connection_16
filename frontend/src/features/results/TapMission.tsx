@@ -10,9 +10,10 @@ import type { TapAttempt, TapPayload, TapState } from './api';
 import { cancelTapAttempt } from './cancelRecovery';
 import { createTapStartGate, recoverTapStart } from './startRecovery';
 import { gameWindow, localPhase } from './timing';
+import { submitTapRecord } from './submitRecovery';
 import { useMissionRuntime } from '../admin/MissionRuntime';
 
-interface Run { mode: 'practice' | 'official'; starts: number; ends: number; taps: number[]; attemptId: number | null }
+interface Run { mode: 'practice' | 'official'; starts: number; ends: number; deadline?: number; taps: number[]; attemptId: number | null }
 const labels: Record<string, string> = { VALID: '도전을 마쳤어요', INVALID: '기록이 자동 무효 처리됐어요', REVIEW_REQUIRED: '이전 규칙의 기록을 정리하고 있어요', EXPIRED: '제출 시간이 지났어요', INTERRUPTED: '공식 도전이 중단됐어요', CANCELLED: '준비 중 도전을 취소했어요' };
 export function TapMission() { const participation = useParticipation(), runtime = useMissionRuntime(); return <TapMissionView api={runtime?.results ?? serverApi} refresh={runtime?.refresh ?? participation.refresh} preview={!!runtime} rankingApi={runtime ? runtime.tapRanking : tapRankingApi} />; }
 export function TapMissionView({ api, refresh, preview = false, rankingApi }: { api: typeof serverApi; refresh: () => Promise<void>; preview?: boolean; rankingApi?: typeof tapRankingApi }) {
@@ -21,6 +22,7 @@ export function TapMissionView({ api, refresh, preview = false, rankingApi }: { 
   const [running, setRunning] = useState(false); const [tick, setTick] = useState(0); const [count, setCount] = useState(0); const [practiceScore, setPracticeScore] = useState<number | null>(null); const [notice, setNotice] = useState('');
   const run = useRef<Run | null>(null); const pending = useRef<TapPayload | null>(null); const startKey = useRef<string | null>(null); const active = useRef(true); const abort = useRef<() => void>(() => {}); const finishing = useRef(false);
   const startOnce = useRef(createTapStartGate());
+  const pendingDeadline = useRef(0);
   const arena = useRef<HTMLDivElement>(null);
   useEffect(() => {
     if (!running || !arena.current) return;
@@ -49,7 +51,7 @@ export function TapMissionView({ api, refresh, preview = false, rankingApi }: { 
     if (!running || !run.current || phase !== 'FINISHED' || finishing.current) return;
     const finished = run.current; run.current = null; setRunning(false);
     if (finished.mode === 'practice') { setPracticeScore(finished.taps.length); setNotice('연습을 마쳤어요. 공식 기록과 글자는 바뀌지 않아요.'); return; }
-    pending.current = { attemptId: finished.attemptId!, taps: [...finished.taps], interruptions: [] }; void send();
+    pending.current = { attemptId: finished.attemptId!, taps: [...finished.taps], interruptions: [] }; pendingDeadline.current = finished.deadline ?? performance.now(); void send();
   }, [tick, phase, running]);
   async function load() {
     setLoading(true); setError('');
@@ -71,7 +73,7 @@ export function TapMissionView({ api, refresh, preview = false, rankingApi }: { 
       if (attempt.status === 'CANCELLED') { startKey.current = null; setNotice('취소된 요청을 확인했어요. 현재 공식 도전 상태를 다시 불러왔어요.'); return; }
       if (attempt.status !== 'COUNTDOWN') { setNotice('서버에 이미 시작한 도전이 있어요. 저장된 상태를 확인해 주세요.'); return; }
       const window = gameWindow(attempt.serverNow, attempt.startsAt, attempt.endsAt, received, received - before);
-      run.current = { mode: 'official', ...window, taps: [], attemptId: attempt.attemptId }; pending.current = null; finishing.current = false; setCount(0); setTick(received); setRunning(true);
+      run.current = { mode: 'official', ...window, deadline: window.ends + Date.parse(attempt.submitDeadline) - Date.parse(attempt.endsAt), taps: [], attemptId: attempt.attemptId }; pending.current = null; finishing.current = false; setCount(0); setTick(received); setRunning(true);
     } catch (failure) { if (active.current) setError(failure instanceof Error ? failure.message : '도전을 시작하지 못했어요. 같은 요청으로 다시 시도할 수 있어요.'); }
     finally { if (active.current) setBusy(false); }
     });
@@ -92,7 +94,8 @@ export function TapMissionView({ api, refresh, preview = false, rankingApi }: { 
   async function send() {
     if (!pending.current || finishing.current) return;
     finishing.current = true; setBusy(true); setError('');
-    try { const next = await resultsApi.finish(pending.current); if (active.current) { setState({ officialAvailable: false, attempt: next }); pending.current = null; await participation.refresh(); } }
+    const payload = pending.current;
+    try { const next = await submitTapRecord(payload, resultsApi.finish, { deadline: pendingDeadline.current, active: () => active.current && pending.current === payload, onRetry: () => setNotice('연결을 다시 확인하며 같은 기록을 전송하고 있어요.') }); if (active.current) { setState({ officialAvailable: false, attempt: next }); pending.current = null; setNotice(''); await participation.refresh(); } }
     catch (failure) { if (active.current) setError(failure instanceof Error ? failure.message : '기록을 전송하지 못했어요. 같은 기록으로 다시 시도해 주세요.'); }
     finally { finishing.current = false; if (active.current) setBusy(false); }
   }
@@ -122,7 +125,7 @@ export function TapMissionView({ api, refresh, preview = false, rankingApi }: { 
       {!attempt && <><p className="tap-rules-summary">5초 준비 · 10초 도전 · 공식 1회</p><p className="result-footnote">{preview ? '미리보기 결과는 실제 기록에 반영되지 않아요.' : '준비 중에는 취소할 수 있어요. 시작 후 화면 이탈·중단 시 기회가 사용돼요.'}</p></>}
       <div className="tap-official-state" role="status"><h3>{busy && pending.current ? '공식 기록을 전송하고 있어요' : recovered ? '진행 중인 공식 도전이 있어요' : attempt ? displayLabels[attempt.status] ?? '도전 상태를 확인해 주세요' : '공식 도전을 시작할 수 있어요'}</h3>
         {attempt?.tapCount !== null && attempt?.tapCount !== undefined && <p className="tap-score">{attempt.tapCount}<small>회</small></p>}
-        <p>{recovered ? '이전 입력은 복원할 수 없어요. 도전 중단 상태를 확인해 주세요.' : attempt?.status === 'VALID' ? preview ? '미리보기 결과예요. 실제 기록에 반영되지 않아요.' : '공식 기록을 저장했어요.' : attempt?.status === 'INVALID' ? '1ms 미만의 중복 입력 등 입력 규칙에 맞지 않아 무효 처리됐어요. F는 지급되지 않아요.' : attempt?.status === 'REVIEW_REQUIRED' ? '저장된 입력을 현재 규칙으로 확인하고 있어요.' : attempt ? '공식 도전은 다시 시작할 수 없어요.' : '편하게 탭할 수 있도록 휴대폰을 잡아주세요.'}</p>
+        <p>{recovered ? '이전 입력은 복원할 수 없어요. 도전 중단 상태를 확인해 주세요.' : attempt?.status === 'VALID' ? preview ? '미리보기 결과예요. 실제 기록에 반영되지 않아요.' : '공식 기록을 저장했어요.' : attempt?.status === 'INVALID' ? '이전 판정에서 무효 처리된 기록이에요. 관리자에게 재도전을 요청해 주세요.' : attempt?.status === 'REVIEW_REQUIRED' ? '저장된 입력을 현재 규칙으로 확인하고 있어요.' : attempt?.status === 'EXPIRED' || attempt?.status === 'INTERRUPTED' ? 'F가 지급되지 않았어요. 관리자에게 재도전을 요청할 수 있어요.' : attempt ? '공식 도전은 다시 시작할 수 없어요.' : '편하게 탭할 수 있도록 휴대폰을 잡아주세요.'}</p>
       </div>
       {state?.officialAvailable && <Button className="full-width" disabled={busy} onClick={start}>{busy ? '시작 확인 중…' : preview ? '미리보기 도전 시작하기' : '공식 도전 시작하기 (1회)'}<Icon name="arrow" size={18} /></Button>}
       {recovered && <Button variant="secondary" disabled={busy} onClick={cancel}>도전 중단 상태 확인하기</Button>}
