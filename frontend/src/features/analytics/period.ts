@@ -1,4 +1,5 @@
 export interface EventWindow { from: string; to: string }
+export const kstDay = (now = Date.now()) => new Date(now + 9 * 3600000).toISOString().slice(0, 10);
 // Inclusive KST calendar dates become an exclusive UTC end. No local-machine timezone assumptions.
 export function eventWindow(start: string, end: string): EventWindow | null {
   const parse = (value: string) => {
@@ -14,4 +15,21 @@ export function eventQuery(window: EventWindow, screen = '', type = '', offset =
   const params = new URLSearchParams({ ...window, offset: String(offset), limit: '50' });
   if (screen) params.set('screen', screen); if (type) params.set('type', type);
   return params.toString();
+}
+export function captureEventWindow(start: string, end: string, now = Date.now()): EventWindow | null {
+  const window = eventWindow(start, end);
+  if (!window || end > kstDay(now)) return null;
+  const to = Math.min(Date.parse(window.to), now);
+  return Date.parse(window.from) < to ? { from: window.from, to: new Date(to).toISOString() } : null;
+}
+export function dailyObservations(window: EventWindow, rows: { date: string; views: number; visitors: number }[]) {
+  const observed = new Map(rows.map(row => [row.date, row])), days = [];
+  const start = Date.parse(`${kstDay(Date.parse(window.from))}T00:00:00+09:00`);
+  for (let day = start; day < Date.parse(window.to) && days.length < 31; day += 86400000) {
+    const date = kstDay(day); days.push(observed.get(date) ?? { date, views: 0, visitors: 0 });
+  }
+  return days;
+}
+export function dayCollectionAvailable(date: string, startedAt: string) {
+  return Date.parse(`${date}T00:00:00+09:00`) + 86400000 > Date.parse(startedAt);
 }

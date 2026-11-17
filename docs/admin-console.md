@@ -37,7 +37,7 @@
 | `/admin/moderation?tab=awards` | 기존 시상 후보 API | 잠정 후보·동점·중복 후보 검토 |
 | `/admin/moderation?tab=results` | 기존 행사 결과 API | 행사 집계·제한된 참여 내역·내보내기 |
 
-전체 페이지 이벤트 작업 브랜치는 ADMIN 전용 `/api/v1/admin/events`와 `/api/v1/admin/events/summary` 조회 API를 구현했다. `/admin/events` 화면/메뉴는 검토안 승인 대기이며 아직 기존 콘솔에 추가하지 않았다. [수집 화면·원시 로그·집계 의미·의존 PR 충돌](all-page-events.md)을 따른다.
+전체 페이지 이벤트 작업 브랜치는 ADMIN 전용 `/api/v1/admin/events`와 `/api/v1/admin/events/summary` 조회 API, `/admin/events` 화면/메뉴와 네 분석 탭을 로컬 구현·검증했다. 기존 콘솔의 서버 ADMIN 확인 이후에만 조회하며 기간·원시 로그 필터·50행 서버 페이지네이션·오류 재시도를 제공한다. main 통합/운영 배포는 미해결 V21 번호 충돌과 별도 승인 범위로 남는다. [수집 화면·원시 로그·집계 의미·검증·의존 PR 충돌](all-page-events.md)을 따른다.
 
 위 화면은 모두 같은 관리자 틀을 사용한다. 좌측 메뉴·헤더·로그아웃과 휴대폰 메뉴는 페이지 이동 중에도 유지한다. 검수의 콘텐츠/감사 이력은 내부 탭이며 시상 후보/행사 결과는 공통 메뉴에서 이동한다. 이동 때 현재 세션과 서버 ADMIN을 재확인하며 확인 중에는 비공개 내용을 제거한다.
 
