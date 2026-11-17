@@ -1,5 +1,7 @@
 # 데이터 모델과 마이그레이션
 
+V21 `tap_recoveries`는 원래 탭 판정·기한을 보존하고 재판정의 인정 시각·적용 기한·수행자/사유·멱등 요청을 기록한다. 전체 표시 순위는 다섯 완료 근거의 최종 인정 시각으로 조회하고 기존 완료 번호는 재배정하지 않는다. [FAST TAP 지원](fast-tap-support.md).
+
 `event_completions.completion_order`는 내부 누적 완료 번호이며 UNIQUE와 전역 sequence를 유지한다. API의 `completionRank`는 현재 ACTIVE·USER·가입 자격증명 보유·독립 운영자 제외 완료자를 번호 순으로 조회해 계산하는 값으로, DB 컬럼/테이블은 추가하지 않는다. 취소 시 빈 번호를 재작성하지 않고 표시 순위만 당긴다. [완료 표시 계약](participation.md).
 
 2026-11-13 응원 후속: `R__cheer_palette_and_feed_index.sql`은 revision의 기존 데이터/형태를 보존하면서 10색 CHECK와 `content_items(kind,visibility_status,archived_at,id)` 인덱스를 추가한다. 별도 카운터/캐시 테이블은 만들지 않는다. [현재 콘텐츠 계약](content.md).
@@ -18,7 +20,7 @@ V10은 `local_admin_accounts`(user_id PK/FK, login_id UNIQUE)와 `connection_ses
 
 ## 1. 적용 범위
 
-현재 실행 가능한 DDL은 `backend/src/main/resources/db/migration`의 V1~V20과 응원 repeatable migration이다. 소원/응원과 검수는 V6, 댓글/하트는 V7, 관리자 감사/재처리 한도는 V8이며 시상은 아래 **후속 설계**다. 해당 도메인의 규칙과 함께 마이그레이션을 추가한다.
+현재 실행 가능한 DDL은 `backend/src/main/resources/db/migration`의 V1~V21과 응원 repeatable migration이다. 소원/응원과 검수는 V6, 댓글/하트는 V7, 관리자 감사/재처리 한도는 V8이며 시상은 아래 **후속 설계**다. 해당 도메인의 규칙과 함께 마이그레이션을 추가한다.
 
 이 문서의 ERD는 핵심 요약이다. 모든 도메인의 컬럼/관계/복합키와 nullable 규칙은 [전체 도메인 ERD](erd.md)를 함께 읽는다. 현재 SQL과 후속 설계의 경계를 유지하고, 후속 설계를 현재 DB에 적용된 것으로 간주하지 않는다.
 

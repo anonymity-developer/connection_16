@@ -73,7 +73,7 @@ public class ResultsService {
             if(replay!=null){if(replay.archived())throw error(409,"PARTICIPATION_RESET","초기화 전 요청이에요. 새 도전을 시작해 주세요.");return view(replay,now);}
             if(repository.gameDuration()!=10)throw error(503,"GAME_CONFIG_INVALID","공식 도전 설정을 확인하고 있어요.");
             if(repository.current(actor.userId())!=null)throw error(409,"TAP_SLOT_USED","공식 도전은 이미 시작했어요. 저장된 상태를 확인해 주세요.");
-            Instant starts=now.plusSeconds(5),ends=starts.plusSeconds(10),deadline=ends.plusSeconds(5);
+            Instant starts=now.plusSeconds(5),ends=starts.plusSeconds(10),deadline=ends.plusSeconds(60);
             if(deadline.isAfter(repository.eventClose()))throw error(403,"INSUFFICIENT_EVENT_TIME","행사 마감까지 도전을 끝낼 시간이 부족해요.");
             long id=repository.createAttempt(actor.userId(),key,starts,ends,deadline);return view(repository.attempt(actor.userId(),id),now);
         });

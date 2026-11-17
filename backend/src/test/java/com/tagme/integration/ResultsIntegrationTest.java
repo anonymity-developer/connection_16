@@ -64,6 +64,17 @@ class ResultsIntegrationTest {
     }
     @Test void tapStartRetryCancelBeforeStartAndInterruptionConsumeOnlyTheRightSlot(){var first=service.start(actor,"start-key-first-0001");assertThat(service.start(actor,"start-key-first-0001").attemptId()).isEqualTo(first.attemptId());assertThatThrownBy(()->service.start(actor,"start-key-other-0001")).isInstanceOf(AuthException.class);assertThat(service.cancel(actor,first.attemptId()).status()).isEqualTo("CANCELLED");assertThat(service.tap(actor.userId()).officialAvailable()).isTrue();var second=service.start(actor,"start-key-second-001");assertThat(second.generation()).isEqualTo(2);time=second.startsAt().plusSeconds(1);assertThat(service.cancel(actor,second.attemptId()).status()).isEqualTo("INTERRUPTED");assertThat(service.tap(actor.userId()).officialAvailable()).isFalse();assertThatThrownBy(()->service.start(actor,"start-key-third-0001")).isInstanceOf(AuthException.class);}
     @Test void validTapDerivesScoreAndFinishRetryKeepsEvidenceExactlyOnce()throws Exception{var attempt=service.start(actor,"valid-start-key-001");var body=new FinishRequest(attempt.attemptId(),List.of(100,200,500),List.of());assertThatThrownBy(()->service.finish(actor,body)).isInstanceOf(AuthException.class);time=attempt.endsAt().plusMillis(100);try(var pool=Executors.newFixedThreadPool(4)){List<Future<TapAttempt>> futures=new ArrayList<>();for(int i=0;i<12;i++)futures.add(pool.submit(()->service.finish(actor,body)));for(var f:futures)assertThat(f.get(30,TimeUnit.SECONDS).tapCount()).isEqualTo(3);}assertThat(service.tap(actor.userId()).attempt().status()).isEqualTo("VALID");assertThatThrownBy(()->service.finish(actor,new FinishRequest(attempt.attemptId(),List.of(100,200),List.of()))).isInstanceOf(AuthException.class);assertThat(db.queryForObject("SELECT COUNT(*) FROM tap_attempt_events",Integer.class)).isEqualTo(3);assertThat(db.queryForObject("SELECT COUNT(*) FROM mission_completion_evidence",Integer.class)).isEqualTo(1);}
+    @Test void sixtySecondGraceAcceptsDelayedSubmissionAndSamePayloadReplay() {
+        var attempt=service.start(actor,"sixty-second-grace-key");
+        assertThat(attempt.submitDeadline()).isEqualTo(attempt.endsAt().plusSeconds(60));
+        time=attempt.endsAt().plusSeconds(59);
+        var body=new FinishRequest(attempt.attemptId(),List.of(0,0,200),List.of());
+        assertThat(service.finish(actor,body).status()).isEqualTo("VALID");
+        time=attempt.submitDeadline().plusSeconds(30);
+        assertThat(service.finish(actor,body).status()).isEqualTo("VALID");
+        assertThatThrownBy(()->service.start(actor,"same-user-second-chance")).isInstanceOf(AuthException.class);
+        assertThat(db.queryForObject("SELECT COUNT(*) FROM mission_completion_evidence",Integer.class)).isEqualTo(1);
+    }
     @Test void rapidTapAtOneMillisecondIsStoredCompletedAndRestored() {
         var attempt=service.start(actor,"rapid-one-ms-key-001");time=attempt.endsAt().plusMillis(100);
         var taps=java.util.stream.IntStream.range(0,300).boxed().toList();
@@ -73,7 +84,7 @@ class ResultsIntegrationTest {
         assertThat(db.queryForObject("SELECT COUNT(*) FROM tap_attempt_events",Integer.class)).isEqualTo(300);
         assertThat(db.queryForObject("SELECT COUNT(*) FROM mission_completion_evidence",Integer.class)).isEqualTo(1);
     }
-    @Test void duplicateMillisecondIsAutomaticallyInvalidAndNeverCompletes(){var attempt=service.start(actor,"suspicious-key-001");time=attempt.endsAt().plusMillis(100);assertThat(service.finish(actor,new FinishRequest(attempt.attemptId(),List.of(1,1,3),List.of())).status()).isEqualTo("INVALID");assertThat(db.queryForObject("SELECT COUNT(*) FROM mission_completion_evidence",Integer.class)).isZero();}
+    @Test void duplicateMillisecondIsValidAndCompletesWithoutChangingOneAttemptRule(){var attempt=service.start(actor,"suspicious-key-001");time=attempt.endsAt().plusMillis(100);assertThat(service.finish(actor,new FinishRequest(attempt.attemptId(),List.of(1,1,3),List.of())).status()).isEqualTo("VALID");assertThat(db.queryForObject("SELECT COUNT(*) FROM mission_completion_evidence",Integer.class)).isEqualTo(1);}
     @Test void expiredSlotIsNotReissuedAndLateSubmissionNeverGetsAValidScore(){var attempt=service.start(actor,"expired-start-key-01");time=attempt.submitDeadline().plusMillis(1);assertThat(service.tap(actor.userId()).attempt().status()).isEqualTo("EXPIRED");assertThatThrownBy(()->service.start(actor,"another-start-key-01")).isInstanceOf(AuthException.class);assertThat(service.finish(actor,new FinishRequest(attempt.attemptId(),List.of(100),List.of())).status()).isEqualTo("EXPIRED");assertThat(db.queryForObject("SELECT COUNT(*) FROM mission_completion_evidence",Integer.class)).isZero();}
     @Test void concurrentStartWithTheSameKeyOnlyCreatesOneOfficialAttempt() throws Exception {
         try(var pool=Executors.newFixedThreadPool(6)) {

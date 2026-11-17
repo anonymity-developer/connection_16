@@ -33,7 +33,7 @@ public class AdminAnalytics {
         SELECT u.id,ROW_NUMBER() OVER(ORDER BY u.created_at,u.id) AS signup_order,COALESCE(u.mattermost_username,ad.original_username) AS mattermost_username,p.nickname,u.real_name,u.region,u.class_no,u.status,u.created_at,u.last_login_at,
           (SELECT COUNT(*) FROM mission_progress mp WHERE mp.user_id=u.id) AS unlocked_count,
           (SELECT COUNT(*) FROM mission_progress mp WHERE mp.user_id=u.id AND mp.status='COMPLETED') AS completed_count,
-          ec.completion_order,cr.completion_rank,ec.completed_at,
+          ec.completion_order,cr.completion_rank,COALESCE(cr.recognized_completed_at,ec.completed_at) completed_at,
           (SELECT SUM(DURATION_VALUE) FROM connection_sessions s WHERE s.user_id=u.id) AS connection_seconds,
           (SELECT MAX(s.last_seen_at) FROM connection_sessions s WHERE s.user_id=u.id) AS last_seen_at,
           (SELECT COUNT(*) FROM connection_sessions s WHERE s.user_id=u.id AND s.ended_at IS NULL AND s.expires_at>UTC_TIMESTAMP(6) AND u.status='ACTIVE' AND s.credential_version=credentials.credential_version) AS active_sessions

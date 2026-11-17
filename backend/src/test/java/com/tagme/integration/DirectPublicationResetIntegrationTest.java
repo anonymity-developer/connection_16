@@ -41,13 +41,15 @@ class DirectPublicationResetIntegrationTest {
     @Autowired PendingSubmissionSettlement settlement;@Autowired TestRestTemplate http;@Autowired ObjectMapper json;@Autowired org.springframework.data.redis.core.StringRedisTemplate redis;
     @Autowired OperationsRepository awardRows;@Autowired PostEventRepository reportRows;@Autowired OperationsService operations;
     @Autowired CheerFeedService cheerFeed;@Autowired TapRankingService rankings;@Autowired com.tagme.discovery.DiscoveryService discovery;
+    @Autowired AdminTapSupportService tapSupport;
+    @Autowired TapRecoveryService tapRecovery;
     @MockitoSpyBean ResultsRepository resultRows;@MockitoBean MattermostClient mattermost;@MockitoBean ModerationProvider provider;
     @MockitoSpyBean AdminAuditRepository audit;
     @Autowired MemberControlService controls;@Autowired ErrorReportService reports;@Autowired ParticipationService participationService;@Autowired OtpStore otpStore;@Autowired AuthService authService;
     AuthPrincipal admin,alice,bob;Instant time;
     @BeforeEach void setup() {
         db.update("UPDATE content_items SET approved_revision_id=NULL,pending_revision_id=NULL");
-        for(String table:List.of("error_reports","account_deactivations","show_me_regrant_blocks","admin_audit_logs","game_participation_resets","cheer_likes","wish_comments","moderation_reviews","moderation_jobs","content_revisions","content_items","content_settings","mission_completion_evidence","submission_receipts","event_completions","mission_progress","tags","sync_results","current_sync_questionnaire","sync_questionnaires","tap_attempt_events","tap_slots","tap_attempts","profile_views","user_consent_events","user_consents","user_interests","profiles","connection_sessions","user_credentials","users","current_consent_policies","consent_policies","event_settings"))db.update("DELETE FROM "+table);
+        for(String table:List.of("tap_recoveries","error_reports","account_deactivations","show_me_regrant_blocks","admin_audit_logs","game_participation_resets","cheer_likes","wish_comments","moderation_reviews","moderation_jobs","content_revisions","content_items","content_settings","mission_completion_evidence","submission_receipts","event_completions","mission_progress","tags","sync_results","current_sync_questionnaire","sync_questionnaires","tap_attempt_events","tap_slots","tap_attempts","profile_views","user_consent_events","user_consents","user_interests","profiles","connection_sessions","user_credentials","users","current_consent_policies","consent_policies","event_settings"))db.update("DELETE FROM "+table);
         try(var c=redis.getConnectionFactory().getConnection()){c.serverCommands().flushDb();}
         admins.run(null);admin=accounts.byAdminLogin("admin:reset-test").orElseThrow().principal();
         db.update("INSERT INTO event_settings(id,opens_at,submit_closes_at,moderation_closes_at) VALUES(1,UTC_TIMESTAMP(6)-INTERVAL 1 HOUR,UTC_TIMESTAMP(6)+INTERVAL 1 HOUR,UTC_TIMESTAMP(6)+INTERVAL 2 HOUR)");
@@ -78,6 +80,118 @@ class DirectPublicationResetIntegrationTest {
     ResultsController.TapAttempt score(AuthPrincipal actor,int count) {
         var attempt=results.start(actor,UUID.randomUUID().toString());time=attempt.endsAt().plusMillis(100);
         return results.finish(actor,new ResultsController.FinishRequest(attempt.attemptId(),java.util.stream.IntStream.range(0,count).boxed().toList(),List.of()));
+    }
+    ResultsRepository.Attempt legacyTapRecord(AuthPrincipal actor,String status,int delay)throws Exception {
+        var attempt=results.start(actor,UUID.randomUUID().toString());
+        var taps=List.of(100,100,230);var payload=new LinkedHashMap<String,Object>();payload.put("taps",taps);payload.put("interruptions",List.of());
+        String hash=HexFormat.of().formatHex(java.security.MessageDigest.getInstance("SHA-256").digest(json.writeValueAsString(payload).getBytes(java.nio.charset.StandardCharsets.UTF_8)));
+        var start=db.queryForObject("SELECT UTC_TIMESTAMP(6)-INTERVAL 1 MINUTE",java.sql.Timestamp.class).toInstant();
+        db.update("UPDATE tap_attempts SET starts_at=?,ends_at=?,submit_deadline=?,status=?,review_reason=?,tap_count=3,payload_hash=?,submitted_at=? WHERE id=?",
+            java.sql.Timestamp.from(start),java.sql.Timestamp.from(start.plusSeconds(10)),java.sql.Timestamp.from(start.plusSeconds(15)),status,"INVALID".equals(status)?"DUPLICATE_MILLISECOND":"SUBMISSION_EXPIRED",hash,java.sql.Timestamp.from(start.plusSeconds(10+delay)),attempt.attemptId());
+        for(int at:taps)db.update("INSERT INTO tap_attempt_events(attempt_id,event_type,relative_time_ms) VALUES (?,'TAP',?)",attempt.attemptId(),at);
+        return resultRows.current(actor.userId());
+    }
+    void completeOtherMissions(AuthPrincipal actor) {
+        results.submit(actor,answers());content.submit(actor,WISH,UUID.randomUUID().toString(),text("소원 보존",null),false);content.submit(actor,CHEER,UUID.randomUUID().toString(),text("응원 보존",null),false);
+    }
+    @Test void restoredEvidenceReordersAlreadyCompletedParticipantsWithoutRenumberingHistory()throws Exception {
+        var old=legacyTapRecord(alice,"EXPIRED",20);completeOtherMissions(alice);completeOtherMissions(bob);score(bob,20);
+        var base=old.startsAt();
+        db.update("UPDATE mission_completion_evidence SET accepted_received_at=? WHERE user_id=?",java.sql.Timestamp.from(base.plusSeconds(5)),alice.userId());
+        db.update("UPDATE mission_completion_evidence SET accepted_received_at=? WHERE user_id=?",java.sql.Timestamp.from(base.plusSeconds(50)),bob.userId());
+        long originalBobOrder=participation.completion(bob.userId()).completionOrder();
+        assertThat(participation.completion(bob.userId()).completionRank()).isEqualTo(1);
+        assertThat(tapSupport.list(admin,0,25,"FAILED",null).items().getFirst().canRestore()).isTrue();
+        assertThat(tapSupport.list(admin,0,25,"FAILED",null).items().getFirst().retryAllowed()).isFalse();
+        assertThatThrownBy(()->tapSupport.retry(admin,alice.userId(),"recover-before-retry-key",new AdminTapSupportService.RetryRequest(old.id(),0,"원본을 먼저 복구","RETRY"))).isInstanceOf(AuthException.class);
+        var request=new TapRecoveryService.Request(old.id(),0,"기존 제출 지연 기록 인정","RESTORE");
+        var recovered=tapRecovery.restore(admin,alice.userId(),"restore-original-tap-key",request);
+        assertThat(tapRecovery.restore(admin,alice.userId(),"restore-original-tap-key",request)).isEqualTo(recovered);
+        assertThat(participation.completion(alice.userId()).completionRank()).isEqualTo(1);
+        assertThat(participation.completion(bob.userId()).completionRank()).isEqualTo(2);
+        assertThat(analytics.detail(admin,alice.userId()).member().completionRank()).isEqualTo(1);
+        assertThat(participation.completion(alice.userId()).completedAt()).isEqualTo(old.submittedAt());
+        assertThat(participation.completion(bob.userId()).completionOrder()).isEqualTo(originalBobOrder);
+        assertThat(participation.completion(alice.userId()).completionOrder()).isGreaterThan(originalBobOrder);
+        assertThat(resultRows.current(alice.userId()).deadline()).isEqualTo(old.deadline());
+        assertThat(resultRows.current(alice.userId()).submittedAt()).isEqualTo(old.submittedAt());
+        assertThat(resultRows.events(old.id()).taps()).containsExactly(100,100,230);
+        assertThat(rankings.board(alice).own().tapCount()).isEqualTo(3);
+        assertThat(db.queryForObject("SELECT original_status FROM tap_recoveries WHERE attempt_id=?",String.class,old.id())).isEqualTo("EXPIRED");
+        assertThat(db.queryForObject("SELECT COUNT(*) FROM admin_audit_logs WHERE target_id=? AND action='MISSION_ADJUSTED'",Integer.class,alice.userId())).isEqualTo(1);
+        // A later fourth letter, rather than F, determines the overall completion instant.
+        db.update("UPDATE mission_completion_evidence e JOIN missions m ON m.id=e.mission_id SET e.accepted_received_at=? WHERE e.user_id=? AND m.code='SAY_SOMETHING'",java.sql.Timestamp.from(base.plusSeconds(55)),alice.userId());
+        assertThat(participation.completion(alice.userId()).completionRank()).isEqualTo(2);
+        assertThat(participation.completion(bob.userId()).completionRank()).isEqualTo(1);
+    }
+    @Test void recoveryRefusesTamperedAndTooLateRecordsAndAuditFailureRollsBackEverything()throws Exception {
+        var old=legacyTapRecord(alice,"INVALID",1);
+        var request=new TapRecoveryService.Request(old.id(),0,"동일 시각 오탐 복구","RESTORE");
+        doThrow(new IllegalStateException("audit unavailable")).when(audit).record(eq(admin.userId()),eq("MISSION_ADJUSTED"),eq("USER"),eq(alice.userId()),anyString(),any(),any());
+        assertThatThrownBy(()->tapRecovery.restore(admin,alice.userId(),"restore-rollback-test-key",request)).isInstanceOf(IllegalStateException.class);
+        assertThat(resultRows.current(alice.userId()).status()).isEqualTo("INVALID");
+        assertThat(participation.mission(alice.userId(),FAST_TAP).state()).isEqualTo("UNLOCKED");
+        assertThat(db.queryForObject("SELECT COUNT(*) FROM tap_recoveries",Integer.class)).isZero();
+        assertThat(db.queryForObject("SELECT COUNT(*) FROM submission_receipts WHERE source_kind='GAME_ATTEMPT'",Integer.class)).isZero();
+        db.update("UPDATE tap_attempt_events SET relative_time_ms=777 WHERE attempt_id=?",old.id());
+        assertThat(tapSupport.list(admin,0,25,"FAILED",null).items().getFirst().canRestore()).isFalse();
+        assertThatThrownBy(()->tapRecovery.restore(admin,alice.userId(),"restore-tampered-test",request)).isInstanceOf(AuthException.class);
+        var late=legacyTapRecord(bob,"EXPIRED",61);
+        assertThatThrownBy(()->tapRecovery.restore(admin,bob.userId(),"restore-too-late-test",new TapRecoveryService.Request(late.id(),0,"기한 초과 검사","RESTORE"))).isInstanceOf(AuthException.class);
+    }
+    @Test void tapSupportRetriesOnlyTheFailedFAndPreservesOtherMissionsAndIdempotency() {
+        var wish=content.submit(alice,WISH,"tap-support-wish-key",text("보존할 소원",null),false);
+        var attempt=results.start(alice,"tap-support-old-attempt");
+        db.update("UPDATE tap_attempts SET status='INVALID',review_reason='DUPLICATE_MILLISECOND',tap_count=3 WHERE id=?",attempt.attemptId());
+        db.update("INSERT INTO tap_attempt_events(attempt_id,event_type,relative_time_ms) VALUES (?,'TAP',100),(?,'TAP',100),(?,'TAP',200)",attempt.attemptId(),attempt.attemptId(),attempt.attemptId());
+        var failed=tapSupport.list(admin,0,25,"FAILED","reset-alice");
+        assertThat(failed.items()).hasSize(1);assertThat(failed.items().getFirst().retryAllowed()).isTrue();
+        assertThat(failed.items().getFirst().reason()).isEqualTo("DUPLICATE_MILLISECOND");
+        var input=new AdminTapSupportService.RetryRequest(attempt.attemptId(),0,"동일 시각 오탐 지원","RETRY");
+        var reset=tapSupport.retry(admin,alice.userId(),"tap-support-retry-key",input);
+        assertThat(tapSupport.retry(admin,alice.userId(),"tap-support-retry-key",input).id()).isEqualTo(reset.id());
+        assertThat(reset.generation()).isEqualTo(1);
+        assertThat(participation.mission(alice.userId(),FAST_TAP).state()).isEqualTo("UNLOCKED");
+        assertThat(participation.mission(alice.userId(),SHOW_ME).state()).isEqualTo("COMPLETED");
+        assertThat(content.own(alice.userId(),WISH).id()).isEqualTo(wish.id());
+        assertThat(participation.mission(alice.userId(),MAKE_A_WISH).state()).isEqualTo("COMPLETED");
+        assertThat(db.queryForObject("SELECT archived_at IS NOT NULL FROM tap_attempts WHERE id=?",Boolean.class,attempt.attemptId())).isTrue();
+        assertThat(db.queryForObject("SELECT COUNT(*) FROM tap_attempt_events WHERE attempt_id=?",Integer.class,attempt.attemptId())).isEqualTo(3);
+        assertThat(results.tap(alice.userId()).officialAvailable()).isTrue();
+        assertThat(tapSupport.list(admin,0,25,"FAILED",null).items()).isEmpty();
+        assertThatThrownBy(()->tapSupport.retry(admin,alice.userId(),"tap-support-retry-key",new AdminTapSupportService.RetryRequest(attempt.attemptId()+1,0,input.reason(),"RETRY"))).isInstanceOf(AuthException.class);
+        assertThatThrownBy(()->results.finish(alice,new ResultsController.FinishRequest(attempt.attemptId(),List.of(100),List.of()),0)).isInstanceOf(AuthException.class);
+        var fresh=results.start(alice,"tap-support-fresh-key",1);time=fresh.endsAt().plusSeconds(30);
+        var valid=results.finish(alice,new ResultsController.FinishRequest(fresh.attemptId(),List.of(100,100,200),List.of()),1);
+        assertThat(valid.status()).isEqualTo("VALID");assertThat(participation.mission(alice.userId(),FAST_TAP).state()).isEqualTo("COMPLETED");
+        assertThatThrownBy(()->tapSupport.retry(admin,alice.userId(),"tap-support-valid-key",new AdminTapSupportService.RetryRequest(fresh.attemptId(),1,"정상 기록 보호","RETRY"))).isInstanceOf(AuthException.class);
+        assertThat(db.queryForObject("SELECT COUNT(*) FROM admin_audit_logs WHERE action='MISSION_ADJUSTED' AND target_id=?",Integer.class,alice.userId())).isEqualTo(1);
+    }
+    @Test void tapSupportDerivesUnsubmittedExpiryAndNeverRetriesAnActiveOrGrantedMission() {
+        var attempt=results.start(alice,"tap-support-expiry-key");
+        assertThat(tapSupport.list(admin,0,25,"FAILED",null).items()).isEmpty();
+        assertThatThrownBy(()->tapSupport.retry(admin,alice.userId(),"tap-active-reject-key",new AdminTapSupportService.RetryRequest(attempt.attemptId(),0,"진행 중 보호","RETRY"))).isInstanceOf(AuthException.class);
+        db.update("UPDATE tap_attempts SET starts_at=UTC_TIMESTAMP(6)-INTERVAL 90 SECOND,ends_at=UTC_TIMESTAMP(6)-INTERVAL 80 SECOND,submit_deadline=UTC_TIMESTAMP(6)-INTERVAL 20 SECOND WHERE id=?",attempt.attemptId());
+        assertThat(tapSupport.list(admin,0,25,"FAILED",null).items().getFirst().status()).isEqualTo("EXPIRED");
+        controls.change(admin,alice.userId(),"FAST_TAP","tap-support-manual-grant",new MemberControlService.ChangeRequest(0,"운영 지급 보호","APPLY","GRANT"));
+        assertThat(tapSupport.list(admin,0,25,"FAILED",null).items().getFirst().retryAllowed()).isFalse();
+        assertThatThrownBy(()->tapSupport.retry(admin,alice.userId(),"tap-support-grant-reject",new AdminTapSupportService.RetryRequest(attempt.attemptId(),1,"이미 지급한 F 보호","RETRY"))).isInstanceOf(AuthException.class);
+        assertThat(participation.mission(alice.userId(),FAST_TAP).state()).isEqualTo("COMPLETED");
+    }
+    @Test void tapSupportHttpRequiresAdminCsrfAndReturnsObservationsWithoutRawEvents() {
+        var attempt=results.start(alice,"tap-support-http-key");
+        db.update("UPDATE tap_attempts SET status='INVALID',review_reason='DUPLICATE_MILLISECOND' WHERE id=?",attempt.attemptId());
+        for(int i=0;i<35;i++)db.update("INSERT INTO tap_attempt_events(attempt_id,event_type,relative_time_ms) VALUES (?,'TAP',?)",attempt.attemptId(),i*25);
+        var guest=new Browser();assertThat(guest.call(HttpMethod.GET,"/api/v1/admin/tap-attempts",null,null).getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
+        var member=new Browser();member.call(HttpMethod.POST,"/api/v1/auth/login",Map.of("username","reset-alice","password","isolated participant password"),member.csrf());
+        assertThat(member.call(HttpMethod.GET,"/api/v1/admin/tap-attempts",null,null).getStatusCode()).isEqualTo(HttpStatus.FORBIDDEN);
+        var operator=new Browser();operator.call(HttpMethod.POST,"/api/v1/auth/login",Map.of("username","admin:reset-test","password","integration reset operator password"),operator.csrf());
+        var listing=operator.call(HttpMethod.GET,"/api/v1/admin/tap-attempts",null,null);assertThat(listing.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(listing.getBody().toString()).contains("REGULAR_INTERVALS").doesNotContain("relative_time_ms","payload_hash","taps=");
+        operator.key="tap-support-http-retry";var body=Map.of("attemptId",attempt.attemptId(),"expectedGeneration",0,"reason","HTTP 권한 검사","confirmation","RETRY");
+        assertThat(operator.call(HttpMethod.POST,"/api/v1/admin/tap-attempts/members/"+alice.userId()+"/retry",body,null).getStatusCode()).isEqualTo(HttpStatus.FORBIDDEN);
+        assertThat(operator.call(HttpMethod.POST,"/api/v1/admin/tap-attempts/members/"+alice.userId()+"/retry",body,operator.csrf()).getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(operator.call(HttpMethod.POST,"/api/v1/admin/tap-attempts/members/"+alice.userId()+"/retry",body,operator.csrf()).getStatusCode()).isEqualTo(HttpStatus.OK);
     }
     @Test void cheerPaletteSupportsTenColoursWithoutChangingTheOneCardSlot() {
         var colours=List.of("ROSE","INK","PEACH","LEMON","MINT","SAGE","LAVENDER","LILAC","SAND","CLOUD");

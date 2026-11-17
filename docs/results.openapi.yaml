@@ -104,7 +104,7 @@ paths:
                 $ref: '#/components/schemas/TapAttempt'
         default:
           $ref: '#/components/responses/Error'
-      description: 서버 기준 5초 준비/10초 플레이/5초 제출 유예. 같은 사용자/key는 같은 attempt. 준비 중 취소만
+      description: 서버 기준 5초 준비/10초 플레이/60초 제출 유예. 같은 사용자/key는 같은 attempt. 준비 중 취소만
         슬롯 복구.
       parameters:
       - name: Idempotency-Key
