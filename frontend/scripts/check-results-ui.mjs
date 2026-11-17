@@ -12,6 +12,7 @@ const server = await preview({ preview: { host: '127.0.0.1', port: 4473, strictP
 try {
   browser = await chromium.launch(); const page = await browser.newPage({ viewport: { width: 390, height: 740 }, hasTouch: true, isMobile: true });
   const pageErrors = [], routeErrors = [], checks = []; await page.addLocatorHandler(page.locator('.mission-earned-actions'), async () => { await page.getByRole('button', {name:'계속 참여하기',exact:true}).click(); });
+  const funnelEvents = [];
   page.on('pageerror', error => pageErrors.push(error.message));
   let sync = null, available = true, changed = false, state = { officialAvailable: true, attempt: null }, starts = 0, finishes = 0, cancels = 0, key = null, failStart = false, cancelledReplay = false, cancelRace = false, failFinish = false, submitted = null, locked = false, resultReads = 0, rankingReads = 0;
   const codes = ['SHOW_ME', 'SYNC_ME', 'MAKE_A_WISH', 'FAST_TAP', 'SAY_SOMETHING'];
@@ -37,6 +38,15 @@ try {
       if (method === 'GET' && path === '/tap/me') return reply(200, state);
       if (method === 'GET' && path === '/tap/leaderboard') { rankingReads++; return reply(200, { top: [], own: null }); }
       assert.equal(req.headers()['x-xsrf-token'], 'result-test-csrf');
+      if (path === '/sync/funnel-events') {
+        const body = req.postDataJSON();
+        assert.deepEqual(Object.keys(body).sort(), ['eventKey', 'eventType', 'mission', 'occurredAt', 'questionnaireVersion', 'step']);
+        assert.equal(body.mission, 'SYNC_ME');
+        assert.equal(req.headers()['x-participation-generation'], '0');
+        funnelEvents.push(body);
+        // Even an auth error from telemetry must not log the participant out.
+        return reply(401, { code: 'SESSION_EXPIRED', message: 'synthetic telemetry failure' });
+      }
       if (path === '/sync/submit') { const body = req.postDataJSON(); assert.deepEqual(Object.keys(body).sort(), ['answers', 'questionnaireVersion']); if (changed) return reply(409, { code: 'QUESTIONNAIRE_CHANGED', message: '질문 버전이 변경됐어요. 다시 불러와 주세요.' }); assert.equal(body.answers.length, approved.questions.length); sync = stored; return reply(200, stored); }
       if (path === '/tap/start') { const next = req.headers()['idempotency-key']; assert.match(next, /^[A-Za-z0-9_-]{16,64}$/); if (key) assert.equal(next, key); key = next; starts++; if (failStart) { failStart = false; return reply(503, { code: 'UNAVAILABLE', message: '시작 응답을 확인하지 못했어요.' }); } if (cancelledReplay) { cancelledReplay = false; const old = { ...newAttempt(await page.evaluate(() => Date.now())), status: 'CANCELLED' }; state = { officialAvailable: true, attempt: null }; return reply(200, old); } state = { officialAvailable: false, attempt: newAttempt(await page.evaluate(() => Date.now())) }; return reply(200, state.attempt); }
       if (path === '/tap/cancel' && cancelRace) { cancelRace = false; const old = { ...state.attempt, status: 'CANCELLED' }; starts++; state = { officialAvailable: false, attempt: { ...newAttempt(Date.now() - 6000), status: 'PLAYING' } }; return reply(200, old); }
@@ -50,6 +60,13 @@ try {
   await page.clock.install();
   await page.clock.pauseAt(new Date(Date.now()+1000));
   await visit('/missions/sync-me'); await page.getByText(`질문 1 / ${approved.questions.length}`, { exact: true }).waitFor();
+  await page.waitForLoadState('networkidle');
+  assert.deepEqual(funnelEvents.map(event => event.step), [0, 1]);
+  await page.reload(); await page.getByText(`질문 1 / ${approved.questions.length}`, { exact: true }).waitFor();
+  await page.waitForLoadState('networkidle');
+  assert.deepEqual(funnelEvents.map(event => event.step), [0, 1, 0, 1]);
+  funnelEvents.splice(0, 2);
+  record('abandoned survey reentry records a fresh entry and first question');
   assert.equal(await page.locator('.sync-question-list fieldset:visible').count(), 1);
   assert.equal(await page.getByRole('button', { name: '다음', exact: true }).isDisabled(), true);
   assert.equal(await page.getByRole('button', { name: '결과 확인하기', exact: true }).count(), 0);
@@ -68,6 +85,10 @@ try {
   }
   assert.equal(await page.getByRole('button', { name: '다음', exact: true }).count(), 0);
   await page.getByRole('button', { name: '결과 확인하기', exact: true }).waitFor();
+  await page.waitForLoadState('networkidle');
+  assert.deepEqual(funnelEvents.map(event => event.step), [0, 1, 2, 1, 2, ...Array.from({ length: approved.questions.length - 2 }, (_, i) => i + 3)]);
+  assert.equal(new Set(funnelEvents.map(event => event.eventKey)).size, funnelEvents.length);
+  record('SYNC tracks actual question transitions including backwards movement, without answer/rerender duplicates');
   for (const width of [360, 375, 390, 412, 430, 768, 1440]) {
     await page.setViewportSize({ width, height: 900 }); assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth), false);
     for (const heading of await page.locator('h1,h2').all()) assert.ok(await heading.evaluate(el => el.getBoundingClientRect().height / Number.parseFloat(getComputedStyle(el).lineHeight) <= 2.1));
@@ -81,6 +102,8 @@ try {
   for (const width of [360, 390, 430, 768, 1440]) { await page.setViewportSize({ width, height: 900 }); assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth), false); await page.screenshot({ path: resolve(output, `sync-result-${width}.png`), fullPage: true }); }
   await page.setViewportSize({ width: 390, height: 900 }); await page.reload(); await page.getByRole('heading', { name: '나의 성향 결과', exact: true }).waitFor(); await page.getByRole('link', { name: '같은유형 하나', exact: false }).waitFor(); await page.screenshot({ path: resolve(output, 'sync-result-restored-390.png'), fullPage: true });
   record('SYNC answers are required, only option IDs are sent, and same-version same-type nicknames link to profiles');
+  assert.equal(funnelEvents.some(event => event.eventType === 'SUBMIT_SUCCESS'), false);
+  record('telemetry auth failures neither log out nor block server submission; no client success event');
   sync = null; changed = true; await visit('/missions/sync-me');
   for (let index = 0; index < approved.questions.length; index++) {
     await page.getByRole('radio', { name: approved.questions[index].options[1].label, exact: true }).check();

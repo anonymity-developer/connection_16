@@ -17,6 +17,7 @@ try {
   browser = await chromium.launch();
   const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
   let signedIn = false, allowed = true, previewReads = 0;
+  let funnelMode = 'normal';
   const mutations = [], errors = [], checks = [];
   page.on('pageerror', error => errors.push(error.message));
   const codes = ['SHOW_ME', 'SYNC_ME', 'MAKE_A_WISH', 'FAST_TAP', 'SAY_SOMETHING'];
@@ -39,6 +40,14 @@ try {
     if (path === '/tags/pending') return reply(200, { present: false });
     if (!signedIn || !allowed) return reply(403, { code: 'ADMIN_REQUIRED', message: '관리자 권한이 필요해요.' });
     if (path === '/admin/access') return reply(200, { admin: true });
+    if (path === '/admin/funnel') {
+      if (funnelMode === 'error') return reply(503, { message: '퍼널 집계 테스트 오류' });
+      const counts = funnelMode === 'empty' ? [0, 0, 0, 0] : [10, 8, 9, 4];
+      return reply(200, { mission: 'SYNC_ME', questionnaireVersion: 'browser-test-only', collectionStartedAt: now, generatedAt: now,
+        steps: counts.map((users, step) => ({ users, step, eventType: step === 0 ? 'SCREEN_ENTER' : step === 3 ? 'SUBMIT_SUCCESS' : 'QUESTION_VIEW',
+          dropOffRate: step === 0 || !counts[step - 1] ? null : (counts[step - 1] - users) / counts[step - 1] * 100,
+          conversionRate: counts[0] ? users / counts[0] * 100 : null })) });
+    }
     if (path === '/admin/moderation/tasks' || path === '/admin/content' || path === '/admin/audit-logs') return reply(200, { items: [], nextCursor: null });
     if (path === '/admin/results') return reply(200, emptyReport);
     if (path === '/admin/awards') return reply(200, { ruleVersion: 'fixture-v1', provisional: true, observedAt: now, opensAt: null, submitClosesAt: null, moderationClosesAt: null, eventPhase: 'NOT_CONFIGURED', category: url.searchParams.get('category'), eligibleCompleteCount: 0, total: 0, offset: 0, limit: 20, items: [], invalidProofs: 0, incompleteProofSets: 0, pendingModeration: 0, reviewTotal: 0, reviewRecords: [], pendingDecisions: [] });
@@ -55,10 +64,22 @@ try {
   const record = name => { checks.push(name); console.log('PASS ' + name); };
   await visit('/auth'); await page.getByLabel('아이디', { exact: true }).fill('admin:contract'); await page.getByLabel('비밀번호', { exact: true }).fill('a contract test password'); await page.getByRole('button', { name: '로그인하기', exact: true }).click(); await page.waitForURL('**/admin'); await page.getByRole('heading', { name: '다섯 미션 참여', exact: true }).waitFor(); record('shared login redirects administrators without participant onboarding');
   await page.waitForLoadState('networkidle');
+  await visit('/admin/funnel'); await page.getByRole('heading', { name: 'SYNC ME 퍼널', exact: true }).waitFor();
+  await page.getByText('-12.5%', { exact: true }).waitFor();
+  assert.equal(await page.getByText('40.0%', { exact: true }).count(), 1);
+  await page.getByText('수집 시작 이전의 화면·질문 조회는 소급할 수 없습니다.', { exact: false }).waitFor();
+  funnelMode = 'empty'; await page.getByRole('button', { name: '새로고침', exact: true }).click();
+  await page.getByText('아직 집계할 참여 기록이 없어요.', { exact: true }).waitFor();
+  assert.equal(await page.getByText('0명', { exact: true }).count(), 4);
+  funnelMode = 'error'; await page.getByRole('button', { name: '새로고침', exact: true }).click();
+  await page.getByRole('alert').filter({ hasText: '퍼널 집계 테스트 오류' }).waitFor();
+  funnelMode = 'normal'; await page.getByRole('button', { name: '새로고침', exact: true }).click();
+  await page.getByText('-12.5%', { exact: true }).waitFor();
+  record('funnel shows independent unique counts, null/negative rates, collection boundary, empty/error/retry states');
   snapshot = (await page.content()).replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, '');
   for (const width of [1440, 768, 430, 390, 360]) {
     await page.setViewportSize({ width, height: 1000 });
-    for (const [route, name] of [['/admin', 'overview'], ['/admin/members', 'members'], ['/admin/members/10', 'detail'], ['/admin/rankings', 'rankings'], ['/admin/completions', 'completions'], ['/admin/moderation', 'moderation'], ['/admin/moderation?tab=content', 'content'], ['/admin/moderation?tab=audit', 'audit'], ['/admin/moderation?tab=awards', 'awards'], ['/admin/moderation?tab=results', 'results']]) {
+    for (const [route, name] of [['/admin/funnel', 'funnel'], ['/admin', 'overview'], ['/admin/members', 'members'], ['/admin/members/10', 'detail'], ['/admin/rankings', 'rankings'], ['/admin/completions', 'completions'], ['/admin/moderation', 'moderation'], ['/admin/moderation?tab=content', 'content'], ['/admin/moderation?tab=audit', 'audit'], ['/admin/moderation?tab=awards', 'awards'], ['/admin/moderation?tab=results', 'results']]) {
       await visit(route); await page.locator('.admin-sheet').waitFor(); await page.waitForLoadState('networkidle');
       assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1), `${route} fits ${width}`);
       assert.equal(await page.locator('h1').count(), 1); assert.equal(await page.locator('.admin-sidebar').count(), 1);

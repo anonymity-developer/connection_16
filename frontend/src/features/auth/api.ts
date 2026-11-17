@@ -14,6 +14,26 @@ export class ApiError extends Error {
 let csrf: { headerName: string; token: string } | null = null;
 let participationGeneration = 0, sessionRevision = 0;
 export function clearCsrf() { csrf = null; }
+// Telemetry is deliberately isolated from request(): errors must not dispatch logout,
+// clear CSRF, retry, or block an ordinary mission request.
+let telemetryPending = 0;
+export async function postTelemetry(path: '/sync/funnel-events', body: object): Promise<void> {
+  if (telemetryPending >= 4) return;
+  telemetryPending++;
+  const generation = participationGeneration, revision = sessionRevision;
+  try {
+    const signal = AbortSignal.timeout(2000);
+    const token = csrf ?? await fetch('/api/v1/csrf', { credentials: 'same-origin', cache: 'no-store', signal }).then(async response => {
+      if (!response.ok) throw new Error('Telemetry unavailable');
+      return response.json() as Promise<{ headerName: string; token: string }>;
+    });
+    if (!token || revision !== sessionRevision) return;
+    await fetch(`/api/v1${path}`, { method: 'POST', credentials: 'same-origin', cache: 'no-store', signal,
+      headers: { 'Content-Type': 'application/json', [token.headerName]: token.token, 'X-Participation-Generation': String(generation) },
+      body: JSON.stringify(body) });
+  } catch { /* Best effort, no retries or participant-facing side effects. */ }
+  finally { telemetryPending--; }
+}
 function resetSession() { clearCsrf(); participationGeneration = 0; sessionRevision++; }
 
 export async function request<T>(path: string, method = 'GET', body?: object, options: { headers?: Record<string, string>; keepalive?: boolean } = {}): Promise<T> {

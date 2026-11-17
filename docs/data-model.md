@@ -1,5 +1,7 @@
 # 데이터 모델과 마이그레이션
 
+V21(퍼널 작업 브랜치)은 `funnel_collection`(수집 시작 DB UTC 시각)과 `mission_funnel_events`(user FK, 미션/문항 버전/세대, UUID 중복 키, 유형/단계, 발생/수신 시각)를 additive로 추가한다. 사용자/키 UNIQUE와 버전·단계·사용자·세대 인덱스를 둔다. 기존 결과·완료 테이블은 변경하지 않는다. [수집 범위와 롤백](funnel-analytics.md).
+
 `event_completions.completion_order`는 내부 누적 완료 번호이며 UNIQUE와 전역 sequence를 유지한다. API의 `completionRank`는 현재 ACTIVE·USER·가입 자격증명 보유·독립 운영자 제외 완료자를 번호 순으로 조회해 계산하는 값으로, DB 컬럼/테이블은 추가하지 않는다. 취소 시 빈 번호를 재작성하지 않고 표시 순위만 당긴다. [완료 표시 계약](participation.md).
 
 2026-11-13 응원 후속: `R__cheer_palette_and_feed_index.sql`은 revision의 기존 데이터/형태를 보존하면서 10색 CHECK와 `content_items(kind,visibility_status,archived_at,id)` 인덱스를 추가한다. 별도 카운터/캐시 테이블은 만들지 않는다. [현재 콘텐츠 계약](content.md).

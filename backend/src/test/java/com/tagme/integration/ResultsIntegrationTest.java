@@ -29,6 +29,7 @@ import static org.mockito.Mockito.*;
 
 @Tag("integration") @Testcontainers @SpringBootTest(webEnvironment=SpringBootTest.WebEnvironment.RANDOM_PORT)
 class ResultsIntegrationTest {
+    @Autowired com.tagme.analytics.FunnelService funnel;
     @Container static final MySQLContainer<?> MYSQL=new MySQLContainer<>("mysql:8.4");
     @Container static final GenericContainer<?> REDIS=new GenericContainer<>(DockerImageName.parse("redis:7.4-alpine")).withExposedPorts(6379);
     @DynamicPropertySource static void properties(DynamicPropertyRegistry r){r.add("spring.datasource.url",MYSQL::getJdbcUrl);r.add("spring.datasource.username",MYSQL::getUsername);r.add("spring.datasource.password",MYSQL::getPassword);r.add("spring.data.redis.host",REDIS::getHost);r.add("spring.data.redis.port",()->REDIS.getMappedPort(6379));r.add("tagme.auth.enabled",()->true);r.add("tagme.auth.token",()->"test-only-token");r.add("tagme.auth.channel-id",()->"c".repeat(26));r.add("tagme.auth.hmac-key",()->Base64.getEncoder().encodeToString(new byte[32]));}
@@ -42,6 +43,7 @@ class ResultsIntegrationTest {
       """;
     @BeforeEach void setup(){
         reset(repository,mattermost);cookies.clear();
+        db.update("DELETE FROM mission_funnel_events");
         for(String table:List.of("mission_completion_evidence","submission_receipts","event_completions","mission_progress","tap_attempt_events","tap_slots","tap_attempts","sync_results","current_sync_questionnaire","sync_questionnaires","tags","user_consent_events","user_consents","user_interests","profiles","user_credentials","users","current_consent_policies","consent_policies","event_settings"))db.update("DELETE FROM "+table);
         try(var c=redis.getConnectionFactory().getConnection()){c.serverCommands().flushDb();}
         db.update("UPDATE event_completion_sequence SET next_value=1");db.update("UPDATE missions SET active=TRUE");
@@ -55,6 +57,88 @@ class ResultsIntegrationTest {
         when(mattermost.byUsername("alice")).thenReturn(Optional.of(new MattermostClient.Identity("a".repeat(26),"alice",new MattermostProfile("테스트이름","서울",13,0))));
     }
     SyncRequest answer(String option){return new SyncRequest("test-v1",List.of(new Answer("q1",option)));}
+    com.tagme.analytics.FunnelController.Event event(int step) {
+        return new com.tagme.analytics.FunnelController.Event(UUID.randomUUID().toString(),"SYNC_ME",step==0?"SCREEN_ENTER":"QUESTION_VIEW","test-v1",step,Instant.now());
+    }
+    AuthPrincipal admin() {
+        long id=accounts.insertUser("z".repeat(26),"funnel-admin");
+        accounts.insertCredential(id,passwords.encode(PASSWORD));
+        db.update("UPDATE users SET role='ADMIN' WHERE id=?",id);
+        return accounts.byId(id).orElseThrow().principal();
+    }
+    @Test void funnelCountsDistinctViewsAndOnlyCommittedServerResults() {
+        var operator=admin();
+        funnel.collect(actor,event(0),0); funnel.collect(actor,event(1),0); funnel.collect(actor,event(1),0);
+        assertThat(funnel.report(operator).steps()).extracting(com.tagme.analytics.FunnelService.Step::users).containsExactly(1L,1L,0L);
+        service.submit(actor,answer("a")); service.submit(actor,answer("a"));
+        assertThat(funnel.report(operator).steps()).extracting(com.tagme.analytics.FunnelService.Step::users).containsExactly(1L,1L,1L);
+        db.update("UPDATE sync_results SET submitted_at='2000-01-01' WHERE user_id=?",actor.userId());
+        assertThat(funnel.report(operator).steps().getLast().users()).isZero();
+    }
+    @Test void concurrentTelemetryRetriesAreIdempotent() throws Exception {
+        var event=event(1);
+        try(var pool=Executors.newFixedThreadPool(4)) {
+            var tasks=new ArrayList<Future<?>>();
+            for(int i=0;i<8;i++) tasks.add(pool.submit(()->funnel.collect(actor,event,0)));
+            for(var task:tasks) task.get(30,TimeUnit.SECONDS);
+        }
+        assertThat(db.queryForObject("SELECT COUNT(*) FROM mission_funnel_events",Integer.class)).isEqualTo(1);
+    }
+    @Test void funnelSeparatesQuestionnaireVersionsInactiveAccountsAndResetGenerations() {
+        var operator=admin(); funnel.collect(actor,event(0),0); funnel.collect(actor,event(1),0);
+        db.update("UPDATE users SET status='SUSPENDED' WHERE id=?",actor.userId());
+        assertThat(funnel.report(operator).steps()).allSatisfy(step->assertThat(step.users()).isZero());
+        db.update("UPDATE users SET status='ACTIVE' WHERE id=?",actor.userId());
+        db.update("UPDATE mission_funnel_events SET generation=1 WHERE user_id=?",actor.userId());
+        assertThat(funnel.report(operator).steps()).allSatisfy(step->assertThat(step.users()).isZero());
+        db.update("UPDATE mission_funnel_events SET generation=0 WHERE user_id=?",actor.userId());
+        db.update("INSERT INTO sync_questionnaires VALUES ('test-v2',?)",definition);
+        db.update("UPDATE current_sync_questionnaire SET version='test-v2'");
+        assertThat(funnel.report(operator).steps()).allSatisfy(step->assertThat(step.users()).isZero());
+        assertThatThrownBy(()->funnel.collect(actor,event(1),0)).isInstanceOf(AuthException.class);
+    }
+    @Test void rolledBackServerSubmissionNeverAppearsAsFunnelSuccess() {
+        var operator=admin(); funnel.collect(actor,event(0),0);
+        doAnswer(invocation->{invocation.callRealMethod();throw new org.springframework.dao.DataAccessResourceFailureException("synthetic rollback");})
+            .when(repository).saveSync(anyLong(),anyString(),anyString(),anyString(),anyString(),anyString(),any());
+        assertThatThrownBy(()->service.submit(actor,answer("a"))).isInstanceOf(org.springframework.dao.DataAccessException.class);
+        assertThat(funnel.report(operator).steps().getLast().users()).isZero();
+    }
+    @Test void funnelRejectsPreviewActorsInvalidStepsLockedMissionsAndStaleGenerations() {
+        assertThatThrownBy(()->funnel.collect(admin(),event(1),0)).isInstanceOf(AuthException.class);
+        assertThatThrownBy(()->funnel.collect(actor,event(2),0)).isInstanceOf(AuthException.class);
+        assertThatThrownBy(()->funnel.collect(actor,event(1),1)).isInstanceOf(AuthException.class);
+        db.update("DELETE FROM mission_progress WHERE user_id=?",actor.userId());
+        assertThatThrownBy(()->funnel.collect(actor,event(1),0)).isInstanceOf(AuthException.class);
+        assertThat(db.queryForObject("SELECT COUNT(*) FROM mission_funnel_events",Integer.class)).isZero();
+    }
+    @Test void unavailableTelemetryStorageCannotBreakActualSubmission() {
+        db.execute("RENAME TABLE mission_funnel_events TO test_unavailable_funnel_events");
+        try {
+            assertThatThrownBy(()->funnel.collect(actor,event(1),0)).isInstanceOf(org.springframework.dao.DataAccessException.class);
+            assertThat(service.submit(actor,answer("a"))).isNotNull();
+            assertThat(repository.sync(actor.userId())).isNotNull();
+        } finally { db.execute("RENAME TABLE test_unavailable_funnel_events TO mission_funnel_events"); }
+    }
+    @Test void funnelLifetimeStorageCapAndRateLimitAreEnforced() {
+        var events=new ArrayList<Object[]>();
+        for(int i=0;i<2000;i++) events.add(new Object[]{actor.userId(),UUID.randomUUID().toString()});
+        db.batchUpdate("INSERT INTO mission_funnel_events(user_id,mission,questionnaire_version,generation,event_key,event_type,step,occurred_at,received_at) VALUES (?,'SYNC_ME','test-v1',0,?,'QUESTION_VIEW',1,UTC_TIMESTAMP(6),UTC_TIMESTAMP(6))",events);
+        assertThatThrownBy(()->funnel.collect(actor,event(1),0)).isInstanceOf(AuthException.class).satisfies(e->assertThat(((AuthException)e).code()).isEqualTo("FUNNEL_LIMIT_REACHED"));
+        db.update("DELETE FROM mission_funnel_events");
+        var retry=event(1);
+        for(int i=0;i<119;i++) funnel.collect(actor,retry,0);
+        assertThatThrownBy(()->funnel.collect(actor,event(1),0)).isInstanceOf(AuthException.class).satisfies(e->assertThat(((AuthException)e).status()).isEqualTo(429));
+    }
+    @Test void funnelHttpRequiresAuthenticationAdminAndCsrfAndRejectsFakeSuccess() {
+        assertThat(raw(HttpMethod.GET,"/admin/funnel",null,null).getStatusCode().value()).isEqualTo(401);
+        assertThat(send("/sync/funnel-events",event(1)).getStatusCode().value()).isEqualTo(401);
+        assertThat(send("/auth/login",Map.of("username","alice","password",PASSWORD)).getStatusCode().value()).isEqualTo(200);
+        assertThat(raw(HttpMethod.GET,"/admin/funnel",null,null).getStatusCode().value()).isEqualTo(403);
+        assertThat(raw(HttpMethod.POST,"/sync/funnel-events",event(1),null).getStatusCode().value()).isEqualTo(403);
+        assertThat(send("/sync/funnel-events",new com.tagme.analytics.FunnelController.Event(UUID.randomUUID().toString(),"SYNC_ME","SUBMIT_SUCCESS","test-v1",1,Instant.now())).getStatusCode().value()).isEqualTo(400);
+        assertThat(send("/sync/funnel-events",event(1)).getStatusCode().value()).isEqualTo(204);
+    }
     @Test void syncComputesFirstResultAndCannotChangeOrRepeatCompletion(){var result=service.submit(actor,answer("b"));assertThat(result.type().code()).isEqualTo("E");assertThat(result.axisScores()).containsEntry("social",1);assertThat(service.submit(actor,answer("b"))).isEqualTo(result);assertThatThrownBy(()->service.submit(actor,answer("a"))).isInstanceOf(AuthException.class);assertThat(db.queryForObject("SELECT COUNT(*) FROM sync_results",Integer.class)).isEqualTo(1);assertThat(participation.mission(actor.userId(),com.tagme.participation.ParticipationModels.MissionCode.SYNC_ME).state()).isEqualTo("COMPLETED");}
     @Test void syncMissingConfigUnknownOptionAndConcurrentFirstSubmissionsAreSafe()throws Exception{
         db.update("DELETE FROM current_sync_questionnaire");assertThat(service.questions(actor).available()).isFalse();assertThatThrownBy(()->service.submit(actor,answer("a"))).isInstanceOf(AuthException.class);
