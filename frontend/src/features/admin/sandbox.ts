@@ -80,7 +80,7 @@ export function createSandbox(definition: PreviewDefinition, interests: Interest
       tap: async () => copy(tap),
       start: async () => {
         if (tap.attempt) return copy(tap.attempt);
-        const now = Date.now(); const attempt: TapAttempt = { attemptId: ++serial, generation: 1, status: 'COUNTDOWN', serverNow: new Date(now).toISOString(), startsAt: new Date(now + 5000).toISOString(), endsAt: new Date(now + 15000).toISOString(), submitDeadline: new Date(now + 20000).toISOString(), tapCount: null, reviewReason: null, provisional: false };
+        const now = Date.now(); const attempt: TapAttempt = { attemptId: ++serial, generation: 1, status: 'COUNTDOWN', serverNow: new Date(now).toISOString(), startsAt: new Date(now + 5000).toISOString(), endsAt: new Date(now + 15000).toISOString(), submitDeadline: new Date(now + 75000).toISOString(), tapCount: null, reviewReason: null, provisional: false };
         tap = { officialAvailable: false, attempt }; return copy(attempt);
       },
       cancel: async id => {
@@ -92,7 +92,7 @@ export function createSandbox(definition: PreviewDefinition, interests: Interest
         if (!tap.attempt || tap.attempt.attemptId !== payload.attemptId) throw new Error('미리보기 도전을 다시 시작해 주세요.');
         if (['VALID', 'INVALID', 'INTERRUPTED'].includes(tap.attempt.status)) return copy(tap.attempt);
         if (Date.now() < Date.parse(tap.attempt.endsAt)) throw new Error('미리보기 시간이 끝난 뒤 결과를 확인해 주세요.');
-        const attempt: TapAttempt = { ...tap.attempt, status: payload.interruptions.length ? 'INTERRUPTED' : payload.taps.some((at, i) => i > 0 && at - payload.taps[i - 1] < 1) ? 'INVALID' : 'VALID', tapCount: payload.taps.length, provisional: false }; tap = { officialAvailable: false, attempt }; return copy(attempt);
+        const attempt: TapAttempt = { ...tap.attempt, status: payload.interruptions.length ? 'INTERRUPTED' : 'VALID', tapCount: payload.taps.length, provisional: false }; tap = { officialAvailable: false, attempt }; return copy(attempt);
       },
     },
     content: {

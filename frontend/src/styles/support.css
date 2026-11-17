@@ -11,3 +11,16 @@
 .member-control-row { display:flex;gap:8px;flex-wrap:wrap;align-items:center;padding:16px 0;border-bottom:1px solid var(--border); }
 .member-control-row > strong { flex-basis:100%; }
 @media(max-width:640px) { .header-actions { gap:2px; }.header-report { padding-inline:6px;font-size:12px; } }
+
+.tap-support-filters { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin: 20px 0; }
+.tap-support-filters input { min-width: 0; width: min(100%, 260px); min-height: 44px; }
+.tap-support .admin-table td { vertical-align: top; }
+.tap-support .admin-table small { display: block; margin-top: 6px; overflow-wrap: anywhere; }
+.tap-recovery-label { display: block; margin-top: 8px; font-size: 12px; }
+.tap-past-decision { margin: 12px 0 8px; }
+.tap-recovery-details { margin-top: 12px; font-size: 12px; }
+.tap-recovery-details summary { cursor: pointer; min-height: 32px; padding-block: 6px; }
+.tap-recovery-details dl { margin: 8px 0; overflow-wrap: anywhere; }
+.tap-recovery-details dt { color: var(--muted); margin-top: 8px; }
+.tap-recovery-details dd { margin: 2px 0 0; }
+@media (max-width: 640px) { .tap-support-filters label { width: 100%; } .tap-support-filters input { flex: 1; } }

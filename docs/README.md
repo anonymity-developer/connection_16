@@ -20,7 +20,7 @@
 | --- | --- | --- |
 | 인증 | [인증](auth.md), [Mattermost 프로필](mattermost-profile.md) | [auth.openapi.yaml](auth.openapi.yaml) |
 | 프로필·참여·NFC | [참여](participation.md) | [participation.openapi.yaml](participation.openapi.yaml) |
-| SYNC·FAST TAP | [결과 미션](results.md), [미션 규칙](mission-rules.md) | [results.openapi.yaml](results.openapi.yaml) |
+| SYNC·FAST TAP | [결과 미션](results.md), [미션 규칙](mission-rules.md), [판정 복구·순위·재도전](fast-tap-support.md) | [results.openapi.yaml](results.openapi.yaml) |
 | 소원·응원 | [콘텐츠](content.md), [직접 공개와 초기화](direct-publication-and-reset.md) | [content.openapi.yaml](content.openapi.yaml) |
 | 댓글·하트 | [반응](reactions.md) | [reactions.openapi.yaml](reactions.openapi.yaml) |
 | 동료 탐색 | [탐색](discovery.md), [추천 경계](recommendation-design.md) | [discovery.openapi.yaml](discovery.openapi.yaml) |
