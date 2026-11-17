@@ -1,0 +1,49 @@
+openapi: 3.0.3
+info:
+  title: TAG ME discovery conversion analytics
+  version: 1.0.0
+servers:
+  - url: /api/v1
+security:
+  - session: []
+paths:
+  /admin/discovery-conversion:
+    get:
+      summary: ADMIN-only SYNC completion to new profile visits and same-peer mutual visits
+      description: Current ACTIVE registered USER accounts and peers, excluding local operators. Uses current sync_results across all questionnaire versions and strictly later outgoing first_viewed_at. Archived results and pre-completion outgoing visits are excluded. No individual records or write side effects.
+      responses:
+        '200':
+          description: One consistent snapshot; counts form nested user cohorts, not pair counts or recommendation click attribution
+          headers:
+            Cache-Control:
+              schema: {type: string}
+              description: Includes no-store
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required: [basis, generatedAt, steps]
+                properties:
+                  basis: {type: string, enum: [CURRENT_SYNC_RESULTS_ALL_VERSIONS]}
+                  generatedAt: {type: string, format: date-time}
+                  steps:
+                    type: array
+                    minItems: 3
+                    maxItems: 3
+                    items:
+                      type: object
+                      additionalProperties: false
+                      required: [code, users, previousConversionRate, completionConversionRate]
+                      properties:
+                        code: {type: string, enum: [SYNC_COMPLETED, PROFILE_FIRST_VISIT, MUTUAL_VISIT]}
+                        users: {type: integer, format: int64, minimum: 0}
+                        previousConversionRate: {type: number, minimum: 0, maximum: 100, nullable: true, description: 'Null for first stage or zero denominator; percentage of previous stage'}
+                        completionConversionRate: {type: number, minimum: 0, maximum: 100, nullable: true, description: 'Percentage of SYNC_COMPLETED; null for zero completions'}
+        '401': {description: Unauthenticated, inactive or revoked credentials/session}
+        '403': {description: Current ADMIN role required}
+        '429': {description: More than 30 report requests per user per minute}
+        '503': {description: Dependency unavailable}
+components:
+  securitySchemes:
+    session: {type: apiKey, in: cookie, name: TAGME_SESSION}

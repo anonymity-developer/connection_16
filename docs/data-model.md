@@ -1,5 +1,7 @@
 # 데이터 모델과 마이그레이션
 
+동료 탐색 전환 분석 작업 브랜치는 V5의 현재 `sync_results.submitted_at`과 V1의 `(viewer_id,viewed_id)` PK/`profile_views.first_viewed_at`만 읽는다. 상호 형성 시각은 양방향 최초 시각의 최댓값이며 컬럼·이벤트·마이그레이션을 추가하지 않는다. [시간 순서와 초기화 경계](discovery-conversion.md).
+
 `event_completions.completion_order`는 내부 누적 완료 번호이며 UNIQUE와 전역 sequence를 유지한다. API의 `completionRank`는 현재 ACTIVE·USER·가입 자격증명 보유·독립 운영자 제외 완료자를 번호 순으로 조회해 계산하는 값으로, DB 컬럼/테이블은 추가하지 않는다. 취소 시 빈 번호를 재작성하지 않고 표시 순위만 당긴다. [완료 표시 계약](participation.md).
 
 2026-11-13 응원 후속: `R__cheer_palette_and_feed_index.sql`은 revision의 기존 데이터/형태를 보존하면서 10색 CHECK와 `content_items(kind,visibility_status,archived_at,id)` 인덱스를 추가한다. 별도 카운터/캐시 테이블은 만들지 않는다. [현재 콘텐츠 계약](content.md).

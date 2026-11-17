@@ -31,6 +31,7 @@
 | `/admin/members/{id}` | `/admin/members/{id}` | 상세 프로필·관심사·링크, 미션별 결과와 최근 접속 30건 |
 | `/admin/rankings` | `/admin/rankings/{mission}?offset=0&limit=25` | 미션별 현재 유효 순위와 계산 기준 |
 | `/admin/completions` | `/admin/completions?offset=0&limit=25` | 현재 유효 완료자의 표시 순위 |
+| `/admin/discovery-conversion` | `/admin/discovery-conversion` | 현재 SYNC 결과 → 완료 후 새 상대 방문 → 같은 상대와 상호 방문의 사용자 수/전환율. [기준과 한계](discovery-conversion.md) |
 | `/admin/preview` | `/admin/preview/sync` | 미리보기용 문항 정의와 EXAMPLE/CONFIGURED 구분 |
 | `/admin/moderation` | 기존 검수/콘텐츠/감사 API | 기존 승인·거절·재처리·숨김·복구·감사 |
 | `/admin/moderation?tab=awards` | 기존 시상 후보 API | 잠정 후보·동점·중복 후보 검토 |

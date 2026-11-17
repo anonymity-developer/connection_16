@@ -1,0 +1,7 @@
+.admin-table.admin-conversion-table .num { text-align: right; }
+.admin-conversion-table td:first-child, .admin-conversion-table td::before { word-break: keep-all; }
+.admin-conversion-panel .admin-panel-heading { flex-wrap: wrap; }
+@media (max-width: 640px) {
+  .admin-console:has(.admin-conversion-panel) .admin-title { flex-wrap: wrap; }
+  .admin-console:has(.admin-conversion-panel) .admin-title > div { flex-basis: 100%; }
+}
