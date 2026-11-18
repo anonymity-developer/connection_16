@@ -67,8 +67,15 @@ try {
   });
   const visit=slug=>page.goto(`http://127.0.0.1:4279/missions/${slug}`);
   async function checkProgressRow() {
-    const letter=await page.locator('.mission-reward .letter-sticker').boundingBox();
-    const badge=await page.locator('.mission-reward .state-badge').boundingBox();
+    await page.evaluate(()=>document.fonts.ready);
+    // Compare both rectangles in one layout snapshot, not across async reflows.
+    const {letter,badge}=await page.locator('.mission-reward').evaluate(row=>{
+      const rectangle=selector=>{
+        const box=row.querySelector(selector)?.getBoundingClientRect();
+        return box?{x:box.x,y:box.y,width:box.width,height:box.height}:null;
+      };
+      return {letter:rectangle('.letter-sticker'),badge:rectangle('.state-badge')};
+    });
     assert.ok(letter&&badge&&badge.x>=letter.x+letter.width,'status is beside the letter');
     assert.ok(badge.y<letter.y+letter.height&&badge.y+badge.height>letter.y,'letter and status share a row');
     assert.equal(await page.locator('.mission-progress-summary > .state-badge').count(),0);
