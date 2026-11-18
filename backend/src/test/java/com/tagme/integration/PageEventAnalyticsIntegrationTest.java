@@ -48,6 +48,7 @@ class PageEventAnalyticsIntegrationTest {
     @Autowired com.tagme.analytics.CompletionEventRecorder recorder;
     @Autowired org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor analyticsExecutor;
     @Autowired org.springframework.transaction.PlatformTransactionManager manager;
+    @Autowired com.tagme.operations.TapRecoveryService tapRecovery;
     void drained() { try { analyticsExecutor.submit(()->{}).get(10,TimeUnit.SECONDS); } catch(Exception failure) { throw new AssertionError(failure); } }
     @AfterEach void drain() { drained(); }
     @BeforeEach void setup(){
@@ -55,7 +56,7 @@ class PageEventAnalyticsIntegrationTest {
         db.update("UPDATE content_items SET approved_revision_id=NULL,pending_revision_id=NULL");
         for(String table:List.of("moderation_reviews","moderation_jobs","content_revisions","content_items"))db.update("DELETE FROM "+table);
         reset(repository,mattermost);cookies.clear();
-        db.update("DELETE FROM mission_funnel_events");
+        db.update("DELETE FROM mission_funnel_events");db.update("DELETE FROM tap_recoveries");
         for(String table:List.of("mission_completion_evidence","submission_receipts","event_completions","mission_progress","tap_attempt_events","tap_slots","tap_attempts","sync_results","current_sync_questionnaire","sync_questionnaires","tags","user_consent_events","user_consents","user_interests","profiles","user_credentials","users","current_consent_policies","consent_policies","event_settings"))db.update("DELETE FROM "+table);
         try(var c=redis.getConnectionFactory().getConnection()){c.serverCommands().flushDb();}
         db.update("UPDATE event_completion_sequence SET next_value=1");db.update("UPDATE missions SET active=TRUE");
@@ -130,6 +131,27 @@ class PageEventAnalyticsIntegrationTest {
         recorder.completed(new MissionCompletedNotice(actor.userId(),"SYNC_ME",999,"ADMIN_ADJUSTMENT",Instant.now()));
         recorder.completed(new MissionCompletedNotice(actor.userId(),"SYNC_ME",998,"SYNC_RESULT",Instant.EPOCH));drained();
         assertThat(db.queryForObject("SELECT COUNT(*) FROM page_events",Integer.class)).isZero();
+    }
+    @Test void mainTapRecoveryRecordsOneCommittedSuccessWithoutRewritingOriginalTapEvidence() throws Exception {
+        var attempt=service.start(actor,"analytics-recovery-key-001");
+        var taps=List.of(100,100,230);var payload=new LinkedHashMap<String,Object>();
+        payload.put("taps",taps);payload.put("interruptions",List.of());
+        String hash=HexFormat.of().formatHex(java.security.MessageDigest.getInstance("SHA-256").digest(json.writeValueAsString(payload).getBytes(java.nio.charset.StandardCharsets.UTF_8)));
+        var start=db.queryForObject("SELECT UTC_TIMESTAMP(6)-INTERVAL 30 SECOND",java.sql.Timestamp.class).toInstant();
+        var submitted=start.plusSeconds(12);
+        db.update("UPDATE tap_attempts SET starts_at=?,ends_at=?,submit_deadline=?,status='INVALID',review_reason='DUPLICATE_MILLISECOND',tap_count=3,payload_hash=?,submitted_at=? WHERE id=?",
+            java.sql.Timestamp.from(start),java.sql.Timestamp.from(start.plusSeconds(10)),java.sql.Timestamp.from(start.plusSeconds(15)),hash,java.sql.Timestamp.from(submitted),attempt.attemptId());
+        for(int at:taps)db.update("INSERT INTO tap_attempt_events(attempt_id,event_type,relative_time_ms) VALUES (?,'TAP',?)",attempt.attemptId(),at);
+        assertThat(tapRecovery.restoreAutomatically(actor.userId())).isNotNull();drained();
+        assertThat(repository.current(actor.userId()).status()).isEqualTo("VALID");
+        assertThat(repository.current(actor.userId()).submittedAt()).isEqualTo(submitted);
+        assertThat(repository.events(attempt.attemptId()).taps()).containsExactly(100,100,230);
+        assertThat(db.queryForObject("SELECT recognized_at FROM tap_recoveries WHERE attempt_id=?",java.sql.Timestamp.class,attempt.attemptId()).toInstant()).isEqualTo(submitted);
+        assertThat(db.queryForObject("SELECT actor_id FROM tap_recoveries WHERE attempt_id=?",Long.class,attempt.attemptId())).isNull();
+        assertThat(participation.mission(actor.userId(),ParticipationModels.MissionCode.FAST_TAP).state()).isEqualTo("COMPLETED");
+        assertThat(db.queryForList("SELECT mission FROM page_events WHERE source='SERVER'",String.class)).containsExactly("FAST_TAP");
+        assertThat(tapRecovery.restoreAutomatically(actor.userId())).isNull();drained();
+        assertThat(db.queryForObject("SELECT COUNT(*) FROM page_events WHERE source='SERVER'",Integer.class)).isEqualTo(1);
     }
     @Test void loggingStorageOutageCannotBreakServerResultOrLetter() {
         long dropped=recorder.dropped();db.execute("RENAME TABLE page_events TO isolated_unavailable_page_events");
