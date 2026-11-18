@@ -2,6 +2,8 @@
 
 `review/page-events-v24-isolated-20261118`는 main `f244e3c` + #37 격리 V23 후보를 기반으로 P0/P1을 통합 검증한다. 원본 브랜치는 변경하지 않는다. #37의 V23·질문 수집·`/admin/funnel`은 재사용한다. PR #39의 기존 기록 기반 동료 탐색 전환 분석은 포함하거나 수정하지 않는다.
 
+2026-11-18 제출: 이 검증 결과를 `feat/admin-page-events-v24`에서 재사용해 갱신된 #37 브랜치를 base로 하는 Draft PR로 제출한다. 원본 `8cdebc6`/`c8451b5`와 V24 격리 `61c9690`·기존 worktree/백업은 보존한다. 제출 승인은 main 병합·운영 배포·외부 유지 DB 안전성 확정을 포함하지 않는다.
+
 P0 `8cdebc6`의 수집·관리자 조회/집계 API와 P1 `c8451b5`의 관리자 `/admin/events` 화면을 재사용한다. 이번 격리 후보의 결과는 [V24 통합 검증](page-events-v24-isolated-verification.md)에 구분한다. 실제 PR의 번호 충돌·외부 DB 이력 확인·운영 적용은 별도 미해결 상태다.
 
 ## P1 화면과 원본 브랜치의 기존 검증

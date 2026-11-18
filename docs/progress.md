@@ -2,6 +2,10 @@
 
 기준: 격리 후보 `review/page-events-v24-isolated-20261118` / 2026-11-18. 실제 main/PR/운영 적용 상태와 구분한다.
 
+## P0/P1 stacked Draft PR 제출 준비 (2026-11-18)
+
+사용자 승인에 따라 검증된 `61c9690`을 제출 브랜치 `feat/admin-page-events-v24`에서 재사용하고, 갱신한 #37의 `feat/admin-funnel-analytics`를 base/ancestor로 유지한다. P0 수집과 P1 네 탭·기간/필터/페이지네이션·권한/오류/반응형 구현은 기존 검증 결과를 그대로 사용한다. 새 제품 기능·UI 재설계·업무 로직/SQL 변경은 없다. CI에서 별도 `test:page-events-ui`를 실제 호출하고 렌더 보고서를 업로드하도록 보완했다. 아래 과거 승인 대기 문구는 격리 검증 당시 상태이며, 이번 승인은 기능 브랜치 Push·Draft PR 제출에 한정된다. main 병합·배포·유지 DB 변경은 승인되지 않았고 외부 DB의 옛 V21/V23 이력도 계속 미확인이다.
+
 ## P0/P1 V24 격리 통합 검증
 
 main `f244e3c` + #37 V23 후보 `e3839b0` 위에 원본 P0 `8cdebc6`/P1 `c8451b5`를 재사용했다. 페이지 SQL만 V24 후보로 재번호했으며 두 후보 SQL의 원본 내용과 main V1~V22/repeatable SQL은 보존했다. 빈 DB V1→V24와 V20→21→22→23→24, Flyway validate·행/이력/checksum 보존 및 옛 이력 안전 거절 검사를 통과했다. 단위 103개, 전체 통합 239개 통과/선택형 1개 건너뜀/실패 0개, bootJar, 프론트 lint/123개 단위/빌드와 관련 브라우저 검사도 통과했다. 원본 브랜치·worktree·오전 백업을 유지한다. 현재 후보/검사 결과·미확인 DB와 이전 준비는 [V24 통합 검증](page-events-v24-isolated-verification.md)을 따른다. 아래 원본 브랜치의 과거 V21/V23 검증 기록은 이번 경로와 별개다. 실제 #37 재번호·Push·병합·배포는 하지 않았고 여전히 승인 대상이다.
