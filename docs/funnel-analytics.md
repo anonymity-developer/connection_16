@@ -1,6 +1,6 @@
 # SYNC ME 퍼널 MVP
 
-격리 worktree의 V23 재번호 후보다. 원본 PR #37은 V21과 1f565dc를 그대로 유지한다. main 병합·운영 배포·운영 DB 검증을 의미하지 않는다. 계약은 [OpenAPI](funnel.openapi.yaml)에 있다.
+PR #37은 사용자 승인(2026-11-18)에 따라 검증된 V23 통합 후보를 반영한다. 기존 main TAP V21/V22와 퍼널 기능을 보존하며 원본 `1f565dc`는 백업 ref/이전 bundle에 남긴다. 외부 유지 DB의 옛 퍼널 V21/페이지 V23 적용 여부는 미확인이며, 이 변경은 main 병합·운영 배포·유지 DB 재번호 안전성 승인을 의미하지 않는다. 계약은 [OpenAPI](funnel.openapi.yaml)에 있다.
 
 ## 수집과 집계
 
