@@ -44,6 +44,7 @@
 .admin-table th:first-child, .admin-table td:first-child { padding-left: 0; }
 .admin-table th:last-child, .admin-table td:last-child { padding-right: 0; }
 .admin-table .num { text-align: right; font-variant-numeric: tabular-nums; }
+.admin-table.admin-funnel-table .num { text-align: right; }
 .admin-table small, .admin-session-list small { display: block; margin-top: 4px; font-size: 12px; color: var(--muted); }
 .admin-identity { color: var(--accent-ink); font-weight: 600; }
 .admin-progress { height: 4px; margin-top: 8px; background: var(--raised); }

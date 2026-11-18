@@ -1,5 +1,7 @@
 # 데이터 모델과 마이그레이션
 
+V23(격리 퍼널 후보)은 `funnel_collection`(수집 시작 DB UTC 시각)과 `mission_funnel_events`(user FK, 미션/문항 버전/세대, UUID 중복 키, 유형/단계, 발생/수신 시각)를 additive로 추가한다. 사용자/키 UNIQUE와 버전·단계·사용자·세대 인덱스를 둔다. 기존 결과·완료 테이블은 변경하지 않는다. [수집 범위와 롤백](funnel-analytics.md).
+
 V21/V22 `tap_recoveries`는 원래 탭 판정·기한을 보존하고 재판정의 인정 시각·적용 기한·수행자/사유·멱등 요청을 기록한다. 자동 복구의 actor_id는 NULL로 시스템 처리임을 구분한다. 전체 표시 순위는 다섯 완료 근거의 최종 인정 시각으로 조회하고 기존 완료 번호는 재배정하지 않는다. [FAST TAP 지원](fast-tap-support.md).
 
 `event_completions.completion_order`는 내부 누적 완료 번호이며 UNIQUE와 전역 sequence를 유지한다. API의 `completionRank`는 현재 ACTIVE·USER·가입 자격증명 보유·독립 운영자 제외 완료자를 번호 순으로 조회해 계산하는 값으로, DB 컬럼/테이블은 추가하지 않는다. 취소 시 빈 번호를 재작성하지 않고 표시 순위만 당긴다. [완료 표시 계약](participation.md).

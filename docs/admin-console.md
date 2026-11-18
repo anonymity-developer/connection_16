@@ -27,6 +27,7 @@
 | 화면 | 읽기 API | 내용 |
 | --- | --- | --- |
 | `/admin` | `/admin/overview` | 가입/유효 계정/전체 완료/접속 세션 수, 다섯 미션 해금·참여·완료 |
+| `/admin/funnel` | `/admin/funnel` | SYNC ME 화면·문항 고유 사용자, 이탈률·전환율·수집 시작 경계. [정의와 제한](funnel-analytics.md) |
 | `/admin/members` | `/admin/members?offset=0&limit=25&q=...` | 가입 순서, 이름/닉네임/아이디/지역·반, 시각, 미션 수, 접속 시간 |
 | `/admin/members/{id}` | `/admin/members/{id}` | 상세 프로필·관심사·링크, 미션별 결과와 최근 접속 30건 |
 | `/admin/rankings` | `/admin/rankings/{mission}?offset=0&limit=25` | 미션별 현재 유효 순위와 계산 기준 |

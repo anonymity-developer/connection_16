@@ -30,6 +30,8 @@
 
 ## 운영 보조 자료
 
+- [SYNC ME 퍼널 수집·집계·롤백](funnel-analytics.md), [퍼널 API](funnel.openapi.yaml)
+
 - [OTP 안내 문구](auth/otp-message.md)
 - [행사 종료 후 결과 API](post-event/API.md)
 - [활동 데이터 정의](post-event/DATA_DICTIONARY.md)
