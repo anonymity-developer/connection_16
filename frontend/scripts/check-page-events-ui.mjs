@@ -1,7 +1,7 @@
 /* global document, innerWidth, getComputedStyle */
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
-import { mkdir, readFile, writeFile } from 'node:fs/promises';
+import { chmod, mkdir, readFile, writeFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { chromium } from 'playwright';
 import { preview } from 'vite';
@@ -198,8 +198,12 @@ try {
   await writeFile(resolve(output, 'page-events-contract-checks.json'), JSON.stringify({ kind: 'isolated synthetic browser contracts; no actual API/DB', checks, errors, mutations, requests }, null, 2));
   for (const view of ['logs', 'pages']) {
     const out = `.taste-skill/page-events-${view}-render`;
+    // Match the existing admin inspector's launcher on ephemeral Linux runners.
+    const inspector = resolve('..', out); await mkdir(inspector, { recursive: true });
+    const launcher = process.platform === 'win32' ? chromium.executablePath() : resolve(inspector, 'chromium.sh');
+    if (process.platform !== 'win32') { await writeFile(launcher, `#!/usr/bin/env bash\nexec "${chromium.executablePath()}" --no-sandbox "$@"\n`); await chmod(launcher, 0o700); }
     await new Promise((done, reject) => {
-      const child = spawn(process.execPath, ['scripts/taste.mjs', 'inspect', `http://127.0.0.1:4679/events-snapshot-${view}.html`, '--app', '--widths', '1440,768,390', '--out', out], { cwd: resolve('..'), env: { ...process.env, CHROME_PATH: chromium.executablePath() }, stdio: 'inherit' });
+      const child = spawn(process.execPath, ['scripts/taste.mjs', 'inspect', `http://127.0.0.1:4679/events-snapshot-${view}.html`, '--app', '--widths', '1440,768,390', '--out', out], { cwd: resolve('..'), env: { ...process.env, CHROME_PATH: launcher }, stdio: 'inherit' });
       child.on('error', reject); child.on('exit', code => code === 0 ? done() : reject(new Error(`Events ${view} inspector exited ${code}`)));
     });
     const report = JSON.parse(await readFile(resolve('..', out, 'report.json'), 'utf8'));

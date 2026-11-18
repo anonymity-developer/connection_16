@@ -35,6 +35,8 @@ P0의 `backend/build.gradle`은 main의 UTC 검사 설정과 분석 observer의 
 
 ## 검사 결과
 
+후속 Draft #40 CI: 기능 계약 완료 후 Linux의 직접 Chrome 실행이 종료된 첫 실패를 별도 기록했다. 기존 관리자 렌더 검사와 같은 일회용 Linux launcher를 적용해 검사 실행 환경만 맞췄으며 제품 코드·SQL·테스트 단언은 바꾸지 않았다. 새 HEAD의 GitHub CI 결과는 PR 설명과 최종 HANDOFF에 구분한다.
+
 핵심 실행은 UTC/Java 21 + 일회용 MySQL 8.4/Redis 7.4에서 `test bootJar integrationTest --tests ...`로 실행했다. JUnit XML 기준 단위 103개와 통합 45개(분석 15, 결과/퍼널 23, 기존 퍼널 마이그레이션 4, 새 V24 마이그레이션 3) 모두 통과, 실패/오류/건너뜀 0개이고 bootJar도 성공했다. `.codex-log/pages-v24-targeted-backend.log`, `pages-v24-targeted-summary.json`, `pages-v24-static-audit.json`에 근거를 보존한다.
 
 프론트 lint·단위 123개·운영 빌드가 통과했다. `test:page-events-ui`, `test:admin-ui`(TAP 지원 포함), `test:results-ui`, `check-mission-flow-ui.mjs`도 통과했다. `/admin/events` 네 탭의 360/390/430/768/1440px 검사 및 데스크톱 로그/방문·태블릿 방문·모바일 로그/흐름/퍼널 이미지를 직접 확인했다. 페이지 로그/방문 렌더 검사는 FAIL/WARN 0개이며 기존 SYNC 퍼널의 공통 시트 하단 여백 WARN 1개는 보존했다. 모든 브라우저 검사는 운영 빌드와 합성 API 계약을 사용하며 실제 DB/운영 API 검증이 아니다. 상세 근거는 `pages-v24-frontend.log`, `pages-v24-dashboard-ui.log`, `pages-v24-main-ui.log`와 worktree의 ignored `output/playwright`, `.taste-skill`에 있다.
