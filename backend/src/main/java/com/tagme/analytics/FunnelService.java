@@ -38,8 +38,12 @@ public class FunnelService {
     }
 
     public void collect(AuthPrincipal actor, FunnelController.Event event, long generation) {
+        collect(actor,event,generation,null);
+    }
+    public void collect(AuthPrincipal actor, FunnelController.Event event, long generation,String session) {
         if (!"USER".equals(actor.role())) throw error(403,"PARTICIPANT_REQUIRED");
         limits.check("funnel-user",Long.toString(actor.userId()),120,60);
+        limits.check("analytics-global","all",10000,60);
         // A separate request/transaction: telemetry errors never roll back a mission submission.
         writes.executeWithoutResult(status -> {
             participation.lockPrincipal(actor);
@@ -61,8 +65,8 @@ public class FunnelService {
             // The user lock makes both the lifetime cap and idempotency safe under concurrent requests.
             if (db.queryForObject("SELECT COUNT(*) FROM mission_funnel_events WHERE user_id=? AND event_key=?",Integer.class,actor.userId(),event.eventKey())>0) return;
             if (db.queryForObject("SELECT COUNT(*) FROM mission_funnel_events WHERE user_id=?",Integer.class,actor.userId())>=2000) throw error(429,"FUNNEL_LIMIT_REACHED");
-            db.update("INSERT INTO mission_funnel_events(user_id,mission,questionnaire_version,generation,event_key,event_type,step,occurred_at,received_at) VALUES (?,'SYNC_ME',?,?,?,?,?,?,?)",
-                actor.userId(),definition.version(),generation,event.eventKey(),event.eventType(),event.step(),Timestamp.from(event.occurredAt()),Timestamp.from(now));
+            db.update("INSERT INTO mission_funnel_events(user_id,mission,questionnaire_version,generation,event_key,event_type,step,occurred_at,received_at,analytics_session_key) VALUES (?,'SYNC_ME',?,?,?,?,?,?,?,?)",
+                actor.userId(),definition.version(),generation,event.eventKey(),event.eventType(),event.step(),Timestamp.from(event.occurredAt()),Timestamp.from(now),session);
         });
     }
 

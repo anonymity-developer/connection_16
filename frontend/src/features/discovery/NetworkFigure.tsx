@@ -43,5 +43,5 @@ export function NetworkFigure({ graph }: { graph: Graph }) {
   </svg>{points.map(({ person, x, y }) => <button type="button" key={person.id} className="network-node" style={{ left: `${x / 3.2}%`, top: `${y / 3.2}%` }} aria-label={`${person.nickname} 연결 정보 보기`} aria-pressed={selectedId === person.id} title={person.nickname} onClick={() => setSelectedId(person.id)}><ProfileAvatar name={person.nickname} /><small>{person.nickname}</small></button>)}</div>
     <figcaption><p>화살표는 프로필을 열어본 방향이에요.</p><ul className="network-legend"><li>내가 봄 →</li><li>나를 봄 ←</li><li>서로 봄 ↔</li></ul><p className="result-footnote">그래프 {points.length}명 · 목록 {graph.nodes.length}명{graph.truncated ? ' 이상' : ''}</p></figcaption>
   </figure>{!mobile && desktopSelection && <aside className="network-selection" aria-label="선택한 동료"><Selection person={desktopSelection} /></aside>}
-  {mobile && <Dialog className="network-profile-sheet" open={!!selected} title={selected?.nickname || '프로필로 이어진 동료'} hideTitle onClose={() => setSelectedId(null)}>{selected && <Selection person={selected} />}</Dialog>}</div>;
+  {mobile && <Dialog className="network-profile-sheet" open={!!selected} title={selected?.nickname || '프로필로 이어진 동료'} hideTitle onClose={() => setSelectedId(null)}>{selected && <div data-analytics-screen="DISCOVERY_SELECTION"><Selection person={selected} /></div>}</Dialog>}</div>;
 }

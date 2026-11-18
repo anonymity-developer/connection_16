@@ -24,6 +24,7 @@
     "test:awards-ui": "node scripts/check-awards-ui.mjs",
     "test:post-event-ui": "node scripts/check-post-event-ui.mjs",
     "test:admin-ui": "node scripts/check-admin-ui.mjs && node scripts/check-admin-reset-ui.mjs && node scripts/check-tap-support-ui.mjs",
+    "test:page-events-ui": "node scripts/check-page-events-ui.mjs",
     "test:support-ui": "node scripts/check-support-ui.mjs"
   },
   "dependencies": {

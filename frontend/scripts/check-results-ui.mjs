@@ -11,6 +11,8 @@ const approved = JSON.parse(await readFile(new URL('../src/dev/sync-questionnair
 const server = await preview({ preview: { host: '127.0.0.1', port: 4473, strictPort: true } }); let browser;
 try {
   browser = await chromium.launch(); const page = await browser.newPage({ viewport: { width: 390, height: 740 }, hasTouch: true, isMobile: true });
+  // Isolated intercepted fixtures simulate a human browser solely to exercise telemetry.
+  await page.addInitScript(() => Object.defineProperty(navigator, 'webdriver', { get: () => false }));
   const pageErrors = [], routeErrors = [], checks = []; await page.addLocatorHandler(page.locator('.mission-earned-actions'), async () => { await page.getByRole('button', {name:'계속 참여하기',exact:true}).click(); });
   const funnelEvents = [];
   page.on('pageerror', error => pageErrors.push(error.message));
@@ -23,6 +25,7 @@ try {
     try {
       const req = route.request(), url = new URL(req.url()), path = url.pathname.replace('/api/v1', ''), method = req.method();
       const reply = (status, value) => route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(value) });
+      if (method === 'POST' && path === '/analytics/events') return route.fulfill({ status: 204 });
       if (method === 'POST' && path === '/missions/show-me/reconcile') { assert.ok(req.headers()['x-xsrf-token']); return reply(200, { newlyCompleted: false }); }
       if (method === 'GET' && path === '/auth/config') return reply(200, { available: true, passwordMinLength:8, passwordMaxLength:20 });
       if (method === 'GET' && path === '/discovery/graph') return reply(200, { self: { id: 1, nickname: '테스트' }, nodes: [], edges: [], truncated: false });
@@ -58,12 +61,13 @@ try {
   const visit = path => page.goto(`http://127.0.0.1:4473${path}`);
   const record = name => { checks.push(name); console.log(`PASS ${name}`); };
   await page.clock.install();
-  await page.clock.pauseAt(new Date(Date.now()+1000));
   await visit('/missions/sync-me'); await page.getByText(`질문 1 / ${approved.questions.length}`, { exact: true }).waitFor();
   await page.waitForLoadState('networkidle');
+  await page.locator('.sync-question-list fieldset:visible').scrollIntoViewIfNeeded(); await page.waitForLoadState('networkidle');
   assert.deepEqual(funnelEvents.map(event => event.step), [0, 1]);
   await page.reload(); await page.getByText(`질문 1 / ${approved.questions.length}`, { exact: true }).waitFor();
   await page.waitForLoadState('networkidle');
+  await page.locator('.sync-question-list fieldset:visible').scrollIntoViewIfNeeded(); await page.waitForLoadState('networkidle');
   assert.deepEqual(funnelEvents.map(event => event.step), [0, 1, 0, 1]);
   funnelEvents.splice(0, 2);
   record('abandoned survey reentry records a fresh entry and first question');
@@ -112,6 +116,7 @@ try {
   await page.getByRole('button', { name: '결과 확인하기', exact: true }).click(); await page.getByRole('button', { name: '질문과 저장된 결과 다시 불러오기', exact: true }).waitFor(); assert.equal(sync, null);
   changed = false; available = false; await page.getByRole('button', { name: '질문과 저장된 결과 다시 불러오기', exact: true }).click(); await page.getByText('성향 질문을 준비하고 있어요.', { exact: false }).waitFor(); assert.equal(await page.getByRole('radio').count(), 0);
   record('changed or unconfigured questionnaires never produce a local result');
+  await page.clock.pauseAt(new Date(Date.now()+1000));
   await visit('/missions/fast-tap'); await page.getByRole('button', { name: '기록 없이 연습하기', exact: true }).click(); await page.clock.fastForward(5100); await page.getByRole('button', { name: '탭 영역', exact: true }).click(); await page.clock.fastForward(10000); await page.getByText('연습 결과 1회', { exact: false }).waitFor(); assert.equal(starts, 0); assert.equal(finishes, 0);
   record('practice uses no official start or finish request and never awards a letter');
   assert.equal(rankingReads,0);assert.equal(await page.locator('.tap-leaderboard').count(),0);

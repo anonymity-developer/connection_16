@@ -17,7 +17,8 @@ import static com.tagme.participation.ParticipationModels.*;
 public class ParticipationRepository {
     private final JdbcTemplate db;
     private final AuthRepository accounts;
-    public ParticipationRepository(JdbcTemplate db, AuthRepository accounts) { this.db = db; this.accounts = accounts; }
+    private final org.springframework.context.ApplicationEventPublisher events;
+    public ParticipationRepository(JdbcTemplate db, AuthRepository accounts,org.springframework.context.ApplicationEventPublisher events) { this.db = db; this.accounts = accounts; this.events=events; }
     public long generation(long user) {
         return db.queryForObject("SELECT COALESCE(MAX(generation),0) FROM game_participation_resets WHERE user_id=?",Long.class,user);
     }
@@ -198,5 +199,8 @@ public class ParticipationRepository {
             db.update("INSERT INTO event_completions(user_id,completion_order,completed_at) VALUES (?,?,UTC_TIMESTAMP(6))",userId,order);
             db.update("UPDATE event_completion_sequence SET next_value=next_value+1 WHERE id=1");
         }
+        // Passive AFTER_COMMIT observation: no analytics storage/network call in this transaction.
+        try { events.publishEvent(new MissionCompletedNotice(userId,mission.code().name(),receipt.id(),receipt.sourceKind(),completed)); }
+        catch(RuntimeException unavailable) { /* Analytics must never change a mission outcome. */ }
     }
 }

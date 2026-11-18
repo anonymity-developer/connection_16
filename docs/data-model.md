@@ -1,5 +1,7 @@
 # 데이터 모델과 마이그레이션
 
+V24(격리 페이지 분석 후보)은 `page_event_collection`(수집 시작·누적 상한)과 `page_events`(USER/세션 HMAC·중복/직전 UUID·허용 화면/유형/단계·DB 시각·출처)를 추가하고 V23 이벤트에 nullable 세션 digest만 추가한다. 기존 업무 테이블과 V23 파일을 변경하지 않으며 자동 삭제는 활성화하지 않는다. [수집 범위·제한·운영 경계](all-page-events.md).
+
 V23(격리 퍼널 후보)은 `funnel_collection`(수집 시작 DB UTC 시각)과 `mission_funnel_events`(user FK, 미션/문항 버전/세대, UUID 중복 키, 유형/단계, 발생/수신 시각)를 additive로 추가한다. 사용자/키 UNIQUE와 버전·단계·사용자·세대 인덱스를 둔다. 기존 결과·완료 테이블은 변경하지 않는다. [수집 범위와 롤백](funnel-analytics.md).
 
 V21/V22 `tap_recoveries`는 원래 탭 판정·기한을 보존하고 재판정의 인정 시각·적용 기한·수행자/사유·멱등 요청을 기록한다. 자동 복구의 actor_id는 NULL로 시스템 처리임을 구분한다. 전체 표시 순위는 다섯 완료 근거의 최종 인정 시각으로 조회하고 기존 완료 번호는 재배정하지 않는다. [FAST TAP 지원](fast-tap-support.md).
