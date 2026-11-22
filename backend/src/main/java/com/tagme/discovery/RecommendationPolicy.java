@@ -2,7 +2,7 @@ package com.tagme.discovery;
 
 /** Internal ranking only. Public DTOs never contain scores or private interaction signals. */
 public final class RecommendationPolicy {
-    public static final String VERSION="weighted-v4";
+    public static final String VERSION="weighted-v5";
     public static final int LIMIT=12;
     private RecommendationPolicy() { }
     public record Similarity(int common,int viewer,int peer) {
