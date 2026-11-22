@@ -8,7 +8,7 @@ final class RecommendationReranker {
     static final int SHORTLIST_LIMIT = RecommendationPolicy.LIMIT * 4;
     static final int DIFFERENT_CLASS_TARGET = 6;
     static final int UNVISITED_TARGET = 8;
-    static final int DIVERSITY_BONUS = 800; // Eight points; ranking scores use hundredths.
+    static final int DIVERSITY_BONUS = 300; // Three points; ranking scores use hundredths.
 
     record Candidate(long id, int score, boolean unvisited, boolean differentClass, boolean recentlyExposed) { }
 
