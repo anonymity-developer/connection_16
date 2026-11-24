@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { request, authApi, ApiError, clearCsrf } from '../src/features/auth/api.ts';
+import { request, authApi, ApiError, clearCsrf, postTelemetry } from '../src/features/auth/api.ts';
 
 // Explicit in-process fetch doubles only: this file never contacts an API or creates an account.
 function withFetch(handler, run) {
@@ -10,6 +10,37 @@ function withFetch(handler, run) {
   return Promise.resolve().then(run).finally(() => { globalThis.fetch = original; clearCsrf(); });
 }
 const json = (body, status=200) => new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } });
+test('telemetry failures do not announce logout, clear CSRF or retry and requests carry the generation', async () => {
+  const original=globalThis.window; let expired=0, csrfReads=0, writes=0;
+  globalThis.window={dispatchEvent:()=>expired++};
+  try { await withFetch(async(url,options)=>{
+    if(url.endsWith('/csrf')) { csrfReads++; return json({headerName:'X-XSRF-TOKEN',token:'fixture'}); }
+    if(url.endsWith('/missions/collection')) return json({resetGeneration:4});
+    if(url.endsWith('/sync/funnel-events')) { writes++; assert.equal(options.headers['X-Participation-Generation'],'4'); assert.ok(options.signal); return json({code:'SESSION_EXPIRED'},401); }
+    return json({});
+  },async()=>{
+    await request('/missions/collection'); await request('/sync/submit','POST',{});
+    await postTelemetry('/sync/funnel-events',{}); await request('/sync/submit','POST',{});
+    assert.equal(expired,0); assert.equal(csrfReads,1); assert.equal(writes,1);
+  }); } finally { if(original===undefined) delete globalThis.window; else globalThis.window=original; }
+});
+test('telemetry has at most four in-flight requests and no durable queue', async () => {
+  const releases=[]; let writes=0;
+  await withFetch(async(url)=>{
+    if(url.endsWith('/csrf')) return json({headerName:'X-XSRF-TOKEN',token:'fixture'});
+    writes++; return new Promise(resolve=>releases.push(()=>resolve(new Response(null,{status:204}))));
+  },async()=>{
+    const pending=Array.from({length:12},()=>postTelemetry('/sync/funnel-events',{}));
+    await new Promise(resolve=>setImmediate(resolve)); assert.equal(writes,4);
+    releases.forEach(release=>release()); await Promise.all(pending); assert.equal(writes,4);
+  });
+});
+test('unsupported timeout API is also a harmless telemetry failure', async () => {
+  const original=AbortSignal.timeout;
+  AbortSignal.timeout=undefined;
+  try { await assert.doesNotReject(postTelemetry('/sync/funnel-events',{})); }
+  finally { AbortSignal.timeout=original; }
+});
 test('game writes carry the loaded reset generation, keep it after 403 and discard another session’s delayed collection', async () => {
   let delayed, hold=false, denied=false;const generations=[];
   await withFetch(async(url,options)=>{

@@ -17,6 +17,7 @@
 | 오류 신고 | `/error-reports`, `/admin/error-reports` | [지원 계약](support-and-member-controls.md) |
 | FAST TAP 운영 지원 | `/admin/tap-attempts/**` | [복구·재도전 HTTP 계약](fast-tap-support.md) |
 | 관리자 | `/admin/**` | [admin.openapi.yaml](admin.openapi.yaml), [operations.openapi.yaml](operations.openapi.yaml) |
+| SYNC 퍼널 | `/sync/funnel-events`, `/admin/funnel` | [funnel.openapi.yaml](funnel.openapi.yaml), [집계 의미](funnel-analytics.md) |
 
 `GET /meta`는 서비스 식별값과 다섯 미션 메타데이터를 반환하는 공개 경로이며 health/readiness 판정이 아니다. `GET /csrf`의 `{headerName, token}`을 받아 쓰기에 사용하고 로그인 등 세션 교체 뒤에는 다시 발급받는다. 토큰을 URL이나 로그에 넣지 않는다.
 

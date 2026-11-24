@@ -8,6 +8,8 @@ import { ApiError } from '../auth/api';
 import { resultsApi as serverApi } from './api';
 import type { SyncQuestions, SyncResult } from './api';
 import { useMissionRuntime } from '../admin/MissionRuntime';
+import { useAuth } from '../auth/context';
+import { trackSyncStep } from './funnel';
 import { discoveryApi } from '../discovery/api';
 import type { Person } from '../discovery/api';
 import './sync-result.css';
@@ -21,11 +23,20 @@ export const SYNC_TYPE_CHARACTER_IMAGES: Record<string, string> = {
   XLP: '/images/sync-types/xlp.webp',
   XLT: '/images/sync-types/xlt.webp',
 };
-export function SyncMission() { const participation = useParticipation(), runtime = useMissionRuntime(); return <SyncMissionView api={runtime?.results ?? serverApi} refresh={runtime?.refresh ?? participation.refresh} />; }
-export function SyncMissionView({ api, refresh, stepwise = true, sameTypePeople, onPeerSelect }: { api: typeof serverApi; refresh: () => Promise<void>; stepwise?: boolean; sameTypePeople?: Pick<Person, 'id' | 'nickname'>[]; onPeerSelect?: (id: number) => void }) {
+export function SyncMission() { const participation = useParticipation(), runtime = useMissionRuntime(), auth = useAuth(); return <SyncMissionView api={runtime?.results ?? serverApi} refresh={runtime?.refresh ?? participation.refresh} trackStep={!runtime && auth.ready && auth.user && !auth.user.admin ? trackSyncStep : undefined} />; }
+export function SyncMissionView({ api, refresh, stepwise = true, sameTypePeople, onPeerSelect, trackStep }: { api: typeof serverApi; refresh: () => Promise<void>; stepwise?: boolean; sameTypePeople?: Pick<Person, 'id' | 'nickname'>[]; onPeerSelect?: (id: number) => void; trackStep?: (version: string, step: number) => void }) {
   const resultsApi = api; const participation = { refresh }; const [questionIndex, setQuestionIndex] = useState(0); const [questions, setQuestions] = useState<SyncQuestions | null>(null); const [result, setResult] = useState<SyncResult | null>(null);
   const [answers, setAnswers] = useState<Record<string, string>>({}); const [loading, setLoading] = useState(true); const [busy, setBusy] = useState(false); const [error, setError] = useState(''); const [changed, setChanged] = useState(false);
   const active = useRef(true); const form = useRef<HTMLFormElement>(null);
+  const lastShown = useRef(''), entered = useRef(''), tracked = useRef(0);
+  useEffect(() => {
+    if (!trackStep || api !== serverApi || !stepwise || loading || result || !questions?.available || !questions.version || !questions.questions[questionIndex]) return;
+    const key = `${questions.version}:${questionIndex}`;
+    if (lastShown.current === key || tracked.current >= 200) return;
+    lastShown.current = key; tracked.current++;
+    if (entered.current !== questions.version) { entered.current = questions.version; trackStep(questions.version, 0); }
+    trackStep(questions.version, questionIndex + 1);
+  }, [api, trackStep, stepwise, loading, result, questions, questionIndex]);
   useEffect(() => { active.current = true; void load(); return () => { active.current = false; }; }, []);
   async function load() {
     setLoading(true); setError(''); setChanged(false);

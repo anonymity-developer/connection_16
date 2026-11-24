@@ -43,6 +43,12 @@ try {
       }
       assert.equal(request.headers()['x-xsrf-token'],'flow-csrf');
       const body = request.postDataJSON();
+      if(path === '/sync/funnel-events') {
+        assert.ok(signedIn && unlocked.has('SYNC_ME'));
+        assert.equal(request.headers()['x-participation-generation'],String(generation));
+        assert.ok(body.step === 0 || body.step === 1);
+        return route.fulfill({status:204});
+      }
       if(path === '/tags/inspect') {
         const i=tokens.indexOf(body.token);
         if(i===2 && heldInspection)await heldInspection;
