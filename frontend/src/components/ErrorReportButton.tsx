@@ -20,7 +20,7 @@ export function ErrorReportButton({ path }: { path: string }) {
   }
   return <><button type="button" className="header-report" onClick={()=>{setOpen(true);setDone(false);setError('');}}>오류 신고</button>
     <Dialog open={open} title="오류 신고" onClose={()=>{if(!busy)setOpen(false);}}>
-      {!auth.user?<><p>로그인하면 오류 내용을 보낼 수 있어요.</p><Link href="/auth" className="button button--primary" onClick={()=>setOpen(false)}>로그인하기</Link></>:done?<><p role="status">오류 신고를 보냈어요.</p><Button onClick={()=>setOpen(false)}>확인</Button></>:<form className="support-form" onSubmit={send} aria-busy={busy}>
+      {!auth.user?<><p>로그인하면 오류 내용을 보낼 수 있어요.</p><Link href="/auth" className="button button--primary" onClick={()=>setOpen(false)}>로그인하기</Link></>:done?<><p data-analytics-screen="ERROR_REPORT" role="status">오류 신고를 보냈어요.</p><Button onClick={()=>setOpen(false)}>확인</Button></>:<form data-analytics-screen="ERROR_REPORT" className="support-form" onSubmit={send} aria-busy={busy}>
         <p>신고에는 현재 계정과 페이지 정보가 자동으로 포함돼요.</p>
         <label htmlFor="error-report-body">오류 내용</label><textarea id="error-report-body" rows={5} maxLength={400} value={body} disabled={busy||uncertain} onChange={event=>setBody(Array.from(event.target.value).slice(0,200).join(''))} required aria-describedby="error-report-count"/>
         <span id="error-report-count" className="support-count">{Array.from(body).length} / 200자</span>

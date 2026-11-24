@@ -104,7 +104,7 @@ export function TapMissionView({ api, refresh, preview = false, rankingApi }: { 
   const attempt: TapAttempt | null = state?.attempt ?? null;
   const recovered = !running && attempt && ['COUNTDOWN', 'PLAYING', 'AWAITING_SUBMISSION'].includes(attempt.status) && !pending.current;
   const ended = !!attempt && ['VALID', 'INVALID', 'INTERRUPTED', 'EXPIRED', 'REVIEW_REQUIRED'].includes(attempt.status);
-  return <section className={`tap-panel${running ? ' is-running' : ''}`} aria-labelledby="tap-heading">
+  return <section data-analytics-step={running ? phase === "COUNTDOWN" || phase === "PLAYING" ? `${run.current?.mode === "practice" ? "PRACTICE_" : ""}${phase}` : undefined : practiceScore !== null ? "PRACTICE_RESULT" : attempt ? ["COUNTDOWN", "PLAYING"].includes(attempt.status) ? undefined : "RESULT" : "READY"} className={`tap-panel${running ? ' is-running' : ''}`} aria-labelledby="tap-heading">
     {running ? <div className={`tap-play${phase === 'PLAYING' ? ' is-playing' : ''}${phase === 'PLAYING' && remaining <= 3 ? ' is-final' : ''}`} ref={arena}>
       <div className="tap-round-heading"><h2 id="tap-heading">{phase === 'COUNTDOWN' ? '준비하세요' : '지금 탭하세요!'}</h2><span className="tap-mode">{run.current?.mode === 'practice' ? '연습' : preview ? '미리보기' : '공식 도전'}</span></div>
       <div className="tap-metrics"><p><span>{phase === 'COUNTDOWN' ? '준비 시간' : '남은 시간'}</span><strong>{remaining.toFixed(1)}<small>초</small></strong></p><p><span>현재 탭</span><strong>{count}<small>회</small></strong></p></div>

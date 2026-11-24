@@ -20,12 +20,13 @@ public class FunnelController {
         @NotNull Instant occurredAt) {}
 
     private final FunnelService service;
-    public FunnelController(FunnelService service) { this.service = service; }
+    private final TelemetrySessions sessions;
+    public FunnelController(FunnelService service,TelemetrySessions sessions) { this.service = service;this.sessions=sessions; }
 
     @PostMapping("/sync/funnel-events") @ResponseStatus(org.springframework.http.HttpStatus.NO_CONTENT)
     public void collect(Authentication auth, @Valid @RequestBody Event event,
-            @RequestHeader(value="X-Participation-Generation", defaultValue="0") long generation) {
-        service.collect(actor(auth), event, generation);
+            @RequestHeader(value="X-Participation-Generation", defaultValue="0") long generation,jakarta.servlet.http.HttpServletRequest request) {
+        var actor=actor(auth);service.collect(actor, event, generation,sessions.key(request,actor.userId()));
     }
 
     @GetMapping("/admin/funnel")

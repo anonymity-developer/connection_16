@@ -1,0 +1,188 @@
+openapi: 3.0.3
+info:
+  title: TAG ME page event analytics (isolated candidate, V24)
+  version: 1.0.0
+servers:
+  - url: /api/v1
+security:
+  - Session: []
+paths:
+  /analytics/events:
+    post:
+      summary: Best-effort authenticated participant observation (never business completion)
+      description: CSRF required. Identity/session derived from server session. Unknown body fields rejected. CLIENT UUID is idempotent; conflicting replay is 409. No client timestamp, URL, token or answer is accepted.
+      parameters:
+        - in: header
+          name: X-Participation-Generation
+          schema: {type: integer, format: int64, default: 0}
+          description: Required current generation for mission step observations.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [eventKey, screen, type]
+              properties:
+                eventKey: {type: string, format: uuid}
+                screen: {type: string, description: Fixed PageEventCatalog screen ID; arbitrary paths rejected}
+                type: {type: string, enum: [PAGE_VIEW, MISSION_STEP_VIEW]}
+                step: {type: string, nullable: true, description: Whitelisted per screen; forbidden on PAGE_VIEW}
+                parentPageKey: {type: string, format: uuid, nullable: true}
+      responses:
+        '204': {description: Accepted or identical replay}
+        '400': {description: Invalid screen/step/type or extra fields}
+        '401': {description: No valid session}
+        '403': {description: CSRF/participant/mission eligibility rejected}
+        '409': {description: UUID payload conflict or stale participation generation}
+        '429': {description: Rate or storage cap}
+        '503': {description: Collector unavailable; client must continue ordinary flows}
+  /admin/events:
+    get:
+      summary: ADMIN-only actual rows from page_events and existing V23 SYNC events
+      description: Current active credentialed participants only. No raw session credentials, names, answers, query or IP. Newest server recordedAt, source rank and id first. V23 steps normalized to MISSION_STEP_VIEW; never copied/backfilled.
+      parameters:
+        - {$ref: '#/components/parameters/From'}
+        - {$ref: '#/components/parameters/To'}
+        - in: query
+          name: screen
+          schema: {type: string}
+        - in: query
+          name: type
+          schema: {type: string, enum: [PAGE_VIEW, MISSION_STEP_VIEW, MISSION_SUBMIT_SUCCESS]}
+        - in: query
+          name: offset
+          schema: {type: integer, minimum: 0, maximum: 100000, default: 0}
+        - in: query
+          name: limit
+          schema: {type: integer, minimum: 1, maximum: 50, default: 50}
+      responses:
+        '200':
+          description: Actual stored rows; period is [from,to), at most 31 days
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  window: {$ref: '#/components/schemas/Window'}
+                  total: {type: integer, format: int64}
+                  offset: {type: integer}
+                  nextOffset: {type: integer, nullable: true}
+                  items:
+                    type: array
+                    items: {$ref: '#/components/schemas/EventRow'}
+        '400': {description: Invalid period/filter/page}
+        '401': {description: No valid session}
+        '403': {description: Not current ADMIN}
+        '429': {description: ADMIN read rate exceeded}
+  /admin/events/summary:
+    get:
+      summary: ADMIN-only page visits, KST daily observations, exact predecessor flows and independent mission stage users
+      description: No sequential cohort/causal claims. Zero denominators are null; missing observations can cause rates above 100 or negative estimated dropoff. SYNC question detail remains /admin/funnel. No historical page reconstruction.
+      parameters:
+        - {$ref: '#/components/parameters/From'}
+        - {$ref: '#/components/parameters/To'}
+      responses:
+        '200':
+          description: Actual observations; process-local droppedCompletions resets on restart
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Summary'}
+        '400': {description: Invalid period}
+        '401': {description: No valid session}
+        '403': {description: Not current ADMIN}
+        '429': {description: ADMIN read rate exceeded}
+components:
+  securitySchemes:
+    Session: {type: apiKey, in: cookie, name: TAGME_SESSION}
+  parameters:
+    From:
+      in: query
+      name: from
+      schema: {type: string, format: date-time}
+      description: Inclusive UTC instant; default to minus seven days
+    To:
+      in: query
+      name: to
+      schema: {type: string, format: date-time}
+      description: Exclusive UTC instant; default server now. Keep fixed during pagination.
+  schemas:
+    Window:
+      type: object
+      properties:
+        from: {type: string, format: date-time}
+        to: {type: string, format: date-time}
+    EventRow:
+      type: object
+      properties:
+        ref: {type: string, description: PAGE or SYNC plus internal row id}
+        eventAt: {type: string, format: date-time}
+        recordedAt: {type: string, format: date-time}
+        screenId: {type: string}
+        screenName: {type: string}
+        eventType: {type: string, enum: [PAGE_VIEW, MISSION_STEP_VIEW, MISSION_SUBMIT_SUCCESS]}
+        mission: {type: string, nullable: true}
+        step: {type: string, nullable: true}
+        participantRef: {type: string, description: P-internal-user-id, ADMIN only}
+        sessionRef: {type: string, nullable: true, description: First 16 chars of noncredential HMAC, null for unknown legacy/background sessions}
+        source: {type: string, enum: [CLIENT, SERVER, SYNC]}
+    Summary:
+      type: object
+      properties:
+        window: {$ref: '#/components/schemas/Window'}
+        collectionStartedAt: {type: string, format: date-time}
+        syncCollectionStartedAt: {type: string, format: date-time}
+        droppedCompletions: {type: integer, format: int64}
+        screens:
+          type: array
+          items:
+            type: object
+            properties:
+              id: {type: string}
+              name: {type: string}
+              mission: {type: string, nullable: true}
+        pages:
+          type: array
+          items:
+            type: object
+            properties:
+              screenId: {type: string}
+              name: {type: string}
+              views: {type: integer, format: int64}
+              visitors: {type: integer, format: int64}
+              repeatVisitors: {type: integer, format: int64}
+        days:
+          type: array
+          items:
+            type: object
+            properties:
+              date: {type: string, format: date}
+              views: {type: integer, format: int64}
+              visitors: {type: integer, format: int64}
+        flows:
+          type: array
+          maxItems: 20
+          items:
+            type: object
+            properties:
+              fromScreen: {type: string}
+              toScreen: {type: string}
+              moves: {type: integer, format: int64}
+              users: {type: integer, format: int64}
+        funnels:
+          type: array
+          items:
+            type: object
+            properties:
+              mission: {type: string}
+              stages:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    name: {type: string}
+                    users: {type: integer, format: int64}
+                    entryConversion: {type: number, nullable: true}
+                    previousConversion: {type: number, nullable: true}
+                    estimatedDropOff: {type: number, nullable: true}

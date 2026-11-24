@@ -1,0 +1,42 @@
+/* Keep the approved Framed sheet shell: 228px rail + fluid sheet, 24px gutters.
+   Visits use 3fr + 2fr with one 16px gap; both become full-width below 1100px. */
+.admin-events { min-width: 0; }
+.admin-events .events-filter-toggle { display: none; }
+.events-tabs { gap: 24px; }
+.events-tabs a { min-height: 44px; }
+.events-filters { display: flex; flex-wrap: wrap; align-items: end; gap: 16px; }
+.events-filters > div { display: grid; gap: 8px; min-width: 0; flex: 1 1 150px; }
+.events-filters label { font-size: 13px; font-weight: 500; }
+.events-filters input, .events-filters select { width: 100%; min-width: 0; height: 40px; padding: 8px 10px; border: 1px solid var(--control); border-radius: 6px; background: var(--surface); color: var(--ink); font: inherit; font-size: 14px; }
+.events-filters .events-filter-actions { display: flex; flex: 0 0 auto; gap: 8px; }
+.admin-events > .admin-muted { margin-block: 12px 16px; }
+.events-window { font-variant-numeric: tabular-nums; }
+.events-visits { display: grid; grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); gap: 16px; align-items: start; }
+.admin-events .admin-panel-heading { flex-wrap: wrap; }
+.admin-events .admin-panel p { line-height: 1.6; word-break: keep-all; }
+.admin-events .events-code { font-family: ui-monospace, monospace; overflow-wrap: anywhere; word-break: normal; }
+.events-log-table { min-width: 850px; }
+.events-log-table td:first-child { min-width: 150px; font-variant-numeric: tabular-nums; }
+.events-log-table td { word-break: keep-all; }
+.events-log-table code { font-size: 12px; overflow-wrap: anywhere; }
+.admin-events code { font-family: ui-monospace, monospace; }
+.admin-events .admin-table .num { text-align: right; white-space: nowrap; }
+.admin-events .admin-pager, .admin-events .admin-pager > div { flex-wrap: wrap; gap: 8px; }
+.events-method { display: grid; gap: 12px; border-top: 1px solid var(--border); margin-top: 24px; padding-top: 20px; color: var(--muted); font-size: 13px; line-height: 1.65; word-break: keep-all; }
+@media (max-width: 1100px) { .events-visits { grid-template-columns: minmax(0, 1fr); } }
+@media (max-width: 640px) {
+  .admin-events .events-filter-toggle { display: inline-flex; margin-bottom: 12px; }
+  .events-filters:not(.is-open), .events-period-help:not(.is-open) { display: none; }
+  .events-filters > div { flex-basis: calc(50% - 8px); }
+  .events-filters .events-filter-actions { flex-basis: 100%; }
+  .events-filters input, .events-filters select { min-height: 44px; }
+  .events-tabs { gap: 20px; }
+  .events-log-table { min-width: 0; }
+  .admin-events .admin-table, .admin-events .admin-table tbody { display: block; }
+  .admin-events .admin-table td { min-width: 0; word-break: keep-all; overflow-wrap: anywhere; }
+  .admin-events .admin-table td::before { white-space: normal; }
+  .events-log-table td[data-label='서버 기록 시각(KST)'], .events-log-table td[data-label='화면'], .events-log-table td[data-label='이벤트 유형'], .events-log-table td[data-label='미션·단계'] { grid-column: 1 / -1; }
+  .admin-events .admin-table td[data-label='참가자'], .admin-events .admin-table td[data-label='미션'] { grid-column: auto; }
+  .admin-events .events-funnel-table td[data-label='직전 대비 이탈 추정'] { grid-column: 1 / -1; }
+  .events-window { overflow-wrap: anywhere; }
+}

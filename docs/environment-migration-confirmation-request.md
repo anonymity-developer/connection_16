@@ -24,9 +24,6 @@ SELECT DATABASE() AS database_name, @@session.transaction_read_only AS read_only
 
 SELECT version, script, checksum, success
 FROM flyway_schema_history
-WHERE version IN ('21','22','23','24')
-   OR script LIKE '%mission_funnel%'
-   OR script LIKE '%page_event%'
 ORDER BY installed_rank;
 
 SELECT table_name
@@ -44,3 +41,21 @@ ROLLBACK;
 ```
 
 기존 Flyway 메타데이터나 테이블이 없으면 그 결과를 그대로 알려 주세요. 이번 확인을 위해 새로 만들지 말아 주세요.
+
+## 2026-11-24 관리자 판정 기준
+
+아래 값은 통합 코드 `9992a64`를 빌드한 일회용 Docker DB에서 확인했다. 운영·공유 DB를 조회한 결과가 아니다. 위 SQL은 참가자 행을 읽지 않고 기존 V1–V20 및 repeatable을 포함한 전체 이력을 반환한다.
+
+| version | script | 기대 checksum | success |
+| --- | --- | ---: | ---: |
+| 21 | `V21__tap_recovery_evidence.sql` | -1521511221 | 1 |
+| 22 | `V22__system_tap_recovery.sql` | -1886794542 | 1 |
+| 23 | `V23__add_mission_funnel_events.sql` | 1280707163 | 1 |
+| 24 | `V24__add_page_event_analytics.sql` | -628860560 | 1 |
+
+- 이미 적용된 각 버전은 script·checksum·success가 일치해야 한다. V1–V20과 repeatable도 승인된 기존 기준과 일치해야 하며, 이 통합에서는 해당 SQL을 수정하지 않았다.
+- V22까지 정상 적용됐고 퍼널·페이지 테이블이 모두 없으면 V23→V24가 미적용 순서다. 정상 V23이 있으면 퍼널 테이블 2개가 있어야 하며, 페이지 테이블 2개와 세션 열이 없다면 V24만 미적용 상태다.
+- 정상 V24까지 적용됐다면 테이블 4개와 nullable `mission_funnel_events.analytics_session_key`가 모두 있어야 한다. 이력과 실제 구조가 다르면 배포를 보류한다.
+- 옛 `V21__add_mission_funnel_events.sql`, 옛 `V23__add_page_event_analytics.sql`, 실패 이력, checksum 불일치, 이력 없는 관련 테이블/열, 수동 SQL 여부 미확인 중 하나라도 있으면 운영 호환성은 **NO-GO**다. repair/baseline/clean, 이력·checksum 수정 또는 테이블 삭제로 맞추지 않는다.
+
+관리자는 환경명·확인 시각·위 조회 결과와 수동 SQL 적용 여부만 전달한다. 호환성 확인과 별도 배포 승인 전에는 migration 및 배포를 실행하지 않는다.

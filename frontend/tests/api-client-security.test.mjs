@@ -16,12 +16,12 @@ test('telemetry failures do not announce logout, clear CSRF or retry and request
   try { await withFetch(async(url,options)=>{
     if(url.endsWith('/csrf')) { csrfReads++; return json({headerName:'X-XSRF-TOKEN',token:'fixture'}); }
     if(url.endsWith('/missions/collection')) return json({resetGeneration:4});
-    if(url.endsWith('/sync/funnel-events')) { writes++; assert.equal(options.headers['X-Participation-Generation'],'4'); assert.ok(options.signal); return json({code:'SESSION_EXPIRED'},401); }
+    if(url.endsWith('/sync/funnel-events') || url.endsWith('/analytics/events')) { writes++; assert.equal(options.headers['X-Participation-Generation'],'4'); assert.ok(options.signal); return json({code:'SESSION_EXPIRED'},401); }
     return json({});
   },async()=>{
     await request('/missions/collection'); await request('/sync/submit','POST',{});
-    await postTelemetry('/sync/funnel-events',{}); await request('/sync/submit','POST',{});
-    assert.equal(expired,0); assert.equal(csrfReads,1); assert.equal(writes,1);
+    await postTelemetry('/sync/funnel-events',{}); await postTelemetry('/analytics/events',{}); await request('/sync/submit','POST',{});
+    assert.equal(expired,0); assert.equal(csrfReads,1); assert.equal(writes,2);
   }); } finally { if(original===undefined) delete globalThis.window; else globalThis.window=original; }
 });
 test('telemetry has at most four in-flight requests and no durable queue', async () => {

@@ -17,7 +17,8 @@ export function clearCsrf() { csrf = null; }
 // Telemetry is deliberately isolated from request(): errors must not dispatch logout,
 // clear CSRF, retry, or block an ordinary mission request.
 let telemetryPending = 0;
-export async function postTelemetry(path: '/sync/funnel-events', body: object): Promise<void> {
+export function telemetryRevision() { return sessionRevision; }
+export async function postTelemetry(path: '/sync/funnel-events' | '/analytics/events', body: object): Promise<void> {
   if (telemetryPending >= 4) return;
   telemetryPending++;
   const generation = participationGeneration, revision = sessionRevision;

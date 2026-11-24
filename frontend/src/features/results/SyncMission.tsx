@@ -32,10 +32,21 @@ export function SyncMissionView({ api, refresh, stepwise = true, sameTypePeople,
   useEffect(() => {
     if (!trackStep || api !== serverApi || !stepwise || loading || result || !questions?.available || !questions.version || !questions.questions[questionIndex]) return;
     const key = `${questions.version}:${questionIndex}`;
-    if (lastShown.current === key || tracked.current >= 200) return;
-    lastShown.current = key; tracked.current++;
-    if (entered.current !== questions.version) { entered.current = questions.version; trackStep(questions.version, 0); }
-    trackStep(questions.version, questionIndex + 1);
+    let frame = 0;
+    const shown = () => {
+      const field = form.current?.querySelector('fieldset:not([hidden])');
+      if (document.visibilityState !== 'visible' || document.querySelector('dialog[open]') || !field?.getClientRects().length || lastShown.current === key || tracked.current >= 200) return;
+      const rect = field.getBoundingClientRect();
+      if (rect.bottom <= 0 || rect.top >= innerHeight) return;
+      lastShown.current = key; tracked.current++;
+      if (entered.current !== questions.version) { entered.current = questions.version!; trackStep(questions.version!, 0); }
+      trackStep(questions.version!, questionIndex + 1);
+    };
+    const schedule = () => { cancelAnimationFrame(frame); frame = requestAnimationFrame(shown); };
+    const observer = new MutationObserver(schedule);
+    observer.observe(document.body, { subtree: true, childList: true, attributes: true, attributeFilter: ['open'] });
+    schedule(); document.addEventListener('visibilitychange', schedule); window.addEventListener('scroll', schedule, true);
+    return () => { observer.disconnect(); cancelAnimationFrame(frame); document.removeEventListener('visibilitychange', schedule); window.removeEventListener('scroll', schedule, true); };
   }, [api, trackStep, stepwise, loading, result, questions, questionIndex]);
   useEffect(() => { active.current = true; void load(); return () => { active.current = false; }; }, []);
   async function load() {
@@ -64,7 +75,7 @@ export function SyncMissionView({ api, refresh, stepwise = true, sameTypePeople,
 export function SyncResultCard({ result, sameTypePeople, onPeerSelect }: { result: SyncResult; sameTypePeople?: Pick<Person, 'id' | 'nickname'>[]; onPeerSelect?: (id: number) => void }) {
   const preview = !!useMissionRuntime();
   const characterImage = SYNC_TYPE_CHARACTER_IMAGES[result.type.code];
-  return <section className="sync-result sync-result-ticket" aria-labelledby="sync-result-heading">
+  return <section data-analytics-step="RESULT" className="sync-result sync-result-ticket" aria-labelledby="sync-result-heading">
     <header className="sync-ticket-header"><div><p className="context-label">SYNC ME · 나의 최초 결과</p><h2 id="sync-result-heading">나의 성향 결과</h2></div><LetterSticker code="SYNC_ME" /></header>
 
     <div className={`sync-ticket-identity${characterImage ? ' has-character' : ''}`}>

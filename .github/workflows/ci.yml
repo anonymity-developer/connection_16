@@ -64,6 +64,8 @@ jobs:
         run: npm run test:awards-ui && npm run test:post-event-ui
       - name: Check independent admin login, analytics and isolated previews
         run: npm run test:admin-ui
+      - name: Check administrator page event analytics
+        run: npm run test:page-events-ui
       - name: Inspect production app with Taste
         run: |
           npm run preview -- --port 4173 > /tmp/tagme-preview.log 2>&1 &
@@ -88,6 +90,8 @@ jobs:
             .taste-skill/production/
             .taste-skill/operations-render/
             .taste-skill/profile-render/
+            .taste-skill/page-events-logs-render/
+            .taste-skill/page-events-pages-render/
           include-hidden-files: true
 
   backend:
