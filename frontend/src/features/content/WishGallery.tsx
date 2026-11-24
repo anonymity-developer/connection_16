@@ -41,7 +41,7 @@ const comments = (id: number) => <WishComments id={id} embedded />;
 type WishView = 'lake' | 'list';
 
 export function WishCard({ item, children }: { item: PublicContent; children?: ReactNode }) {
-  return <article className="wish-detail-card"><p className="content-byline">{item.anonymous ? '익명의 소원' : item.profileId ? <Link href={`/discovery/profiles/${item.profileId}`}>{item.nickname || '동료'}의 소원</Link> : `${item.nickname || '동료'}의 소원`}</p><p className="content-body">{item.content}</p>{children}</article>;
+  return <article data-analytics-screen="WISH_DETAIL" className="wish-detail-card"><p className="content-byline">{item.anonymous ? '익명의 소원' : item.profileId ? <Link href={`/discovery/profiles/${item.profileId}`}>{item.nickname || '동료'}의 소원</Link> : `${item.nickname || '동료'}의 소원`}</p><p className="content-body">{item.content}</p>{children}</article>;
 }
 
 export function WishGallery({ items, receipt = null, earned = false, feedReady = true, initialView = 'lake', sceneOverlay, sceneRef, renderComments = comments, loadMore, loadingMore = false, ownItem = null, openOwnRequest = 0 }: {
@@ -100,7 +100,7 @@ export function WishGallery({ items, receipt = null, earned = false, feedReady =
     next.forEach(id => seen.current.add(id)); setBatchIds(next);
   }
 
-  return <div className="wish-gallery">
+  return <div data-analytics-screen={view === "list" ? "WISH_LIST" : "WISH"} className="wish-gallery">
     <div className="wish-view-switch" role="group" aria-label="소원 보기 방식">
       <Button type="button" variant="quiet" aria-pressed={view === 'lake'} onClick={() => setView('lake')}>소원 호수</Button>
       <Button type="button" variant="quiet" aria-pressed={view === 'list'} onClick={() => setView('list')}>소원 목록</Button>

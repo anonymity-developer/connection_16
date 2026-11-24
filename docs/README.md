@@ -31,6 +31,8 @@
 ## 운영 보조 자료
 
 - [동료 탐색 전환 분석 · 집계 기준과 한계](discovery-conversion.md), [분석 API](discovery-conversion.openapi.yaml)
+- [전체 페이지 이벤트 수집·분석 작업 브랜치](all-page-events.md), [페이지 이벤트 API](page-events.openapi.yaml)
+- [P0/P1 V24 격리 통합 검증](page-events-v24-isolated-verification.md)
 - [SYNC ME 퍼널 수집·집계·롤백](funnel-analytics.md), [퍼널 API](funnel.openapi.yaml)
 
 - [OTP 안내 문구](auth/otp-message.md)
