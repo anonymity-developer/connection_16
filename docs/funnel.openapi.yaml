@@ -1,0 +1,77 @@
+openapi: 3.0.3
+info:
+  title: TAG ME SYNC ME funnel
+  version: 1.0.0
+servers:
+  - url: /api/v1
+security:
+  - session: []
+paths:
+  /sync/funnel-events:
+    post:
+      summary: Best-effort participant survey view; never grants completion
+      parameters:
+        - in: header
+          name: X-XSRF-TOKEN
+          required: true
+          schema: {type: string}
+        - in: header
+          name: X-Participation-Generation
+          schema: {type: integer, format: int64, minimum: 0, default: 0}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [eventKey, mission, eventType, questionnaireVersion, step, occurredAt]
+              properties:
+                eventKey: {type: string, pattern: '^[0-9a-fA-F-]{36}$'}
+                mission: {type: string, enum: [SYNC_ME]}
+                eventType: {type: string, enum: [SCREEN_ENTER, QUESTION_VIEW]}
+                questionnaireVersion: {type: string, pattern: '^[A-Za-z0-9._-]{1,64}$'}
+                step: {type: integer, minimum: 0, maximum: 20, description: '0 for entry; 1..actual question count for question views'}
+                occurredAt: {type: string, format: date-time, description: 'Client clock, DB now minus 24 hours through plus 5 minutes; not an aggregation filter'}
+      responses:
+        '204': {description: Recorded or duplicate key ignored}
+        '400': {description: Invalid or unknown input}
+        '401': {description: Unauthenticated or revoked session}
+        '403': {description: CSRF or participant eligibility/unlock denied}
+        '409': {description: Stale questionnaire or reset generation}
+        '429': {description: Rate or lifetime storage limit reached}
+        '503': {description: Dependency unavailable; client ignores errors without retries}
+  /admin/funnel:
+    get:
+      summary: ADMIN-only current-version independent unique-user funnel
+      responses:
+        '200':
+          description: Current active participants and current reset generations; completion from committed sync_results
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [mission, questionnaireVersion, collectionStartedAt, generatedAt, steps]
+                properties:
+                  mission: {type: string, enum: [SYNC_ME]}
+                  questionnaireVersion: {type: string, nullable: true}
+                  collectionStartedAt: {type: string, format: date-time}
+                  generatedAt: {type: string, format: date-time}
+                  steps:
+                    type: array
+                    maxItems: 22
+                    items:
+                      type: object
+                      required: [eventType, step, users, dropOffRate, conversionRate]
+                      properties:
+                        eventType: {type: string, enum: [SCREEN_ENTER, QUESTION_VIEW, SUBMIT_SUCCESS]}
+                        step: {type: integer, minimum: 0, maximum: 21}
+                        users: {type: integer, format: int64, minimum: 0}
+                        dropOffRate: {type: number, nullable: true, description: 'Percentage, may be negative; null for first row or zero denominator'}
+                        conversionRate: {type: number, nullable: true, description: 'Percentage, may exceed 100; null for zero entry count'}
+        '401': {description: Unauthenticated}
+        '403': {description: Current DB ADMIN role required}
+        '429': {description: Administrator query limit reached}
+components:
+  securitySchemes:
+    session: {type: apiKey, in: cookie, name: TAGME_SESSION}

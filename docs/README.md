@@ -31,6 +31,7 @@
 ## 운영 보조 자료
 
 - [동료 탐색 전환 분석 · 집계 기준과 한계](discovery-conversion.md), [분석 API](discovery-conversion.openapi.yaml)
+- [SYNC ME 퍼널 수집·집계·롤백](funnel-analytics.md), [퍼널 API](funnel.openapi.yaml)
 
 - [OTP 안내 문구](auth/otp-message.md)
 - [행사 종료 후 결과 API](post-event/API.md)
