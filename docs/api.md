@@ -13,6 +13,7 @@
 | 소원·응원 | `/wishes/**`, `/cheers/**` | [content.openapi.yaml](content.openapi.yaml) |
 | 댓글·하트 | 소원 댓글, 응원 하트 하위 경로 | [reactions.openapi.yaml](reactions.openapi.yaml) |
 | 동료 탐색 | `/discovery/**` | [discovery.openapi.yaml](discovery.openapi.yaml) |
+| 동료 탐색 전환 분석 | `/admin/discovery-conversion` | [집계 기준](discovery-conversion.md), [discovery-conversion.openapi.yaml](discovery-conversion.openapi.yaml) |
 | 오류 신고 | `/error-reports`, `/admin/error-reports` | [지원 계약](support-and-member-controls.md) |
 | FAST TAP 운영 지원 | `/admin/tap-attempts/**` | [복구·재도전 HTTP 계약](fast-tap-support.md) |
 | 관리자 | `/admin/**` | [admin.openapi.yaml](admin.openapi.yaml), [operations.openapi.yaml](operations.openapi.yaml) |
