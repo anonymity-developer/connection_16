@@ -101,10 +101,16 @@ public class DiscoveryRepository {
           LEFT JOIN sync_results s ON s.user_id=u.id LEFT JOIN sync_results mine ON mine.user_id=me.id
           WHERE
           """;
-        String ranked="SELECT id FROM ("+features+VISIBLE+" AND u.id<>me.id) features ORDER BY "
-            +RecommendationPolicy.scoreExpression()+" DESC, SHA2(CONCAT(?, ':', id),256), id LIMIT ?";
-        // Rank scalar signals first; only the selected 12 profiles need JSON/type hydration.
-        var ids=db.queryForList(ranked,Long.class,actor,RecommendationPolicy.VERSION+":"+actor+":"+seed,RecommendationPolicy.LIMIT);
+        String ranked="SELECT id, "+RecommendationPolicy.scoreExpression()+" AS rank_score, "
+            +"(NOT visited) AS unvisited, different_class, exposures FROM ("+features+VISIBLE+" AND u.id<>me.id) features ORDER BY "
+            +"(exposures > 0), rank_score DESC, SHA2(CONCAT(?, ':', id),256), id LIMIT ?";
+        // Shortlist scalar signals before hydrating profile JSON. Prefer unseen cards, then rerank
+        // close matches for other-class and unvisited diversity without exposing private signals.
+        var shortlist=db.query(ranked,(r,n)->new RecommendationReranker.Candidate(
+            r.getLong("id"),r.getInt("rank_score"),r.getBoolean("unvisited"),
+            r.getBoolean("different_class"),r.getInt("exposures")>0),
+            actor,RecommendationPolicy.VERSION+":"+actor+":"+seed,RecommendationReranker.SHORTLIST_LIMIT);
+        var ids=RecommendationReranker.select(shortlist);
         if(ids.isEmpty())return List.of();
         var params=args(actor);params.addAll(ids);
         var selected=query(SELECT+" AND u.id IN ("+String.join(",",Collections.nCopies(ids.size(),"?"))+")",params);

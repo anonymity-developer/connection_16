@@ -222,6 +222,19 @@ class DiscoveryIntegrationTest {
         redis.delete("tagme:recommendation:"+batch.batchId());
         assertThatThrownBy(()->service.expose(actor,batch.batchId(),List.of(bob.userId()))).isInstanceOfSatisfying(AuthException.class,e->assertThat(e.code()).isEqualTo("RECOMMENDATION_BATCH_EXPIRED"));
     }
+    @Test void acknowledgedRecommendationsRotateToFreshPeersBeforeRepeating() {
+        for(int i=0;i<26;i++)person("rotation-"+i);
+        var first=service.batch(actor,"rotate-first");
+        assertThat(first.items()).hasSize(12);
+        var firstIds=first.items().stream().map(DiscoveryModels.Person::id).toList();
+        service.expose(actor,first.batchId(),firstIds);
+        var second=service.recommended(actor,"rotate-second");
+        assertThat(second).hasSize(12);
+        assertThat(second).extracting(DiscoveryModels.Person::id).doesNotContainAnyElementsOf(firstIds);
+        assertThat(db.queryForObject("SELECT COUNT(*) FROM profile_views",Integer.class)).isZero();
+        db.update("UPDATE recommendation_exposures SET shown_at=UTC_TIMESTAMP(6)-INTERVAL 25 HOUR");
+        assertThat(service.recommended(actor,"rotate-second")).hasSize(12);
+    }
     @Test void incompleteViewerMustRepairProfileButExistingVisitsStayStored() {
         service.open(actor,bob.userId());
         db.update("UPDATE profiles SET bio=NULL WHERE user_id=?",actor.userId());
