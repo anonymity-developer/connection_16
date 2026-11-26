@@ -6,13 +6,19 @@ import { operationsApi } from './api';
 import type { Content, Page } from './api';
 
 const labels: Record<string, string> = {
-  CHICKEN_1: '치킨 · 전체 수집 1위',
-  CHICKEN_7: '치킨 · 전체 수집 7위',
-  CHICKEN_77: '치킨 · 전체 수집 77위',
-  DISCOVERY: '1만원권 · 최다 동료 탐색',
-  COMMENTS: '1만원권 · 최다 소원 댓글',
-  FAST_TAP: '1만원권 · FAST TAP 1위',
-  HEARTS: '1만원권 · 최다 하트 수신',
+  CHICKEN_1: '전체 글자 수집 완료 1위',
+  CHICKEN_7: '전체 글자 수집 완료 7위',
+  CHICKEN_77: '전체 글자 수집 완료 77위',
+  DISCOVERY: 'SYNC ME',
+  COMMENTS: 'A WISH COME TRUE',
+  FAST_TAP: 'FAST TAP',
+  HEARTS: 'YOU GOT THIS',
+};
+const criteria: Record<string, string> = {
+  DISCOVERY: '가장 많은 동료의 프로필을 탐색한 교육생',
+  COMMENTS: '다른 교육생의 소원에 가장 많은 응원 댓글을 작성한 교육생 · 같은 소원당 1건',
+  FAST_TAP: '가장 높은 탭 기록을 달성한 교육생',
+  HEARTS: '가장 많은 하트를 받은 응원 메시지를 작성한 교육생',
 };
 const kinds: Record<string, string> = { WISH: '소원', CHEER: '응원', COMMENT: '소원 댓글' };
 const units: Record<string, string> = { DISCOVERY: '명 방문', COMMENTS: '개 소원', FAST_TAP: '탭', HEARTS: '하트' };
@@ -65,7 +71,7 @@ export function PrizeReviewPanel({ onDenied }: { onDenied: OnDenied }) {
 
   return <section className="ops-awards" aria-labelledby="prize-heading">
     <div className="ops-toolbar prize-toolbar">
-      <div><h2 id="prize-heading">순위 시상</h2>
+      <div><h2 id="prize-heading">TAG ME 이벤트 수상 기준</h2>
         <p className="ops-meta">{review ? `조회 ${time.format(new Date(review.observedAt))} KST` : '운영 미션 기록 기준'}</p>
         <Link className="text-link" href="/admin/moderation?tab=awards&view=legacy">기존 시상 근거 조회</Link>
       </div>
@@ -77,13 +83,21 @@ export function PrizeReviewPanel({ onDenied }: { onDenied: OnDenied }) {
     {!review && !error && <p role="status">시상 후보를 조회하고 있어요.</p>}
     {review && <>
       <a className="text-link" href="#prize-draw-heading">추첨 명단으로 이동</a>
-      <p className="ops-meta">순위별 후보를 확인하고 추첨에서 제외할 수상자를 선택하세요. 선택은 이 화면에서만 유지돼요.</p>
+      <h3>공통 선정 기준</h3>
+      <ul className="ops-meta">
+        <li>중복 당첨 제외 · 1인 1개 상품 지급</li>
+        <li>동점자 발생 시 · 프로필 등록 시점이 빠른 교육생 우선</li>
+      </ul>
+      <p className="ops-meta">부문별 수상자를 선택하면 추첨 명단에서 제외돼요. 선택은 이 화면에서만 유지돼요.</p>
       <ul className="award-candidates">{review.groups.map(group => {
         const targets = group.candidates.filter(row => row.rank === group.targetRank);
         const selected = group.candidates.find(row => row.person.userId === selection[group.code]);
         const shown = selected && !targets.includes(selected) ? [...targets, selected] : targets;
         return <li key={group.code}>
-          <h3>{labels[group.code]}</h3>
+          {group.code === 'CHICKEN_1' && <h3>행운의 완주상 | BHC 뿌링클 + 콜라 (3명)</h3>}
+          {group.code === 'DISCOVERY' && <h3>미션별 우수상 | 스타벅스 1만원권 (4명)</h3>}
+          <h4>{labels[group.code]}</h4>
+          {criteria[group.code] && <p className="ops-meta">{criteria[group.code]}</p>}
           {!targets.length && <p className="ops-meta">해당 순위 후보가 없어요.</p>}
           {shown.map(({ person, rank, score, completedAt }) => {
             const overlaps = targetGroups.get(person.userId)?.filter(code => code !== group.code) ?? [];
@@ -95,7 +109,7 @@ export function PrizeReviewPanel({ onDenied }: { onDenied: OnDenied }) {
                 <Button variant="secondary" onClick={() => setAuthor(person)}>작성 내용 보기</Button>
               </div>
               {overlaps.length > 0 && <p className="award-warning">중복 후보 · {overlaps.map(code => labels[code]).join(' · ')}</p>}
-              {otherSelections.length > 0 && <p className="award-warning">다른 부문에서도 선택됨 · {otherSelections.map(code => labels[code]).join(' · ')}</p>}
+              {otherSelections.length > 0 && <p className="award-warning">다른 부문 수상자로 선택됨 · {otherSelections.map(code => labels[code]).join(' · ')}</p>}
             </div>;
           })}
           {group.candidates.length > 0 && <div className="award-category">
@@ -105,7 +119,8 @@ export function PrizeReviewPanel({ onDenied }: { onDenied: OnDenied }) {
               setCopyStatus('');
             }}>
               <option value="">선택 안 함</option>
-              {group.candidates.map(row => <option key={row.person.userId} value={row.person.userId}>
+              {group.candidates.map(row => <option key={row.person.userId} value={row.person.userId}
+                disabled={row.person.userId !== selection[group.code] && excluded.has(row.person.userId)}>
                 {row.rank}위 · {name(row.person)} (#{row.person.userId})
               </option>)}
             </select>
@@ -114,8 +129,9 @@ export function PrizeReviewPanel({ onDenied }: { onDenied: OnDenied }) {
       })}</ul>
       {author && <Writing key={author.userId} person={author} onClose={() => setAuthor(null)} onDenied={onDenied} />}
       <section className="award-review" aria-labelledby="prize-draw-heading">
-        <h3 id="prize-draw-heading">가중치 추첨 명단 · 아이스 아메리카노 20명</h3>
+        <h3 id="prize-draw-heading">참여의 기쁨상 | 스타벅스 아이스 아메리카노 (20명)</h3>
         <p>대상 {entries.length}명 · 추첨권 {tickets.length}장 · 수상자 선택 {excluded.size}명</p>
+        <p className="ops-meta">미션 참여량에 따라 당첨 확률에 가중치를 부여하여 추첨해요. 참여도가 높을수록 당첨 확률이 높아져요.</p>
         <p className="ops-meta">유효 획득 글자당 한 줄이에요. 외부에서 한 명을 뽑을 때마다 그 사람의 줄을 모두 제거하세요.</p>
         {entries.length < 20 && <p className="award-warning">현재 추첨 대상이 20명보다 적어요.</p>}
         {ambiguousNames && <p className="award-warning">이름과 반이 같은 참가자가 있어요. 외부 추첨 전에 동명이인을 구분해 주세요.</p>}

@@ -13,6 +13,9 @@ final class PrizeReviewCalculator {
 
     static PrizeReview calculate(Facts facts, List<PrizePerson> people, List<Activity> visits) {
         var byId = people.stream().collect(Collectors.toMap(PrizePerson::userId, Function.identity()));
+        var registeredAt = facts.users().stream()
+                .filter(user -> user.profileRegisteredAt() != null)
+                .collect(Collectors.toMap(User::id, User::profileRegisteredAt));
         var valid = facts.proofs().stream().filter(Proof::valid)
                 .collect(Collectors.groupingBy(Proof::userId));
         var completed = AwardCalculator.rank(facts).categories().get(Category.FIRST_COMPLETION).stream()
@@ -25,10 +28,10 @@ final class PrizeReviewCalculator {
                 new PrizeGroup("CHICKEN_1", 1, completed),
                 new PrizeGroup("CHICKEN_7", 7, completed),
                 new PrizeGroup("CHICKEN_77", 77, completed),
-                activity("DISCOVERY", visits, byId),
-                activity("COMMENTS", facts.comments(), byId),
-                activity("FAST_TAP", eligibleTap, byId),
-                activity("HEARTS", facts.hearts(), byId)
+                activity("DISCOVERY", visits, byId, registeredAt),
+                activity("COMMENTS", facts.comments(), byId, registeredAt),
+                activity("FAST_TAP", eligibleTap, byId, registeredAt),
+                activity("HEARTS", facts.hearts(), byId, registeredAt)
         );
         var entries = people.stream()
                 .map(person -> new DrawEntry(person, (int) valid.getOrDefault(person.userId(), List.of())
@@ -38,15 +41,19 @@ final class PrizeReviewCalculator {
         return new PrizeReview(facts.window().observedAt(), groups, entries);
     }
 
-    private static PrizeGroup activity(String code, List<Activity> activities, Map<Long, PrizePerson> people) {
-        var scores = activities.stream().filter(row -> row.count() > 0 && people.containsKey(row.userId()))
-                .sorted(Comparator.comparingLong(Activity::count).reversed().thenComparingLong(Activity::userId))
+    private static PrizeGroup activity(String code, List<Activity> activities, Map<Long, PrizePerson> people,
+                                       Map<Long, java.time.Instant> registeredAt) {
+        Comparator<Activity> rankOrder = Comparator.comparingLong(Activity::count).reversed()
+                .thenComparing(row -> registeredAt.get(row.userId()));
+        var scores = activities.stream().filter(row -> row.count() > 0 && people.containsKey(row.userId())
+                        && registeredAt.containsKey(row.userId()))
+                .sorted(rankOrder.thenComparingLong(Activity::userId))
                 .toList();
         var rows = new java.util.ArrayList<PrizeCandidate>();
         int rank = 0;
         for (int index = 0; index < scores.size(); index++) {
             var score = scores.get(index);
-            if (index == 0 || scores.get(index - 1).count() != score.count()) rank = index + 1;
+            if (index == 0 || rankOrder.compare(scores.get(index - 1), score) != 0) rank = index + 1;
             rows.add(new PrizeCandidate(rank, people.get(score.userId()), score.count(), null));
         }
         return new PrizeGroup(code, 1, List.copyOf(rows));

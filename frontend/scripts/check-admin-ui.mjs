@@ -110,6 +110,7 @@ try {
     '검증 은하(1반)', '검증 봄빛(2반)', '검증 봄빛(2반)', '검증 새벽(3반)', '검증 새벽(3반)', '검증 새벽(3반)',
   ]);
   await page.locator('#prize-CHICKEN_1').selectOption('10');
+  assert.equal(await page.locator('#prize-COMMENTS option[value="10"]').isDisabled(), true);
   await page.locator('#prize-COMMENTS').selectOption('11');
   assert.equal(await drawingText.inputValue(), '검증 새벽(3반)\n검증 새벽(3반)\n검증 새벽(3반)');
   await page.getByRole('button', { name: '작성 내용 보기' }).first().click();
