@@ -23,6 +23,8 @@ try {
   const codes = ['SHOW_ME', 'SYNC_ME', 'MAKE_A_WISH', 'FAST_TAP', 'SAY_SOMETHING'];
   const now = '2026-11-10T01:00:00Z';
   const members = ['검증 은하', '검증 봄빛', '검증 새벽'].map((nickname, index) => ({ id: index + 10, signupOrder: index + 1, username: `fixture-${index + 1}`, nickname, realName: nickname, region: '서울', classNo: index + 1, status: 'ACTIVE', joinedAt: `2026-11-0${index + 5}T01:00:00Z`, lastLoginAt: now, unlockedCount: 5, completedCount: index === 0 ? 5 : 2, completionOrder: index === 0 ? 7 : null, completionRank: index === 0 ? 1 : null, completedAt: index === 0 ? now : null, connectionSeconds: index === 2 ? null : 3600 + index * 60, lastSeenAt: now, activeSessions: index === 0 ? 1 : 0 }));
+  const prizePeople = members.map(m => ({ userId: m.id, name: m.realName, classNo: m.classNo }));
+  const prizeRows = prizePeople.map((person, index) => ({ rank: index + 1, person, score: 4 - index, completedAt: null }));
   const definition = { version: 'test-preview', source: 'EXAMPLE', definition: { title: '관리자 화면 검증용 예시', axes: [{ id: 'talk', negative: 'L', positive: 'W', tie: 'NEGATIVE' }], questions: [{ id: 'first', text: '처음 만난 동료와 대화한다면?', options: [{ id: 'listen', label: '먼저 들어보기', scores: { talk: -1 } }, { id: 'speak', label: '먼저 말 걸기', scores: { talk: 1 } }] }], types: [{ code: 'L', title: '차분한 경청', description: '미리보기용 결과입니다.' }, { code: 'W', title: '반가운 대화', description: '미리보기용 결과입니다.' }] } };
   function slice(items, query) { const offset = Number(query.get('offset') || 0); return { items: items.slice(offset, offset + 25), total: items.length, offset, nextOffset: offset + 25 < items.length ? offset + 25 : null }; }
   await page.route('**/api/v1/**', async route => {
@@ -50,6 +52,17 @@ try {
     }
     if (path === '/admin/moderation/tasks' || path === '/admin/content' || path === '/admin/audit-logs') return reply(200, { items: [], nextCursor: null });
     if (path === '/admin/results') return reply(200, emptyReport);
+    if (path === '/admin/prize-review') return reply(200, {
+      observedAt: now,
+      groups: ['CHICKEN_1', 'CHICKEN_7', 'CHICKEN_77', 'DISCOVERY', 'COMMENTS', 'FAST_TAP', 'HEARTS'].map(code => ({
+        code, targetRank: Number(code.split('_')[1]) || 1, candidates: prizeRows,
+      })),
+      drawEntries: prizePeople.map((person, index) => ({ person, tickets: index + 1 })),
+    });
+    if (path === '/admin/prize-review/writing/10') return reply(200, { nextCursor: null, items: [{
+      id: 87, kind: 'CHEER', authorId: 10, visibility: 'HIDDEN', parentWishId: null,
+      approvedRevision: null, latestRevision: { id: 23, submittedAt: now, content: '응원 검증 원문\n두 번째 줄' },
+    }] });
     if (path === '/admin/awards') return reply(200, { ruleVersion: 'fixture-v1', provisional: true, observedAt: now, opensAt: null, submitClosesAt: null, moderationClosesAt: null, eventPhase: 'NOT_CONFIGURED', category: url.searchParams.get('category'), eligibleCompleteCount: 0, total: 0, offset: 0, limit: 20, items: [], invalidProofs: 0, incompleteProofSets: 0, pendingModeration: 0, reviewTotal: 0, reviewRecords: [], pendingDecisions: [] });
     if (path === '/admin/overview') return reply(200, { members: members.length, activeMembers: 3, completeMembers: 1, activeSessions: 1, connectedMembers: 2, connectionSeconds: 7260, trackedSince: now, missions: codes.map((code, i) => ({ code, title: code.replaceAll('_', ' '), unlocked: 3, participated: i < 2 ? 3 : 1, completed: i < 2 ? 3 : 1 })), generatedAt: now });
     if (path === '/admin/members') return reply(200, slice(members.filter(m => !url.searchParams.get('q') || m.nickname.includes(url.searchParams.get('q'))), url.searchParams));
@@ -90,6 +103,22 @@ try {
     }
   }
   record('analytics, members, moderation, content, audit, awards and results share one sidebar and heading at five widths');
+  await visit('/admin/moderation?tab=awards');
+  await page.getByText('중복 후보', { exact: false }).first().waitFor();
+  const drawingText = page.getByRole('textbox', { name: '가중치 추첨 명단' });
+  assert.deepEqual((await drawingText.inputValue()).split('\n'), [
+    '검증 은하(1반)', '검증 봄빛(2반)', '검증 봄빛(2반)', '검증 새벽(3반)', '검증 새벽(3반)', '검증 새벽(3반)',
+  ]);
+  await page.locator('#prize-CHICKEN_1').selectOption('10');
+  assert.equal(await page.locator('#prize-COMMENTS option[value="10"]').isDisabled(), true);
+  await page.locator('#prize-COMMENTS').selectOption('11');
+  assert.equal(await drawingText.inputValue(), '검증 새벽(3반)\n검증 새벽(3반)\n검증 새벽(3반)');
+  await page.getByRole('button', { name: '작성 내용 보기' }).first().click();
+  const writing = page.getByRole('dialog');
+  assert.equal(await writing.locator('.ops-body').textContent(), '응원 검증 원문\n두 번째 줄');
+  await page.screenshot({ path: resolve(output, 'admin-prize-writing-360.png') });
+  await page.keyboard.press('Escape'); await writing.waitFor({ state: 'hidden' });
+  record('prize review flags overlaps, accepts a next-ranked choice, excludes all selected tickets, and shows original writing');
   await page.setViewportSize({ width: 1440, height: 1000 }); await visit('/admin');
   await page.locator('.admin-sidebar').evaluate(element => { element.dataset.continuity = 'same-shell'; });
   for (const name of ['콘텐츠 관리', '시상 후보', '행사 결과', '미션 미리보기', '참가자', '참여 현황']) {

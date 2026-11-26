@@ -57,6 +57,23 @@ public class OperationsService {
                     "최종 스냅샷 확정·정정·공개·지급 정책 미확정: 잠정 조회만 제공"));
         });
     }
+    public AwardModels.PrizeReview prizeReview(AuthPrincipal actor) {
+        return awardsTx.execute(s -> {
+            admin(actor);
+            var facts = repository.awardFacts();
+            var observedAt = facts.window().observedAt();
+            return PrizeReviewCalculator.calculate(facts, repository.prizePeople(observedAt), repository.prizeVisits(observedAt));
+        });
+    }
+    public Page<Content> prizeWriting(AuthPrincipal actor, long userId, Long before) {
+        long start = cursor(before, Long.MAX_VALUE);
+        return awardsTx.execute(s -> {
+            admin(actor);
+            var ids = repository.authoredContentIds(userId, start, 26);
+            var rows = ids.stream().limit(25).map(id -> snapshot(content.item(id, false))).toList();
+            return new Page<>(rows, ids.size() > 25 ? ids.get(24) : null);
+        });
+    }
     @org.springframework.beans.factory.annotation.Value("${tagme.moderation.enabled:false}") private boolean moderationEnabled;
     public Access access(AuthPrincipal actor) { return tx.execute(s->{admin(actor);return new Access(true,moderationEnabled);}); }
     private int size(Integer limit) { int size=limit==null?20:limit;if(size<1||size>50)throw error(400,"INVALID_FILTER","한 번에 최대 50건까지 확인할 수 있어요.");return size; }

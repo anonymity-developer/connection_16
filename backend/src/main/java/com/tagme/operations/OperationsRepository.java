@@ -14,6 +14,33 @@ public class OperationsRepository {
         if(kind!=null){sql+=" AND kind=?";args.add(kind);}if(visibility!=null){sql+=" AND visibility_status=?";args.add(visibility);}
         sql+=" ORDER BY id DESC LIMIT ?";args.add(limit);return db.queryForList(sql,Long.class,args.toArray());
     }
+    public List<Long> authoredContentIds(long authorId, long before, int limit) {
+        return db.queryForList("""
+            SELECT id FROM content_items
+            WHERE author_id=? AND archived_at IS NULL AND id<?
+            ORDER BY id DESC LIMIT ?
+            """, Long.class, authorId, before, limit);
+    }
+
+    public List<AwardModels.PrizePerson> prizePeople(java.time.Instant observedAt) {
+        return queryAt(AWARD_BASE + """
+            SELECT e.id,u.real_name,u.class_no FROM eligible e JOIN users u ON u.id=e.id
+            WHERE u.role='USER' ORDER BY e.id
+            """, (r,n) -> new AwardModels.PrizePerson(r.getLong("id"),r.getString("real_name"),r.getInt("class_no")), observedAt);
+    }
+
+    public List<AwardModels.Activity> prizeVisits(java.time.Instant observedAt) {
+        return queryAt(AWARD_BASE + """
+            SELECT v.viewer_id,COUNT(DISTINCT v.viewed_id) amount
+            FROM profile_views v
+            JOIN eligible actor ON actor.id=v.viewer_id
+            JOIN public_users target ON target.id=v.viewed_id
+            JOIN event_settings ev ON ev.id=1
+            WHERE v.viewer_id<>v.viewed_id AND v.first_viewed_at>=ev.opens_at
+              AND v.first_viewed_at<ev.submit_closes_at AND v.first_viewed_at<=UTC_TIMESTAMP(6)
+            GROUP BY v.viewer_id
+            """, (r,n) -> new AwardModels.Activity(r.getLong("viewer_id"),r.getLong("amount")), observedAt);
+    }
     public List<Long> taskIds(long after,int limit,String status) {
         String sql="SELECT id FROM moderation_jobs WHERE id>?";List<Object> args=new ArrayList<>();args.add(after);
         if("PENDING".equals(status))sql+=" AND status IN ('QUEUED','PROCESSING','REVIEW_REQUIRED')";

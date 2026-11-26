@@ -230,6 +230,17 @@
 .operations-shell .award-candidates > li { padding: 16px 0; border-bottom: 1px solid var(--border); overflow-wrap: anywhere; }
 .operations-shell .award-row { display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
 .operations-shell .award-row > span { font-variant-numeric: tabular-nums; font-size: 13px; }
+.operations-shell .prize-toolbar { align-items: center; }
+.operations-shell .prize-drawing-text { display: block; width: 100%; margin-block: 12px; }
+.operations-shell .prize-writing {
+  width: min(640px, calc(100% - 32px));
+  max-height: 85dvh;
+  border: 1px solid #d1d5db;
+  border-radius: 12px;
+  padding: 20px;
+  overflow-wrap: anywhere;
+}
+.operations-shell .prize-writing::backdrop { background: rgb(0 0 0 / 50%); }
 .operations-shell .award-candidates details { margin-top: 8px; font-size: 13px; }
 .operations-shell .award-candidates summary { cursor: pointer; padding: 12px 0; min-height: 44px; }
 .operations-shell .award-candidates details li { margin: 8px 0; }

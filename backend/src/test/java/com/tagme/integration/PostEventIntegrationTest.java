@@ -96,6 +96,30 @@ class PostEventIntegrationTest {
         person("x","ACTIVE");assertThat(http.exchange("/api/v1/admin/results/export?format=csv&snapshot="+fingerprint,HttpMethod.GET,new HttpEntity<>(headers),String.class).getStatusCode().value()).isEqualTo(409);
     }
 
+    @Test void prizeReviewReturnsPartialParticipationAndRestrictsWritingToAdmins() {
+        fixture();
+        db.update("INSERT INTO content_items(author_id,kind,visibility_status) VALUES (?,'CHEER','HIDDEN')",uid);
+        long item=db.queryForObject("SELECT id FROM content_items WHERE author_id=?",Long.class,uid);
+        db.update("INSERT INTO content_revisions(item_id,revision_no,content_text,template_id,style,anonymous,submitted_at,idempotency_key,payload_hash) VALUES (?,1,'TEST ORIGINAL','PLAIN','ROSE',TRUE,UTC_TIMESTAMP(6),'prize-test',REPEAT('a',64))",item);
+        var headers=login("fixture-admin");
+        String path="/api/v1/admin/prize-review";
+        var review=http.exchange(path,HttpMethod.GET,new HttpEntity<>(headers),JsonNode.class);
+        assertThat(review.getStatusCode().value()).isEqualTo(200);
+        assertThat(review.getHeaders().getCacheControl()).contains("no-store");
+        var entries=review.getBody().path("drawEntries");
+        assertThat(entries.size()).isEqualTo(1);
+        assertThat(entries.get(0).path("tickets").asInt()).isEqualTo(1);
+        assertThat(entries.get(0).path("person").path("classNo").asInt()).isEqualTo(1);
+        String writing=path+"/writing/"+uid;
+        var approved=http.exchange(writing,HttpMethod.GET,new HttpEntity<>(headers),String.class);
+        assertThat(approved.getStatusCode().value()).isEqualTo(200);
+        assertThat(approved.getHeaders().getCacheControl()).contains("no-store");
+        assertThat(approved.getBody()).contains("TEST ORIGINAL","HIDDEN").doesNotContain("payloadHash");
+        var participant=login("fixture-a");
+        assertThat(http.exchange(writing,HttpMethod.GET,new HttpEntity<>(participant),String.class).getStatusCode().value()).isEqualTo(403);
+        assertThat(http.exchange(path,HttpMethod.GET,new HttpEntity<>(participant),String.class).getStatusCode().value()).isEqualTo(403);
+    }
+
     @Test void invalidQuestionnaireAndTapReviewRemainExplicitRatherThanInventedResults(){fixture();
         db.update("INSERT INTO sync_questionnaires VALUES ('broken-test',?)","{\"title\":\"invalid fixture\"}");db.update("INSERT INTO current_sync_questionnaire VALUES (1,'broken-test')");
         db.update("INSERT INTO sync_results(user_id,questionnaire_version,answers_json,axis_scores_json,type_code,payload_hash,submitted_at) VALUES (?,'broken-test','[]','{}','X',REPEAT('a',64),UTC_TIMESTAMP(6))",uid);
