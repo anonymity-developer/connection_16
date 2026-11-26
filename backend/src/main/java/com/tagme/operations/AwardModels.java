@@ -6,6 +6,11 @@ import java.util.Map;
 
 public final class AwardModels {
     private AwardModels() { }
+    public record PrizePerson(long userId, String name, int classNo) { }
+    public record PrizeCandidate(int rank, PrizePerson person, Long score, Instant completedAt) { }
+    public record PrizeGroup(String code, int targetRank, List<PrizeCandidate> candidates) { }
+    public record DrawEntry(PrizePerson person, int tickets) { }
+    public record PrizeReview(Instant observedAt, List<PrizeGroup> groups, List<DrawEntry> drawEntries) { }
     public enum Category { FIRST_COMPLETION, COMMENT_KING, POPULAR_CHEER, FAST_TAP }
     public record User(long id,String nickname,Instant profileRegisteredAt) { }
     public record Proof(long userId,String mission,String sourceKind,long sourceId,long receiptOrder,Instant acceptedAt,boolean valid) { }

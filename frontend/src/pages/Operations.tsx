@@ -6,6 +6,7 @@ import { ApiError } from '../features/auth/api';
 import type { Revision } from '../features/content/api';
 import { ResultsPanel } from '../features/operations/ResultsPanel';
 import { AwardsPanel } from '../features/operations/AwardsPanel';
+import { PrizeReviewPanel } from '../features/operations/PrizeReviewPanel';
 import { operationsApi } from '../features/operations/api';
 import type { Audit, Content, Page, Task } from '../features/operations/api';
 
@@ -19,8 +20,12 @@ function Body({ title, revision }: { title: string; revision: Revision | null })
 }
 // Mounted only inside the shared, server-authorized administrator shell.
 export function OperationsContent({ onDenied, moderated = false }: { onDenied: (message: string) => void; moderated?: boolean }) {
-  const location = useLocation(), tab = new URLSearchParams(location.split('?')[1]).get('tab');
-  return <div className="ops-page operations-shell">{tab === 'results' ? <ResultsPanel onDenied={onDenied} /> : tab === 'awards' ? <AwardsPanel onDenied={onDenied} /> : <Workspace onDenied={onDenied} moderated={moderated} />}</div>;
+  const location = useLocation(), params = new URLSearchParams(location.split('?')[1]);
+  const tab = params.get('tab');
+  const legacyAwards = params.has('category') || params.get('view') === 'legacy';
+  return <div className="ops-page operations-shell">{tab === 'results' ? <ResultsPanel onDenied={onDenied} /> :
+    tab === 'awards' ? (legacyAwards ? <AwardsPanel onDenied={onDenied} /> : <PrizeReviewPanel onDenied={onDenied} />) :
+    <Workspace onDenied={onDenied} moderated={moderated} />}</div>;
 }
 
 type Command = { kind: 'APPROVED' | 'REJECTED' | 'RETRY' | 'VISIBLE' | 'HIDDEN'; id: number; version: number; name: string };
